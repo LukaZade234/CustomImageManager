@@ -5,9 +5,9 @@ import csv
 import json
 from flask import Flask, request, jsonify, send_from_directory, abort
 
-# ---------------------------------------------------------------------
-API_KEY = "QG2Em4u8ux4HtIYGUC04s2whSzhNFNqDwRqJD2dF1034102b"
-# ---------------------------------------------------------------------
+# Import utility functions
+from github_utils import update_github_file
+from imgchest_utils import upload_to_imgchest
 
 app = Flask(__name__)
 
@@ -27,7 +27,7 @@ def get_character_image(filename):
     return send_from_directory('character_images', filename)
 
 # Serve static assets (CSS, JS, JSON, CSV)
-STATIC_FILES = {'styles.css', 'character_mapping.js', 'character_image_mapping.json', 'CharName.csv'}
+STATIC_FILES = {'styles.css', 'character_mapping.js', 'character_image_mapping.json', 'CharName.csv', 'app.js'}
 @app.route('/<filename>')
 def get_static(filename):
     if filename in STATIC_FILES and os.path.exists(filename):
@@ -156,37 +156,8 @@ def save_character():
         print(f"Error saving character: {e}")
         return jsonify({'error': 'Failed to save character'}), 500
 
-import base64
-
 # ... existing code ...
 
-def update_github_file(repo, path, content, message, token, branch='main'):
-    """Updates a file on GitHub via API."""
-    url = f"https://api.github.com/repos/{repo}/contents/{path}"
-    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-    
-    # 1. Get current file SHA
-    r = requests.get(url, headers=headers, params={"ref": branch})
-    if r.status_code == 200:
-        sha = r.json()['sha']
-    else:
-        # File doesn't exist? (Handle or fail)
-        print(f"File {path} not found on GitHub, cannot update.")
-        return False
-
-    # 2. Commit update
-    data = {
-        "message": message + " [skip ci]", # Skip CI to avoid redeploy loops
-        "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
-        "sha": sha,
-        "branch": branch
-    }
-    r = requests.put(url, headers=headers, json=data)
-    if r.status_code in [200, 201]:
-        return True
-    else:
-        print(f"Failed to update GitHub: {r.text}")
-        return False
 
 @app.route('/api/add-character', methods=['POST'])
 def add_character():
@@ -347,64 +318,116 @@ def remove_saved(name):
         print(f"Error removing character: {e}")
         return jsonify({'error': 'Failed to remove character'}), 500
 
-def upload_to_imgchest(file_path):
-    if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
-        print("Error: Please set your API_KEY in the script file.")
-        return
-
-    if not os.path.exists(file_path):
-        print(f"Error: File not found at {file_path}")
-        return
-
-    url = "https://api.imgchest.com/v1/post"
-    headers = {
-        "Authorization": f"Bearer {API_KEY}"
-    }
+@app.route('/api/custom-image', methods=['POST'])
+def add_custom_image():
+    if 'character_name' not in request.form:
+        return jsonify({'error': 'Character name is required'}), 400
+        
+    char_name = request.form['character_name']
     
-    payload = {
-        "title": os.path.basename(file_path),
-        "privacy": "hidden",
-        "nsfw": "false"
-    }
+    # Handle multiple files
+    files = request.files.getlist('files')
+    # If no 'files' list, check for single 'file'
+    if not files and 'file' in request.files:
+        files = [request.files['file']]
+        
+    if not files or (len(files) == 1 and files[0].filename == ''):
+        return jsonify({'error': 'No files selected'}), 400
 
-    try:
-        with open(file_path, "rb") as image_file:
-            files = {
-                "images[]": image_file
-            }
+    uploaded_links = []
+    errors = []
+
+    for file in files:
+        if file.filename == '':
+            continue
             
-            print(f"Uploading {file_path}...")
-            response = requests.post(url, headers=headers, data=payload, files=files)
+        # Save temporarily
+        temp_path = os.path.join('.', 'temp_custom_' + file.filename)
+        file.save(temp_path)
+        
+        try:
+            # Reuse existing upload logic
+            result = upload_to_imgchest(temp_path)
             
-            if response.status_code == 200:
-                data = response.json()
-                
-                if 'data' not in data:
-                    print(f"Upload successful but unexpected response: {data}")
-                    return
-                
-                img_data = data['data']
-
-                post_link = img_data.get('url')
-                if not post_link:
-                     print(f"Debug: 'url' key missing. Response keys: {list(img_data.keys())}")
-                     post_link = "Not found in response"
-
-                if 'images' in img_data and len(img_data['images']) > 0:
-                    direct_link = img_data['images'][0]['link']
-                else:
-                    direct_link = "No direct link found"
-
-                print("\n--- Upload Successful ---")
-                print(f"Post Link:   {post_link}")
-                print(f"Direct Link: {direct_link}")
-                return post_link, direct_link
+            if result:
+                post_link, direct_link = result
+                uploaded_links.append(direct_link)
             else:
-                print(f"Upload failed. Status Code: {response.status_code}")
-                print(f"Response: {response.text}")
+                errors.append(f"Failed to upload {file.filename}")
+        except Exception as e:
+            errors.append(f"Error uploading {file.filename}: {str(e)}")
+        finally:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    
+    if not uploaded_links:
+        return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
+        
+    # Update custom_images.json
+    json_file = 'custom_images.json'
+    data = {}
+    
+    if os.path.exists(json_file):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except:
+            pass
+    
+    # Initialize list if not exists
+    if char_name not in data:
+        data[char_name] = []
+        
+    # Add links
+    data[char_name].extend(uploaded_links)
+    
+    # Save locally
+    with open(json_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+        
+    # GitHub Sync
+    github_token = os.environ.get('GITHUB_TOKEN')
+    github_repo = os.environ.get('GITHUB_REPO')
+    
+    sync_msg = ""
+    if github_token and github_repo:
+        try:
+            json_content = json.dumps(data, ensure_ascii=False, indent=4)
+            update_github_file(
+                github_repo, 
+                json_file, 
+                json_content, 
+                f"Add {len(uploaded_links)} custom images for: {char_name}", 
+                github_token
+            )
+            sync_msg = " & Synced to GitHub"
+        except Exception as gh_e:
+            print(f"GitHub Sync Error: {gh_e}")
+            sync_msg = " (GitHub Sync Failed)"
+            
+    return jsonify({
+        'success': True, 
+        'message': f'{len(uploaded_links)} images added{sync_msg}',
+        'links': uploaded_links,
+        'errors': errors
+    })
 
+@app.route('/api/custom-image/<path:char_name>', methods=['GET'])
+def get_custom_images(char_name):
+    json_file = 'custom_images.json'
+    if not os.path.exists(json_file):
+        return jsonify([])
+        
+    try:
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Return list of images or empty list
+        return jsonify(data.get(char_name, []))
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"Error reading custom images: {e}")
+        return jsonify([])
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == '--web':
