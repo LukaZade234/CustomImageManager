@@ -10,5 +10,19 @@
     "name": "Rem",
     "rank": "3",
     "series": "Re:Zero kara Hajimeru Isekai Seikatsu"
+  },
+  {
+    "name": "Zero Two",
+    "series": "DARLING in the FRANXX",
+    "rank": "1",
+    "kakera": "1161",
+    "image": "Zero_Two.png"
+  },
+  {
+    "name": "Audrey Hall",
+    "series": "",
+    "rank": "1001",
+    "kakera": "0",
+    "image": ""
   }
 ]

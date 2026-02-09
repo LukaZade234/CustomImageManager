@@ -102,53 +102,62 @@
         const STORAGE_KEY = 'savedCharacters';
 
         async function loadCharacterData() {
-            if (window.CHARACTERS_DATA) {
-                allCharacters = window.CHARACTERS_DATA;
-                return;
-            }
+            // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
+            // We want to force a fresh fetch from CharName.csv every time.
+            
             try {
-                const mappingRes = await fetch('character_image_mapping.json');
-                if (!mappingRes.ok) throw new Error('Failed to load character_image_mapping.json');
-                const mapping = await mappingRes.json();
-
-                let csvLookup = {};
-                const csvRes = await fetch('CharName.csv');
-                if (csvRes.ok) {
-                    const csvText = await csvRes.text();
-                    const lines = csvText.trim().split('\n');
-                    const headers = lines[0].split(',');
-                    for (let i = 1; i < lines.length; i++) {
-                        const vals = lines[i].split(',').reduce((acc, v, j) => {
-                            acc[headers[j]] = v?.trim() || '';
-                            return acc;
-                        }, {});
-                        csvLookup[vals.name] = { series: vals.series || '', rank: vals.rank || '' };
+                // 1. Fetch CSV (Master List) - Check server for updates, but don't download if unchanged
+                const csvRes = await fetch('CharName.csv', { cache: 'no-cache' });
+                if (!csvRes.ok) throw new Error('Failed to load CharName.csv');
+                const csvText = await csvRes.text();
+                
+                // 2. Parse CSV
+                const lines = csvText.trim().split('\n');
+                // Headers: rank,name,series,kakera
+                const headers = lines[0].split(',').map(h => h.trim());
+                
+                const charList = [];
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    
+                    const vals = lines[i].split(',');
+                    
+                    const charObj = {};
+                    headers.forEach((h, index) => {
+                        charObj[h] = vals[index] ? vals[index].trim() : '';
+                    });
+                    
+                    if (charObj.name) {
+                        charList.push(charObj);
                     }
                 }
 
-                allCharacters = Object.entries(mapping).map(([name, data]) => ({
-                    name,
-                    image: data.filename || '',
-                    series: csvLookup[name]?.series || '',
-                    rank: csvLookup[name]?.rank || ''
-                }));
-
-                // Add characters found in CSV but not in mapping
-                Object.keys(csvLookup).forEach(name => {
-                    if (!mapping[name]) {
-                        allCharacters.push({
-                            name: name,
-                            image: '',
-                            series: csvLookup[name].series || '',
-                            rank: csvLookup[name].rank || ''
-                        });
+                // 3. Fetch Mapping (Images) - Check server for updates
+                let mapping = {};
+                try {
+                    const mappingRes = await fetch('character_image_mapping.json', { cache: 'no-cache' });
+                    if (mappingRes.ok) {
+                        mapping = await mappingRes.json();
                     }
-                });
+                } catch (e) {
+                    console.warn('Mapping file missing or invalid');
+                }
+
+                // 4. Merge Image Data into CSV Data
+                allCharacters = charList.map(c => ({
+                    name: c.name,
+                    series: c.series || '',
+                    rank: c.rank || '',
+                    kakera: c.kakera || '0',
+                    image: mapping[c.name] ? mapping[c.name].filename : ''
+                }));
+                
+                console.log(`Loaded ${allCharacters.length} characters from CSV.`);
+
             } catch (e) {
                 console.error('Failed to load character data:', e);
-                if (!allCharacters.length) {
-                    console.warn('Run generate_mapping.py to create character_mapping.js for file://');
-                }
+                // Fallback?
+                allCharacters = [];
             }
         }
 
