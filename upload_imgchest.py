@@ -428,6 +428,83 @@ def get_custom_images(char_name):
         print(f"Error reading custom images: {e}")
         return jsonify([])
 
+@app.route('/api/set-main-image', methods=['POST'])
+def set_main_image():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    if 'character_name' not in request.form:
+        return jsonify({'error': 'Character name is required'}), 400
+        
+    file = request.files['file']
+    char_name = request.form['character_name']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+
+    # Save temporarily
+    temp_path = os.path.join('.', 'temp_main_' + file.filename)
+    file.save(temp_path)
+    
+    try:
+        # Upload to ImgChest
+        result = upload_to_imgchest(temp_path)
+        
+        if not result:
+            return jsonify({'error': 'Failed to upload to ImgChest'}), 500
+            
+        post_link, direct_link = result
+        
+        # Update character_image_mapping.json
+        json_file = 'character_image_mapping.json'
+        mapping = {}
+        
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    mapping = json.load(f)
+            except:
+                pass
+        
+        # Update mapping
+        mapping[char_name] = {"filename": direct_link}
+        
+        # Save locally
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(mapping, f, indent=4, ensure_ascii=False)
+            
+        # GitHub Sync
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO')
+        
+        sync_msg = ""
+        if github_token and github_repo:
+            try:
+                json_content = json.dumps(mapping, ensure_ascii=False, indent=4)
+                update_github_file(
+                    github_repo, 
+                    json_file, 
+                    json_content, 
+                    f"Set main image for: {char_name}", 
+                    github_token
+                )
+                sync_msg = " & Synced to GitHub"
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
+                sync_msg = " (GitHub Sync Failed)"
+                
+        return jsonify({
+            'success': True, 
+            'message': f'Main image updated{sync_msg}',
+            'image_url': direct_link
+        })
+        
+    except Exception as e:
+        print(f"Error setting main image: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == '--web':

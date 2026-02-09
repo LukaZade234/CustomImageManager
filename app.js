@@ -112,6 +112,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('customImageInput').click();
     });
 
+    // Main Image Upload (Thumbnail)
+    document.getElementById('mainImageInput').addEventListener('change', async (e) => {
+        if (!e.target.files.length) return;
+        if (!currentCharacter) return;
+        
+        const file = e.target.files[0];
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('character_name', currentCharacter.name);
+        
+        // Show loading state on the image
+        const imgDisplay = document.getElementById('charImageDisplay');
+        const originalOpacity = imgDisplay.style.opacity;
+        imgDisplay.style.opacity = '0.5';
+        
+        try {
+            const res = await fetch('/api/set-main-image', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                // Update character data
+                currentCharacter.image = data.image_url;
+                // Update list in memory
+                const charInList = allCharacters.find(c => c.name === currentCharacter.name);
+                if (charInList) charInList.image = data.image_url;
+                
+                // Update UI
+                selectCharacter(currentCharacter);
+                alert('Main image updated!');
+            } else {
+                alert(data.error || 'Failed to set main image');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error uploading main image');
+        }
+        
+        imgDisplay.style.opacity = originalOpacity;
+        e.target.value = '';
+    });
+
     document.getElementById('customImageInput').addEventListener('change', async (e) => {
         if (!e.target.files.length) return;
         if (!currentCharacter) return;
@@ -268,6 +312,15 @@ function persistSavedCharacters() {
     // localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCharacters));
 }
 
+// Helper to resolve image URLs
+function getImageUrl(imagePath) {
+    if (!imagePath) return '';
+    if (imagePath.startsWith('http') || imagePath.startsWith('//')) {
+        return imagePath;
+    }
+    return `${IMAGE_BASE}/${imagePath}`;
+}
+
 function displaySavedCharacters() {
     const container = document.getElementById('savedCharactersContainer');
     container.innerHTML = '';
@@ -281,7 +334,7 @@ function displaySavedCharacters() {
         const card = document.createElement('div');
         card.className = 'saved-character-card';
         
-        const imageUrl = char.image ? `${IMAGE_BASE}/${char.image}` : '';
+        const imageUrl = getImageUrl(char.image);
         const imageHtml = imageUrl 
             ? `<img src="${imageUrl}" alt="${char.name}">` 
             : '<div class="no-image-placeholder">No Image</div>';
@@ -504,8 +557,9 @@ async function loadCustomImages(name) {
         }
         
         // Reset main image cursor since it's no longer clickable
+        // Only if we have a real main image (not a placeholder)
         const mainImg = document.getElementById('charImageDisplay');
-        if (mainImg) {
+        if (mainImg && currentCharacter && currentCharacter.image) {
             mainImg.style.cursor = 'default';
             mainImg.onclick = null;
         }
@@ -530,11 +584,26 @@ function selectCharacter(char) {
     // Display character image if available
     const imageDisplay = document.getElementById('charImageDisplay');
     if (char.image) {
-        imageDisplay.src = `${IMAGE_BASE}/${char.image}`;
+        imageDisplay.src = getImageUrl(char.image);
         imageDisplay.style.display = 'block';
         imageDisplay.alt = char.name;
+        imageDisplay.style.cursor = 'pointer';
+        imageDisplay.style.backgroundColor = 'transparent';
+        imageDisplay.onclick = () => openModal(0);
     } else {
-        imageDisplay.style.display = 'none';
+        // Placeholder for missing image
+        imageDisplay.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzY2NiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjMiIHk9IjMiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgcng9IjIiIHJ5PSIyIj48L3JlY3Q+PGNpcmNsZSBjeD0iOC41IiBjeT0iOC41IiByPSIxLjUiPjwvY2lyY2xlPjxwb2x5bGluZSBwb2ludHM9IjIxIDE1IDE2IDEwIDUgMjEiPjwvcG9seWxpbmU+PC9zdmc+'; // Simple icon
+        imageDisplay.style.display = 'block';
+        imageDisplay.alt = 'Click to set main image';
+        imageDisplay.style.backgroundColor = '#f0f0f0';
+        imageDisplay.style.padding = '20px';
+        imageDisplay.style.cursor = 'pointer';
+        imageDisplay.title = 'Click to upload main image';
+        
+        // Click to upload
+        imageDisplay.onclick = () => {
+            document.getElementById('mainImageInput').click();
+        };
     }
     
     // Update save button state (always clickable - toggles save/unsave)
