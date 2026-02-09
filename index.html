@@ -131,6 +131,18 @@
                         series: csvLookup[name]?.series || '',
                         rank: csvLookup[name]?.rank || ''
                     }));
+
+                    // Add characters found in CSV but not in mapping
+                    Object.keys(csvLookup).forEach(name => {
+                        if (!mapping[name]) {
+                            allCharacters.push({
+                                name: name,
+                                image: '',
+                                series: csvLookup[name].series || '',
+                                rank: csvLookup[name].rank || ''
+                            });
+                        }
+                    });
                 } catch (e) {
                     console.error('Failed to load character data:', e);
                     if (!allCharacters.length) {

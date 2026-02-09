@@ -132,6 +132,18 @@
                     series: csvLookup[name]?.series || '',
                     rank: csvLookup[name]?.rank || ''
                 }));
+
+                // Add characters found in CSV but not in mapping
+                Object.keys(csvLookup).forEach(name => {
+                    if (!mapping[name]) {
+                        allCharacters.push({
+                            name: name,
+                            image: '',
+                            series: csvLookup[name].series || '',
+                            rank: csvLookup[name].rank || ''
+                        });
+                    }
+                });
             } catch (e) {
                 console.error('Failed to load character data:', e);
                 if (!allCharacters.length) {
@@ -269,19 +281,28 @@
             displaySavedCharacters();
         }
 
-        function loadSavedCharacters() {
+        async function loadSavedCharacters() {
             try {
-                const stored = localStorage.getItem(STORAGE_KEY);
-                savedCharacters = stored ? JSON.parse(stored) : [];
+                // Fetch from API instead of localStorage
+                const res = await fetch('/api/saved');
+                if (res.ok) {
+                    savedCharacters = await res.json();
+                } else {
+                    console.error('Failed to load saved characters');
+                    savedCharacters = [];
+                }
                 displaySavedCharacters();
             } catch (e) {
                 console.error('Error loading saved characters:', e);
+                // Fallback to empty if API fails (e.g. static mode)
                 savedCharacters = [];
+                displaySavedCharacters();
             }
         }
 
+        // Deprecated: No longer using localStorage for persistence
         function persistSavedCharacters() {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCharacters));
+            // localStorage.setItem(STORAGE_KEY, JSON.stringify(savedCharacters));
         }
 
         function displaySavedCharacters() {
@@ -341,7 +362,7 @@
             }
         }
 
-        function saveCurrentCharacter() {
+        async function saveCurrentCharacter() {
             const saveButton = document.getElementById('saveButton');
             saveButton.disabled = true;
             saveButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
@@ -351,20 +372,47 @@
                 updateSaveButtonState();
                 return;
             }
-            savedCharacters.push(currentCharacter);
-            persistSavedCharacters();
-            loadSavedCharacters();
+
+            try {
+                const res = await fetch('/api/saved', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentCharacter)
+                });
+                
+                if (res.ok) {
+                    savedCharacters.push(currentCharacter);
+                    displaySavedCharacters();
+                } else {
+                    console.error('Failed to save character');
+                }
+            } catch (e) {
+                console.error('Error saving character:', e);
+            }
+            
             updateSaveButtonState();
         }
 
-        function unsaveCharacter(name) {
+        async function unsaveCharacter(name) {
             const saveButton = document.getElementById('saveButton');
             saveButton.disabled = true;
             saveButton.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>';
 
-            savedCharacters = savedCharacters.filter(c => c.name !== name);
-            persistSavedCharacters();
-            loadSavedCharacters();
+            try {
+                const res = await fetch(`/api/saved/${encodeURIComponent(name)}`, {
+                    method: 'DELETE'
+                });
+                
+                if (res.ok) {
+                    savedCharacters = savedCharacters.filter(c => c.name !== name);
+                    displaySavedCharacters();
+                } else {
+                    console.error('Failed to remove saved character');
+                }
+            } catch (e) {
+                console.error('Error removing saved character:', e);
+            }
+            
             updateSaveButtonState();
         }
 
@@ -382,14 +430,30 @@
             }
         }
 
-        function removeSavedCharacter(name, event, skipConfirm) {
+        async function removeSavedCharacter(name, event, skipConfirm) {
             if (event) event.stopPropagation();
             if (!skipConfirm && !confirm(`Remove ${name} from saved characters?`)) {
                 return;
             }
-            savedCharacters = savedCharacters.filter(c => c.name !== name);
-            persistSavedCharacters();
-            loadSavedCharacters();
+            
+            try {
+                const res = await fetch(`/api/saved/${encodeURIComponent(name)}`, {
+                    method: 'DELETE'
+                });
+                
+                if (res.ok) {
+                    savedCharacters = savedCharacters.filter(c => c.name !== name);
+                    displaySavedCharacters();
+                } else {
+                    console.error('Failed to remove saved character');
+                }
+            } catch (e) {
+                console.error('Error removing saved character:', e);
+            }
+            
+            if (currentCharacter && currentCharacter.name === name) {
+                updateSaveButtonState();
+            }
         }
 
         function selectCharacter(char) {

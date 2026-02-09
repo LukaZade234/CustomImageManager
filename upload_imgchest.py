@@ -92,15 +92,16 @@ def upload():
 @app.route('/api/saved', methods=['GET'])
 def get_saved():
     saved_file = 'saved_characters.json'
-    if os.path.exists(saved_file):
-        try:
-            with open(saved_file, 'r', encoding='utf-8') as f:
-                saved = json.load(f)
-            return jsonify(saved)
-        except Exception as e:
-            print(f"Error reading saved characters: {e}")
-            return jsonify([])
-    return jsonify([])
+    if not os.path.exists(saved_file):
+        return jsonify([])
+        
+    try:
+        with open(saved_file, 'r', encoding='utf-8') as f:
+            saved = json.load(f)
+        return jsonify(saved)
+    except Exception as e:
+        print(f"Error reading saved characters: {e}")
+        return jsonify([])
 
 @app.route('/api/saved', methods=['POST'])
 def save_character():
@@ -132,6 +133,24 @@ def save_character():
     try:
         with open(saved_file, 'w', encoding='utf-8') as f:
             json.dump(saved, f, indent=2, ensure_ascii=False)
+            
+        # GitHub Sync
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO')
+        
+        if github_token and github_repo:
+            try:
+                json_content = json.dumps(saved, ensure_ascii=False, indent=2)
+                update_github_file(
+                    github_repo, 
+                    saved_file, 
+                    json_content, 
+                    f"Save character: {char_name}", 
+                    github_token
+                )
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
+                
         return jsonify({'success': True, 'message': 'Character saved'})
     except Exception as e:
         print(f"Error saving character: {e}")
@@ -157,7 +176,7 @@ def update_github_file(repo, path, content, message, token, branch='main'):
 
     # 2. Commit update
     data = {
-        "message": message,
+        "message": message + " [skip ci]", # Skip CI to avoid redeploy loops
         "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
         "sha": sha,
         "branch": branch
@@ -298,10 +317,30 @@ def remove_saved(name):
             saved = json.load(f)
         
         # Remove character by name
-        saved = [char for char in saved if char.get('name') != name]
+        new_saved = [char for char in saved if char.get('name') != name]
         
+        if len(new_saved) == len(saved):
+             return jsonify({'error': 'Character not found in saved list'}), 404
+             
         with open(saved_file, 'w', encoding='utf-8') as f:
-            json.dump(saved, f, indent=2, ensure_ascii=False)
+            json.dump(new_saved, f, indent=2, ensure_ascii=False)
+            
+        # GitHub Sync
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO')
+        
+        if github_token and github_repo:
+            try:
+                json_content = json.dumps(new_saved, ensure_ascii=False, indent=2)
+                update_github_file(
+                    github_repo, 
+                    saved_file, 
+                    json_content, 
+                    f"Unsave character: {name}", 
+                    github_token
+                )
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
         
         return jsonify({'success': True, 'message': 'Character removed'})
     except Exception as e:
