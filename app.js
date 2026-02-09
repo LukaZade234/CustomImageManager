@@ -521,6 +521,127 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+function enableEditMode() {
+    if (!currentCharacter) return;
+    isEditing = true;
+    
+    // Populate form
+    document.getElementById('editCharName').value = currentCharacter.name;
+    document.getElementById('editCharSeries').value = currentCharacter.series || '';
+    document.getElementById('editCharRank').value = currentCharacter.rank || '';
+    
+    // Toggle UI
+    document.getElementById('charDisplayMode').style.display = 'none';
+    document.getElementById('charEditMode').style.display = 'block';
+    
+    // Enable Gallery Editing (Show Delete Buttons)
+    document.getElementById('customImagesGallery').classList.add('gallery-editing');
+}
+
+function disableEditMode() {
+    isEditing = false;
+    document.getElementById('charDisplayMode').style.display = 'block';
+    document.getElementById('charEditMode').style.display = 'none';
+    document.getElementById('customImagesGallery').classList.remove('gallery-editing');
+}
+
+async function saveEdit() {
+    const newName = document.getElementById('editCharName').value.trim();
+    const newSeries = document.getElementById('editCharSeries').value.trim();
+    const newRank = document.getElementById('editCharRank').value.trim();
+    
+    if (!newName) {
+        alert('Name cannot be empty');
+        return;
+    }
+    
+    const payload = {
+        original_name: currentCharacter.name,
+        new_name: newName,
+        series: newSeries,
+        rank: newRank
+    };
+    
+    // Disable button
+    const btn = document.getElementById('saveEditBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    
+    try {
+        const res = await fetch('/api/edit-character', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            // Update local data
+            const oldName = currentCharacter.name;
+            currentCharacter.name = newName;
+            currentCharacter.series = newSeries;
+            currentCharacter.rank = newRank;
+            
+            // Update in allCharacters
+            const index = allCharacters.findIndex(c => c.name === oldName);
+            if (index !== -1) {
+                allCharacters[index] = { ...allCharacters[index], ...currentCharacter };
+            }
+            
+            // Update in savedCharacters if present
+            const savedIndex = savedCharacters.findIndex(c => c.name === oldName);
+            if (savedIndex !== -1) {
+                savedCharacters[savedIndex] = { ...savedCharacters[savedIndex], ...currentCharacter };
+            }
+            
+            disableEditMode();
+            
+            // Refresh UI
+            if (oldName !== newName) {
+                navigateTo('/character', currentCharacter); // Update URL
+            } else {
+                selectCharacter(currentCharacter);
+            }
+            
+            alert('Character updated!');
+        } else {
+            alert(data.error || 'Failed to update character');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error saving changes');
+    }
+    
+    btn.disabled = false;
+    btn.textContent = 'Save';
+}
+
+async function deleteCustomImage(url) {
+    if (!confirm('Are you sure you want to delete this image?')) return;
+    
+    try {
+        const res = await fetch('/api/delete-custom-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                character_name: currentCharacter.name,
+                image_url: url
+            })
+        });
+        
+        if (res.ok) {
+            // Refresh gallery
+            loadCustomImages(currentCharacter.name);
+        } else {
+            const data = await res.json();
+            alert(data.error || 'Failed to delete image');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error deleting image');
+    }
+}
+
 async function loadCustomImages(name) {
     const gallery = document.getElementById('customImagesGallery');
     if (!gallery) return;
@@ -542,6 +663,10 @@ async function loadCustomImages(name) {
         // If we have custom images, render them
         if (customUrls.length > 0) {
             customUrls.forEach((url, i) => {
+                // Wrapper for image + delete button
+                const wrapper = document.createElement('div');
+                wrapper.className = 'gallery-item-wrapper';
+                
                 const img = document.createElement('img');
                 img.src = url;
                 // Increased quality settings:
@@ -556,8 +681,28 @@ async function loadCustomImages(name) {
                 img.style.boxShadow = '0 2px 5px rgba(0,0,0,0.1)';
                 
                 img.onclick = () => openModal(i);
-                gallery.appendChild(img);
+                
+                // Delete Button
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.innerHTML = '&times;';
+                delBtn.title = 'Delete image';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteCustomImage(url);
+                };
+                
+                wrapper.appendChild(img);
+                wrapper.appendChild(delBtn);
+                gallery.appendChild(wrapper);
             });
+        }
+        
+        // Check if editing mode is active to show delete buttons
+        if (isEditing) {
+            gallery.classList.add('gallery-editing');
+        } else {
+            gallery.classList.remove('gallery-editing');
         }
         
         // Reset main image cursor since it's no longer clickable

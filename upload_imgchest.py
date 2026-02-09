@@ -428,6 +428,170 @@ def get_custom_images(char_name):
         print(f"Error reading custom images: {e}")
         return jsonify([])
 
+@app.route('/api/delete-custom-image', methods=['POST'])
+def delete_custom_image():
+    data = request.get_json()
+    if not data or 'character_name' not in data or 'image_url' not in data:
+        return jsonify({'error': 'Missing data'}), 400
+        
+    char_name = data['character_name']
+    image_url = data['image_url']
+    json_file = 'custom_images.json'
+    
+    if not os.path.exists(json_file):
+        return jsonify({'error': 'File not found'}), 404
+        
+    try:
+        with open(json_file, 'r', encoding='utf-8') as f:
+            custom_data = json.load(f)
+            
+        if char_name in custom_data:
+            if image_url in custom_data[char_name]:
+                custom_data[char_name].remove(image_url)
+                
+                # Save locally
+                with open(json_file, 'w', encoding='utf-8') as f:
+                    json.dump(custom_data, f, indent=4, ensure_ascii=False)
+                    
+                # Sync GitHub
+                github_token = os.environ.get('GITHUB_TOKEN')
+                github_repo = os.environ.get('GITHUB_REPO')
+                sync_msg = ""
+                
+                if github_token and github_repo:
+                    try:
+                        json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
+                        update_github_file(
+                            github_repo, 
+                            json_file, 
+                            json_content, 
+                            f"Delete custom image for: {char_name}", 
+                            github_token
+                        )
+                        sync_msg = " & Synced to GitHub"
+                    except Exception as gh_e:
+                        print(f"GitHub Sync Error: {gh_e}")
+                        sync_msg = " (GitHub Sync Failed)"
+                
+                return jsonify({'success': True, 'message': f'Image deleted{sync_msg}'})
+            else:
+                return jsonify({'error': 'Image not found'}), 404
+        else:
+            return jsonify({'error': 'Character not found'}), 404
+            
+    except Exception as e:
+        print(f"Error deleting image: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/edit-character', methods=['POST'])
+def edit_character():
+    data = request.get_json()
+    required = ['original_name', 'new_name', 'series', 'rank']
+    if not data or not all(k in data for k in required):
+        return jsonify({'error': 'Missing required fields'}), 400
+        
+    orig_name = data['original_name']
+    new_name = data['new_name'].strip()
+    series = data['series'].strip()
+    rank = data['rank'].strip()
+    
+    if not new_name:
+        return jsonify({'error': 'Name cannot be empty'}), 400
+        
+    # 1. Update CSV
+    csv_path = 'CharName.csv'
+    if not os.path.exists(csv_path):
+        return jsonify({'error': 'CharName.csv not found'}), 500
+        
+    rows = []
+    updated = False
+    
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                if row['name'] == orig_name:
+                    row['name'] = new_name
+                    row['series'] = series
+                    row['rank'] = rank
+                    updated = True
+                rows.append(row)
+        
+        if not updated:
+            return jsonify({'error': 'Character not found in CSV'}), 404
+            
+        # Write CSV
+        with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+            
+    except Exception as e:
+        return jsonify({'error': f"CSV Error: {e}"}), 500
+
+    # 2. Rename keys in JSON files if name changed
+    rename_json_error = None
+    files_to_update = {} # path -> content
+    
+    if new_name != orig_name:
+        # Mapping JSON
+        mapping_path = 'character_image_mapping.json'
+        if os.path.exists(mapping_path):
+            try:
+                with open(mapping_path, 'r', encoding='utf-8') as f:
+                    mapping = json.load(f)
+                if orig_name in mapping:
+                    mapping[new_name] = mapping.pop(orig_name)
+                    with open(mapping_path, 'w', encoding='utf-8') as f:
+                        json.dump(mapping, f, indent=4, ensure_ascii=False)
+                    files_to_update[mapping_path] = json.dumps(mapping, ensure_ascii=False, indent=4)
+            except Exception as e:
+                rename_json_error = str(e)
+
+        # Custom Images JSON
+        custom_path = 'custom_images.json'
+        if os.path.exists(custom_path):
+            try:
+                with open(custom_path, 'r', encoding='utf-8') as f:
+                    custom_data = json.load(f)
+                if orig_name in custom_data:
+                    custom_data[new_name] = custom_data.pop(orig_name)
+                    with open(custom_path, 'w', encoding='utf-8') as f:
+                        json.dump(custom_data, f, indent=4, ensure_ascii=False)
+                    files_to_update[custom_path] = json.dumps(custom_data, ensure_ascii=False, indent=4)
+            except Exception as e:
+                rename_json_error = str(e)
+                
+    # 3. GitHub Sync
+    github_token = os.environ.get('GITHUB_TOKEN')
+    github_repo = os.environ.get('GITHUB_REPO')
+    sync_msg = ""
+    
+    if github_token and github_repo:
+        try:
+            # Sync CSV
+            from io import StringIO
+            output = StringIO()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+            csv_content = output.getvalue()
+            
+            update_github_file(github_repo, csv_path, csv_content, f"Edit character: {orig_name} -> {new_name}", github_token)
+            
+            # Sync JSONs
+            for path, content in files_to_update.items():
+                update_github_file(github_repo, path, content, f"Rename key: {orig_name} -> {new_name}", github_token)
+                
+            sync_msg = " & Synced to GitHub"
+        except Exception as gh_e:
+            print(f"GitHub Sync Error: {gh_e}")
+            sync_msg = " (GitHub Sync Failed)"
+
+    return jsonify({'success': True, 'message': f'Character updated{sync_msg}', 'new_name': new_name})
+
+
 @app.route('/api/set-main-image', methods=['POST'])
 def set_main_image():
     if 'file' not in request.files:

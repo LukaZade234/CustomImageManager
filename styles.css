@@ -333,3 +333,40 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     padding: 12px;
     border-radius: 5px;
 }
+
+/* Gallery Edit Styles */
+.gallery-item-wrapper {
+    position: relative;
+    display: inline-block;
+}
+.delete-btn {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: rgba(220, 53, 69, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-weight: bold;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+.gallery-editing .delete-btn {
+    display: flex;
+}
+.delete-btn:hover {
+    background-color: #c82333;
+}
+.edit-input {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 5px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1em;
+}
