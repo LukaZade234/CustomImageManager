@@ -1,0 +1,237 @@
+import requests
+import sys
+import os
+import csv
+import json
+import tkinter as tk
+from tkinter import filedialog
+from flask import Flask, request, jsonify, send_from_directory
+
+# ---------------------------------------------------------------------
+API_KEY = "QG2Em4u8ux4HtIYGUC04s2whSzhNFNqDwRqJD2dF1034102b"
+# ---------------------------------------------------------------------
+
+app = Flask(__name__)
+
+@app.route('/')
+@app.route('/saved')
+@app.route('/character/<path:name>')
+def index(name=None):
+    return send_from_directory('.', 'upload.html')
+
+@app.route('/images/<filename>')
+def get_image(filename):
+    return send_from_directory('character_images', filename)
+
+@app.route('/characters')
+def get_characters():
+    characters = []
+    mapping = {}
+    try:
+        if os.path.exists('character_image_mapping.json'):
+            with open('character_image_mapping.json', 'r', encoding='utf-8') as f:
+                mapping = json.load(f)
+        
+        if os.path.exists('CharName.csv'):
+            with open('CharName.csv', 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    char_name = row['name']
+                    image_filename = mapping.get(char_name, {}).get('filename', '')
+                    characters.append({
+                        'name': char_name,
+                        'series': row['series'],
+                        'rank': row['rank'],
+                        'image': image_filename
+                    })
+    except Exception as e:
+        print(f"Error reading files: {e}")
+        return jsonify({'error': str(e)}), 500
+    return jsonify(characters)
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Save temporarily
+    temp_path = os.path.join('.', 'temp_upload_' + file.filename)
+    file.save(temp_path)
+    
+    try:
+        result = upload_to_imgchest(temp_path)
+        if result:
+            post_link, direct_link = result
+            return jsonify({
+                'success': True,
+                'post_link': post_link,
+                'direct_link': direct_link
+            })
+        else:
+            return jsonify({'error': 'Upload failed'}), 500
+    finally:
+        # Clean up temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@app.route('/api/saved', methods=['GET'])
+def get_saved():
+    saved_file = 'saved_characters.json'
+    if os.path.exists(saved_file):
+        try:
+            with open(saved_file, 'r', encoding='utf-8') as f:
+                saved = json.load(f)
+            return jsonify(saved)
+        except Exception as e:
+            print(f"Error reading saved characters: {e}")
+            return jsonify([])
+    return jsonify([])
+
+@app.route('/api/saved', methods=['POST'])
+def save_character():
+    saved_file = 'saved_characters.json'
+    data = request.get_json()
+    
+    if not data or 'name' not in data:
+        return jsonify({'error': 'Invalid character data'}), 400
+    
+    # Load existing saved characters
+    saved = []
+    if os.path.exists(saved_file):
+        try:
+            with open(saved_file, 'r', encoding='utf-8') as f:
+                saved = json.load(f)
+        except Exception as e:
+            print(f"Error reading saved characters: {e}")
+            saved = []
+    
+    # Check if character already exists
+    char_name = data['name']
+    if any(char.get('name') == char_name for char in saved):
+        return jsonify({'error': 'Character already saved'}), 400
+    
+    # Add character to saved list
+    saved.append(data)
+    
+    # Save to file
+    try:
+        with open(saved_file, 'w', encoding='utf-8') as f:
+            json.dump(saved, f, indent=2, ensure_ascii=False)
+        return jsonify({'success': True, 'message': 'Character saved'})
+    except Exception as e:
+        print(f"Error saving character: {e}")
+        return jsonify({'error': 'Failed to save character'}), 500
+
+@app.route('/api/saved/<path:name>', methods=['DELETE'])
+def remove_saved(name):
+    saved_file = 'saved_characters.json'
+    
+    if not os.path.exists(saved_file):
+        return jsonify({'error': 'No saved characters found'}), 404
+    
+    try:
+        with open(saved_file, 'r', encoding='utf-8') as f:
+            saved = json.load(f)
+        
+        # Remove character by name
+        saved = [char for char in saved if char.get('name') != name]
+        
+        with open(saved_file, 'w', encoding='utf-8') as f:
+            json.dump(saved, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({'success': True, 'message': 'Character removed'})
+    except Exception as e:
+        print(f"Error removing character: {e}")
+        return jsonify({'error': 'Failed to remove character'}), 500
+
+def upload_to_imgchest(file_path):
+    if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
+        print("Error: Please set your API_KEY in the script file.")
+        return
+
+    if not os.path.exists(file_path):
+        print(f"Error: File not found at {file_path}")
+        return
+
+    url = "https://api.imgchest.com/v1/post"
+    headers = {
+        "Authorization": f"Bearer {API_KEY}"
+    }
+    
+    payload = {
+        "title": os.path.basename(file_path),
+        "privacy": "hidden",
+        "nsfw": "false"
+    }
+
+    try:
+        with open(file_path, "rb") as image_file:
+            files = {
+                "images[]": image_file
+            }
+            
+            print(f"Uploading {file_path}...")
+            response = requests.post(url, headers=headers, data=payload, files=files)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                if 'data' not in data:
+                    print(f"Upload successful but unexpected response: {data}")
+                    return
+                
+                img_data = data['data']
+
+                post_link = img_data.get('url')
+                if not post_link:
+                     print(f"Debug: 'url' key missing. Response keys: {list(img_data.keys())}")
+                     post_link = "Not found in response"
+
+                if 'images' in img_data and len(img_data['images']) > 0:
+                    direct_link = img_data['images'][0]['link']
+                else:
+                    direct_link = "No direct link found"
+
+                print("\n--- Upload Successful ---")
+                print(f"Post Link:   {post_link}")
+                print(f"Direct Link: {direct_link}")
+                return post_link, direct_link
+            else:
+                print(f"Upload failed. Status Code: {response.status_code}")
+                print(f"Response: {response.text}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == '--web':
+        # Run web server
+        print("Starting web server at http://localhost:5000")
+        print("Open your browser to http://localhost:5000")
+        app.run(debug=True, host='0.0.0.0', port=5000)
+    elif len(sys.argv) > 1:
+        # Command line usage
+        file_path = sys.argv[1]
+        upload_to_imgchest(file_path)
+    else:
+        # GUI file selector
+        print("No file provided via arguments. Opening file selector...")
+        root = tk.Tk()
+        root.withdraw()
+        
+        file_path = filedialog.askopenfilename(
+            title="Select Image to Upload",
+            filetypes=[
+                ("Images", "*.jpg *.jpeg *.png *.gif *.bmp *.webp"),
+                ("All Files", "*.*")
+            ]
+        )
+
+        if file_path:
+            upload_to_imgchest(file_path)
+        else:
+            print("No file selected.")
