@@ -62,20 +62,20 @@
                         <input type="number" id="editCharRank" class="edit-input">
                     </div>
                     <div style="margin-top: 10px; display: flex; gap: 10px;">
-                        <button id="saveEditBtn" class="upload-btn" style="padding: 5px 10px; font-size: 0.9em;">Save</button>
-                        <button id="cancelEditBtn" class="upload-btn" style="padding: 5px 10px; font-size: 0.9em; background-color: #6c757d;">Cancel</button>
+                        <button id="saveEditBtn" class="upload-btn" style="padding: 5px 10px; font-size: 0.9em;" onclick="saveEdit()">Save</button>
+                        <button id="cancelEditBtn" class="upload-btn" style="padding: 5px 10px; font-size: 0.9em; background-color: #6c757d;" onclick="disableEditMode()">Cancel</button>
                     </div>
                 </div>
             </div>
             <div id="charImageContainer">
                 <img id="charImageDisplay" src="" alt="Character Image" style="display: none;">
                 <div class="action-buttons" style="margin-top: 10px; display: flex; gap: 10px; justify-content: center;">
-                    <button id="saveButton" title="Save character">
+                    <button id="saveButton" title="Save character" onclick="toggleSaveCharacter()">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
                         </svg>
                     </button>
-                    <button id="editButton" title="Edit character">
+                    <button id="editButton" title="Edit character" onclick="enableEditMode()">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -145,6 +145,6 @@
     </div>
 
     <script src="character_mapping.js"></script>
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>
