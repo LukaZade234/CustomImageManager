@@ -1,0 +1,10 @@
+# DigitalOcean App Platform configuration
+# Deploy: Connect this repo at cloud.digitalocean.com/apps
+name: imgmanager
+
+# Option A: Static site (simplest - run generate_mapping.py before deploy)
+static_sites:
+  - name: web
+    environment_slug: html
+    index_document: index.html
+    catchall_document: index.html
