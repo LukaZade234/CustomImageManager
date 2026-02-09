@@ -15,6 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 @app.route('/saved')
+@app.route('/add')
 @app.route('/character/<path:name>')
 def index(name=None):
     return send_from_directory('.', 'upload.html')
@@ -125,6 +126,60 @@ def save_character():
     except Exception as e:
         print(f"Error saving character: {e}")
         return jsonify({'error': 'Failed to save character'}), 500
+
+@app.route('/api/add-character', methods=['POST'])
+def add_character():
+    """Append a new character to CharName.csv."""
+    data = request.get_json()
+    if not data or 'name' not in data:
+        return jsonify({'error': 'Name is required'}), 400
+    
+    name = str(data.get('name', '')).strip()
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+    
+    series = str(data.get('series', '')).strip()
+    kakera = str(data.get('kakera', '0')).strip() or '0'
+    
+    csv_path = 'CharName.csv'
+    if not os.path.exists(csv_path):
+        return jsonify({'error': 'CharName.csv not found'}), 500
+    
+    try:
+        rows = []
+        max_rank = 0
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames
+            for row in reader:
+                rows.append(row)
+                try:
+                    r = int(row.get('rank', 0))
+                    if r > max_rank:
+                        max_rank = r
+                except (ValueError, TypeError):
+                    pass
+        
+        if any(r.get('name') == name for r in rows):
+            return jsonify({'error': f'Character "{name}" already exists'}), 400
+        
+        max_rank += 1
+        rows.append({
+            'rank': str(max_rank),
+            'name': name,
+            'series': series,
+            'kakera': kakera
+        })
+        
+        with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        
+        return jsonify({'success': True, 'message': f'Added "{name}"'})
+    except Exception as e:
+        print(f'Error adding character: {e}')
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/saved/<path:name>', methods=['DELETE'])
 def remove_saved(name):

@@ -64,15 +64,15 @@
 
         <div id="addPage">
             <h2>Add Character</h2>
-            <p style="color: #666; margin-bottom: 20px;">Add a new character to CharName.csv. After submitting, download the export and run <code>python add_to_csv.py pending_characters.json</code> to append to your CSV.</p>
+            <p style="color: #666; margin-bottom: 20px;">Add a new character directly to CharName.csv.</p>
             <form id="addCharForm" class="add-char-form">
                 <div class="form-group">
                     <label for="addCharName">Name *</label>
                     <input type="text" id="addCharName" required placeholder="Character name">
                 </div>
                 <div class="form-group">
-                    <label for="addCharSeries">Series *</label>
-                    <input type="text" id="addCharSeries" required placeholder="Series/source">
+                    <label for="addCharSeries">Series (optional)</label>
+                    <input type="text" id="addCharSeries" placeholder="Series/source">
                 </div>
                 <div class="form-group">
                     <label for="addCharRank">Rank (optional)</label>
@@ -82,14 +82,9 @@
                     <label for="addCharKakera">Kakera (optional)</label>
                     <input type="number" id="addCharKakera" min="0" value="0" placeholder="0">
                 </div>
-                <button type="submit" class="upload-btn">Add Character</button>
+                <button type="submit" class="upload-btn" id="addCharSubmitBtn">Add Character</button>
             </form>
             <div id="addCharStatus" style="display: none; margin-top: 15px;"></div>
-            <div id="pendingExport" style="margin-top: 25px; display: none;">
-                <h3>Pending characters for CSV</h3>
-                <p style="color: #666; font-size: 0.9em;">Download and run <code>python add_to_csv.py pending_characters.json</code> to append these to CharName.csv.</p>
-                <button type="button" id="exportPendingBtn" class="upload-btn" style="margin-top: 10px;">Download pending_characters.json</button>
-            </div>
         </div>
 
         <div id="uploadSection">
@@ -103,23 +98,8 @@
         let allCharacters = [];
         let currentCharacter = null;
         let savedCharacters = [];
-        let pendingCharacters = [];
         const IMAGE_BASE = 'character_images';
         const STORAGE_KEY = 'savedCharacters';
-        const PENDING_KEY = 'pendingCharacters';
-
-        function loadPendingCharacters() {
-            try {
-                const stored = localStorage.getItem(PENDING_KEY);
-                pendingCharacters = stored ? JSON.parse(stored) : [];
-            } catch (e) {
-                pendingCharacters = [];
-            }
-        }
-
-        function persistPendingCharacters() {
-            localStorage.setItem(PENDING_KEY, JSON.stringify(pendingCharacters));
-        }
 
         async function loadCharacterData() {
             if (window.CHARACTERS_DATA) {
@@ -158,13 +138,6 @@
                     }
                 }
             }
-            loadPendingCharacters();
-            allCharacters = allCharacters.concat(pendingCharacters.map(p => ({
-                name: p.name,
-                image: '',
-                series: p.series || '',
-                rank: p.rank || ''
-            })));
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -221,7 +194,6 @@
                 navigateTo('/add');
             });
             document.getElementById('addCharForm').addEventListener('submit', handleAddCharacter);
-            document.getElementById('exportPendingBtn').addEventListener('click', exportPendingCharacters);
 
             document.getElementById('saveButton').addEventListener('click', toggleSaveCharacter);
 
@@ -280,9 +252,6 @@
             document.getElementById('savedPage').style.display = 'none';
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('addPage').style.display = 'block';
-            if (pendingCharacters.length > 0) {
-                document.getElementById('pendingExport').style.display = 'block';
-            }
         }
 
         function showSavedPage() {
@@ -443,27 +412,40 @@
             selectedDiv.style.display = 'flex';
         }
 
-        function handleAddCharacter(e) {
+        async function handleAddCharacter(e) {
             e.preventDefault();
             const name = document.getElementById('addCharName').value.trim();
             const series = document.getElementById('addCharSeries').value.trim();
-            const rank = document.getElementById('addCharRank').value.trim();
             const kakera = document.getElementById('addCharKakera').value.trim() || '0';
-            if (!name || !series) {
-                showAddCharStatus('Please enter name and series.', 'error');
+            if (!name) {
+                showAddCharStatus('Please enter a name.', 'error');
                 return;
             }
-            if (allCharacters.some(c => c.name === name) || pendingCharacters.some(p => p.name === name)) {
+            if (allCharacters.some(c => c.name === name)) {
                 showAddCharStatus(`Character "${name}" already exists.`, 'error');
                 return;
             }
-            pendingCharacters.push({ name, series, rank: rank || '', kakera });
-            persistPendingCharacters();
-            allCharacters.push({ name, image: '', series, rank: rank || '' });
-            document.getElementById('addCharForm').reset();
-            document.getElementById('addCharKakera').value = '0';
-            showAddCharStatus(`Added "${name}" from ${series}. Download pending_characters.json and run add_to_csv.py to append to CharName.csv.`, 'success');
-            document.getElementById('pendingExport').style.display = 'block';
+            const btn = document.getElementById('addCharSubmitBtn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/add-character', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, series, kakera })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    allCharacters.push({ name, image: '', series, rank: '' });
+                    document.getElementById('addCharForm').reset();
+                    document.getElementById('addCharKakera').value = '0';
+                    showAddCharStatus(`Added "${name}" to CharName.csv.`, 'success');
+                } else {
+                    showAddCharStatus(data.error || 'Failed to add character.', 'error');
+                }
+            } catch (err) {
+                showAddCharStatus('Could not reach server. Run the app with Python (python upload_imgchest.py --web) to add characters.', 'error');
+            }
+            btn.disabled = false;
         }
 
         function showAddCharStatus(msg, type) {
@@ -471,15 +453,6 @@
             el.textContent = msg;
             el.className = type;
             el.style.display = 'block';
-        }
-
-        function exportPendingCharacters() {
-            const blob = new Blob([JSON.stringify(pendingCharacters, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'pending_characters.json';
-            a.click();
-            URL.revokeObjectURL(a.href);
         }
     </script>
 </body>

@@ -24,6 +24,13 @@
         </div>
 
         <div class="navbar-right">
+            <a href="#/add" class="btn-add-char" id="addCharLink">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add Character
+            </a>
             <a href="#/saved" class="btn-saved" id="savedLink">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
                     <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
@@ -53,6 +60,31 @@
         <div id="savedPage">
             <h2>Saved Characters</h2>
             <div id="savedCharactersContainer" class="saved-characters-grid"></div>
+        </div>
+
+        <div id="addPage">
+            <h2>Add Character</h2>
+            <p style="color: #666; margin-bottom: 20px;">Add a new character directly to CharName.csv.</p>
+            <form id="addCharForm" class="add-char-form">
+                <div class="form-group">
+                    <label for="addCharName">Name *</label>
+                    <input type="text" id="addCharName" required placeholder="Character name">
+                </div>
+                <div class="form-group">
+                    <label for="addCharSeries">Series (optional)</label>
+                    <input type="text" id="addCharSeries" placeholder="Series/source">
+                </div>
+                <div class="form-group">
+                    <label for="addCharRank">Rank (optional)</label>
+                    <input type="number" id="addCharRank" min="1" placeholder="Auto-assigned if empty">
+                </div>
+                <div class="form-group">
+                    <label for="addCharKakera">Kakera (optional)</label>
+                    <input type="number" id="addCharKakera" min="0" value="0" placeholder="0">
+                </div>
+                <button type="submit" class="upload-btn" id="addCharSubmitBtn">Add Character</button>
+            </form>
+            <div id="addCharStatus" style="display: none; margin-top: 15px;"></div>
         </div>
 
         <div id="uploadSection">
@@ -161,6 +193,11 @@
                 e.preventDefault();
                 navigateTo('/saved');
             });
+            document.getElementById('addCharLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                navigateTo('/add');
+            });
+            document.getElementById('addCharForm').addEventListener('submit', handleAddCharacter);
 
             // Save button functionality (toggle: save or unsave)
             document.getElementById('saveButton').addEventListener('click', toggleSaveCharacter);
@@ -180,6 +217,9 @@
             } else if (path === '/saved') {
                 window.location.hash = '#/saved';
                 showSavedPage();
+            } else if (path === '/add') {
+                window.location.hash = '#/add';
+                showAddPage();
             } else if (path === '/character' && char) {
                 window.location.hash = '#/character/' + encodeURIComponent(char.name);
                 selectCharacter(char);
@@ -191,6 +231,8 @@
             const parts = hash.split('/').filter(Boolean);
             if (parts[0] === 'saved') {
                 showSavedPage();
+            } else if (parts[0] === 'add') {
+                showAddPage();
             } else if (parts[0] === 'character' && parts[1]) {
                 const name = decodeURIComponent(parts[1]);
                 const char = allCharacters.find(c => c.name === name) || savedCharacters.find(c => c.name === name);
@@ -207,13 +249,22 @@
         function showHomePage() {
             document.getElementById('selectedCharacter').style.display = 'none';
             document.getElementById('savedPage').style.display = 'none';
+            document.getElementById('addPage').style.display = 'none';
             document.getElementById('uploadSection').style.display = 'block';
             document.getElementById('charSearch').value = '';
+        }
+
+        function showAddPage() {
+            document.getElementById('selectedCharacter').style.display = 'none';
+            document.getElementById('savedPage').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('addPage').style.display = 'block';
         }
 
         function showSavedPage() {
             document.getElementById('selectedCharacter').style.display = 'none';
             document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('addPage').style.display = 'none';
             document.getElementById('savedPage').style.display = 'block';
             displaySavedCharacters();
         }
@@ -364,13 +415,54 @@
             // Update save button state (always clickable - toggles save/unsave)
             updateSaveButtonState();
             
-            // Hide other sections and show profile
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('savedPage').style.display = 'none';
+            document.getElementById('addPage').style.display = 'none';
             selectedDiv.style.display = 'flex';
         }
 
-        // Upload removed - static HTML mode. Use upload_imgchest.py if you need upload.
+        async function handleAddCharacter(e) {
+            e.preventDefault();
+            const name = document.getElementById('addCharName').value.trim();
+            const series = document.getElementById('addCharSeries').value.trim();
+            const kakera = document.getElementById('addCharKakera').value.trim() || '0';
+            if (!name) {
+                showAddCharStatus('Please enter a name.', 'error');
+                return;
+            }
+            if (allCharacters.some(c => c.name === name)) {
+                showAddCharStatus(`Character "${name}" already exists.`, 'error');
+                return;
+            }
+            const btn = document.getElementById('addCharSubmitBtn');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/add-character', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, series, kakera })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    allCharacters.push({ name, image: '', series, rank: '' });
+                    document.getElementById('addCharForm').reset();
+                    document.getElementById('addCharKakera').value = '0';
+                    showAddCharStatus(`Added "${name}" to CharName.csv.`, 'success');
+                } else {
+                    showAddCharStatus(data.error || 'Failed to add character.', 'error');
+                }
+            } catch (err) {
+                showAddCharStatus('Could not reach server. Run the app with Python (python upload_imgchest.py --web) to add characters.', 'error');
+            }
+            btn.disabled = false;
+        }
+
+        function showAddCharStatus(msg, type) {
+            const el = document.getElementById('addCharStatus');
+            el.textContent = msg;
+            el.className = type;
+            el.style.display = 'block';
+        }
     </script>
 </body>
 </html>
