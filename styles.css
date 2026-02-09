@@ -47,6 +47,23 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0;
     background-color: #007bff;
     color: white;
 }
+.btn-add-char {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    background-color: #28a745;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: none;
+    margin-right: 10px;
+}
+.btn-add-char:hover {
+    background-color: #218838;
+    color: white;
+}
 
 /* Search Styles */
 #charSearch { 
@@ -284,4 +301,35 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     text-align: center;
     padding: 40px;
     color: #6c757d;
+}
+
+/* Add Character Page */
+#addPage {
+    display: none;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+#addPage h2 {
+    margin-top: 0;
+    color: #212529;
+}
+.add-char-form {
+    max-width: 400px;
+    text-align: left;
+}
+#addCharStatus.success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+    padding: 12px;
+    border-radius: 5px;
+}
+#addCharStatus.error {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+    padding: 12px;
+    border-radius: 5px;
 }
