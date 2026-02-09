@@ -137,9 +137,41 @@ def save_character():
         print(f"Error saving character: {e}")
         return jsonify({'error': 'Failed to save character'}), 500
 
+import base64
+
+# ... existing code ...
+
+def update_github_file(repo, path, content, message, token, branch='main'):
+    """Updates a file on GitHub via API."""
+    url = f"https://api.github.com/repos/{repo}/contents/{path}"
+    headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+    
+    # 1. Get current file SHA
+    r = requests.get(url, headers=headers, params={"ref": branch})
+    if r.status_code == 200:
+        sha = r.json()['sha']
+    else:
+        # File doesn't exist? (Handle or fail)
+        print(f"File {path} not found on GitHub, cannot update.")
+        return False
+
+    # 2. Commit update
+    data = {
+        "message": message,
+        "content": base64.b64encode(content.encode('utf-8')).decode('utf-8'),
+        "sha": sha,
+        "branch": branch
+    }
+    r = requests.put(url, headers=headers, json=data)
+    if r.status_code in [200, 201]:
+        return True
+    else:
+        print(f"Failed to update GitHub: {r.text}")
+        return False
+
 @app.route('/api/add-character', methods=['POST'])
 def add_character():
-    """Append a new character to CharName.csv."""
+    """Append a new character to CharName.csv (Local + GitHub Sync)."""
     data = request.get_json()
     if not data or 'name' not in data:
         return jsonify({'error': 'Name is required'}), 400
@@ -151,11 +183,13 @@ def add_character():
     series = str(data.get('series', '')).strip()
     kakera = str(data.get('kakera', '0')).strip() or '0'
     
+    # --- 1. Update Local Files (Ephemeral on Cloud) ---
     csv_path = 'CharName.csv'
     if not os.path.exists(csv_path):
         return jsonify({'error': 'CharName.csv not found'}), 500
     
     try:
+        # Read and Append to CSV
         rows = []
         max_rank = 0
         with open(csv_path, 'r', encoding='utf-8') as f:
@@ -174,19 +208,80 @@ def add_character():
             return jsonify({'error': f'Character "{name}" already exists'}), 400
         
         max_rank += 1
-        rows.append({
+        new_row = {
             'rank': str(max_rank),
             'name': name,
             'series': series,
             'kakera': kakera
-        })
+        }
+        rows.append(new_row)
         
+        # Write CSV
         with open(csv_path, 'w', encoding='utf-8', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
         
-        return jsonify({'success': True, 'message': f'Added "{name}"'})
+        # Update Mapping JSON
+        mapping_path = 'character_image_mapping.json'
+        mapping = {}
+        if os.path.exists(mapping_path):
+            try:
+                with open(mapping_path, 'r', encoding='utf-8') as f:
+                    mapping = json.load(f)
+            except:
+                pass
+        
+        if name not in mapping:
+            mapping[name] = {"filename": ""}
+            with open(mapping_path, 'w', encoding='utf-8') as f:
+                json.dump(mapping, f, ensure_ascii=False, indent=4)
+
+        # --- 2. GitHub Sync (If Configured) ---
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO') # e.g. "username/repo"
+        
+        sync_msg = ""
+        if github_token and github_repo:
+            try:
+                # Re-construct CSV content
+                from io import StringIO
+                output = StringIO()
+                writer = csv.DictWriter(output, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+                csv_content = output.getvalue()
+                
+                # Re-construct JSON content
+                json_content = json.dumps(mapping, ensure_ascii=False, indent=4)
+                
+                # Commit CSV
+                ok_csv = update_github_file(
+                    github_repo, 
+                    'CharName.csv', 
+                    csv_content, 
+                    f"Add character: {name} (CSV)", 
+                    github_token
+                )
+                
+                # Commit JSON
+                ok_json = update_github_file(
+                    github_repo, 
+                    'character_image_mapping.json', 
+                    json_content, 
+                    f"Add character: {name} (Mapping)", 
+                    github_token
+                )
+                
+                if ok_csv and ok_json:
+                    sync_msg = " & Synced to GitHub!"
+                else:
+                    sync_msg = " (GitHub Sync Failed)"
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
+                sync_msg = " (GitHub Sync Error)"
+
+        return jsonify({'success': True, 'message': f'Added "{name}"{sync_msg}'})
     except Exception as e:
         print(f'Error adding character: {e}')
         return jsonify({'error': str(e)}), 500
