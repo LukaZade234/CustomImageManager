@@ -334,7 +334,11 @@ function displaySavedCharacters() {
         const card = document.createElement('div');
         card.className = 'saved-character-card';
         
-        const imageUrl = getImageUrl(char.image);
+        // Use fresh image data from allCharacters if available
+        const freshChar = allCharacters.find(c => c.name === char.name);
+        const imageToUse = freshChar ? freshChar.image : char.image;
+        
+        const imageUrl = getImageUrl(imageToUse);
         const imageHtml = imageUrl 
             ? `<img src="${imageUrl}" alt="${char.name}">` 
             : '<div class="no-image-placeholder">No Image</div>';
