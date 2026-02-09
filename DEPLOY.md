@@ -9,15 +9,19 @@
 
 1. Go to [cloud.digitalocean.com/apps](https://cloud.digitalocean.com/apps)
 2. Click **Create App** → choose your repo and branch
-3. App Platform will detect the static site from `.do/app.yaml`
+3. App Platform will detect the web service from `.do/app.yaml`
 4. Click **Next** through the wizard and **Launch App**
+
+## Running Locally
+
+To run locally with Add Character support:
+
+```bash
+python upload_imgchest.py --web
+```
+
+Then open http://localhost:5000
 
 ## After Updating character_image_mapping.json
 
 Run `python generate_mapping.py` locally, then commit and push `character_mapping.js` to trigger a new deployment.
-
-## Static Site Requirements Met
-
-- `index.html` at repo root (required for detection)
-- `catchall_document: index.html` for hash-based routing (#/saved, #/character/Name)
-- No server runtime needed—pure static files served via CDN

@@ -1,10 +1,11 @@
 # DigitalOcean App Platform configuration
 # Deploy: Connect this repo at cloud.digitalocean.com/apps
+# Replace REPO with your GitHub repo (e.g. username/CustomImageManager)
 name: imgmanager
 
-# Option A: Static site (simplest - run generate_mapping.py before deploy)
-static_sites:
+# Web service - runs Flask so Add Character API works
+services:
   - name: web
-    environment_slug: html
-    index_document: index.html
-    catchall_document: index.html
+    run_command: python app.py
+    environment_slug: python
+    http_port: 8080

@@ -3,9 +3,7 @@ import sys
 import os
 import csv
 import json
-import tkinter as tk
-from tkinter import filedialog
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, abort
 
 # ---------------------------------------------------------------------
 API_KEY = "QG2Em4u8ux4HtIYGUC04s2whSzhNFNqDwRqJD2dF1034102b"
@@ -23,6 +21,18 @@ def index(name=None):
 @app.route('/images/<filename>')
 def get_image(filename):
     return send_from_directory('character_images', filename)
+
+@app.route('/character_images/<path:filename>')
+def get_character_image(filename):
+    return send_from_directory('character_images', filename)
+
+# Serve static assets (CSS, JS, JSON, CSV)
+STATIC_FILES = {'styles.css', 'character_mapping.js', 'character_image_mapping.json', 'CharName.csv'}
+@app.route('/<filename>')
+def get_static(filename):
+    if filename in STATIC_FILES and os.path.exists(filename):
+        return send_from_directory('.', filename)
+    abort(404)
 
 @app.route('/characters')
 def get_characters():
@@ -274,6 +284,8 @@ if __name__ == "__main__":
         upload_to_imgchest(file_path)
     else:
         # GUI file selector
+        import tkinter as tk
+        from tkinter import filedialog
         print("No file provided via arguments. Opening file selector...")
         root = tk.Tk()
         root.withdraw()
