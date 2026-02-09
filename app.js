@@ -522,7 +522,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 function enableEditMode() {
-    if (!currentCharacter) return;
+    console.log('Edit mode toggled');
+    if (!currentCharacter) {
+        console.error('No character selected');
+        return;
+    }
     isEditing = true;
     
     // Populate form
@@ -536,6 +540,7 @@ function enableEditMode() {
     
     // Enable Gallery Editing (Show Delete Buttons)
     document.getElementById('customImagesGallery').classList.add('gallery-editing');
+    loadCustomImages(currentCharacter.name); // Reload to show delete buttons if they weren't rendered
 }
 
 function disableEditMode() {
