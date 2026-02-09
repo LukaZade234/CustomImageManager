@@ -189,16 +189,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 function navigateTo(path, char) {
     if (path === '/') {
         window.location.hash = '#/';
-        showHomePage();
     } else if (path === '/saved') {
         window.location.hash = '#/saved';
-        showSavedPage();
     } else if (path === '/add') {
         window.location.hash = '#/add';
-        showAddPage();
     } else if (path === '/character' && char) {
         window.location.hash = '#/character/' + encodeURIComponent(char.name);
-        selectCharacter(char);
     }
 }
 
@@ -480,7 +476,7 @@ async function loadCustomImages(name) {
         let customUrls = [];
         if (res.ok) {
             customUrls = await res.json();
-            galleryImages = galleryImages.concat(customUrls);
+            galleryImages = customUrls;
         }
         
         // Render Gallery (Custom Images only)
