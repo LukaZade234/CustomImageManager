@@ -1,11 +1,12 @@
 # DigitalOcean App Platform configuration
 # Deploy: Connect this repo at cloud.digitalocean.com/apps
-# Replace REPO with your GitHub repo (e.g. username/CustomImageManager)
+#
+# If the app was previously static, update the spec in the dashboard:
+# Settings → App Spec → Replace with this YAML → Save
 name: imgmanager
 
-# Web service - runs Flask so Add Character API works
 services:
   - name: web
-    run_command: python app.py
+    run_command: gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app
     environment_slug: python
     http_port: 8080
