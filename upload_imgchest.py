@@ -349,8 +349,9 @@ def add_custom_image():
         conversion_created_new_file = False
         final_path = temp_path
         
-        # Convert to PNG if not already
-        if not file.filename.lower().endswith('.png'):
+        # Convert to PNG if not already PNG or GIF
+        filename_lower = file.filename.lower()
+        if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
             converted_path = convert_to_png(temp_path)
             if converted_path:
                 final_path = converted_path
