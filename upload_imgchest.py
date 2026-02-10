@@ -341,6 +341,11 @@ def add_custom_image():
         if file.filename == '':
             continue
             
+        # Check for PNG extension
+        if not file.filename.lower().endswith('.png'):
+            errors.append(f"Skipped {file.filename}: Only PNG files are allowed.")
+            continue
+            
         # Save temporarily
         temp_path = os.path.join('.', 'temp_custom_' + file.filename)
         file.save(temp_path)
