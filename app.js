@@ -108,9 +108,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Custom Image Upload
-    document.getElementById('addCustomImageBtn').addEventListener('click', () => {
-        document.getElementById('customImageInput').click();
-    });
+    // document.getElementById('addCustomImageBtn').addEventListener('click', () => {
+    //     document.getElementById('customImageInput').click();
+    // });
 
     // Main Image Upload (Thumbnail)
     document.getElementById('mainImageInput').addEventListener('change', async (e) => {
