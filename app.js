@@ -163,13 +163,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const files = e.target.files;
         const formData = new FormData();
         
-        // Validate PNG only
+        // Validate PNG only - REMOVED: Auto-conversion implemented backend side
         for (let i = 0; i < files.length; i++) {
-            if (files[i].type !== 'image/png' && !files[i].name.toLowerCase().endsWith('.png')) {
-                alert(`File "${files[i].name}" is not a PNG. Only PNG images are allowed.`);
-                e.target.value = ''; // Clear selection
-                return;
-            }
+            // if (files[i].type !== 'image/png' && !files[i].name.toLowerCase().endsWith('.png')) {
+            //     alert(`File "${files[i].name}" is not a PNG. Only PNG images are allowed.`);
+            //     e.target.value = ''; // Clear selection
+            //     return;
+            // }
             formData.append('files', files[i]);
         }
         

@@ -8,6 +8,7 @@ from flask import Flask, request, jsonify, send_from_directory, abort
 # Import utility functions
 from github_utils import update_github_file
 from imgchest_utils import upload_to_imgchest
+from image_utils import convert_to_png
 
 app = Flask(__name__)
 
@@ -341,18 +342,28 @@ def add_custom_image():
         if file.filename == '':
             continue
             
-        # Check for PNG extension
-        if not file.filename.lower().endswith('.png'):
-            errors.append(f"Skipped {file.filename}: Only PNG files are allowed.")
-            continue
-            
         # Save temporarily
         temp_path = os.path.join('.', 'temp_custom_' + file.filename)
         file.save(temp_path)
         
+        conversion_created_new_file = False
+        final_path = temp_path
+        
+        # Convert to PNG if not already
+        if not file.filename.lower().endswith('.png'):
+            converted_path = convert_to_png(temp_path)
+            if converted_path:
+                final_path = converted_path
+                conversion_created_new_file = True
+            else:
+                errors.append(f"Failed to convert {file.filename} to PNG.")
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                continue
+        
         try:
-            # Reuse existing upload logic
-            result = upload_to_imgchest(temp_path)
+            # Upload to ImgChest
+            result = upload_to_imgchest(final_path)
             
             if result:
                 post_link, direct_link = result
@@ -362,8 +373,17 @@ def add_custom_image():
         except Exception as e:
             errors.append(f"Error uploading {file.filename}: {str(e)}")
         finally:
+            # Clean up files
             if os.path.exists(temp_path):
-                os.remove(temp_path)
+                try:
+                    os.remove(temp_path)
+                except:
+                    pass
+            if conversion_created_new_file and os.path.exists(final_path):
+                try:
+                    os.remove(final_path)
+                except:
+                    pass
     
     if not uploaded_links:
         return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
