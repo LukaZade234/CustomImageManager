@@ -28,7 +28,7 @@ def get_character_image(filename):
     return send_from_directory('character_images', filename)
 
 # Serve static assets (CSS, JS, JSON, CSV)
-STATIC_FILES = {'styles.css', 'character_mapping.js', 'character_image_mapping.json', 'CharName.csv', 'app.js'}
+STATIC_FILES = {'styles.css', 'character_mapping.js', 'character_image_mapping.json', 'CharName.csv', 'app.js', 'custom_images.json'}
 @app.route('/<filename>')
 def get_static(filename):
     if filename in STATIC_FILES and os.path.exists(filename):

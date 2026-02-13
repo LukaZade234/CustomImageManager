@@ -21,6 +21,8 @@ let currentCharacter = null;
 let savedCharacters = [];
 const IMAGE_BASE = 'character_images';
 const STORAGE_KEY = 'savedCharacters';
+let searchMatches = [];
+let visibleSearchLimit = 10;
 
 async function loadCharacterData() {
     // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
@@ -88,25 +90,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchInput = document.getElementById('charSearch');
     const suggestionsBox = document.getElementById('suggestions');
     const sortSelect = document.getElementById('sortSelect');
-
+    
     function updateSearch() {
         const query = searchInput.value.toLowerCase();
         const sortMode = sortSelect.value;
-        suggestionsBox.innerHTML = '';
-
+        
         if (query.length === 0) {
             suggestionsBox.style.display = 'none';
             return;
         }
 
         // Filter
-        let matches = allCharacters.filter(c => 
+        searchMatches = allCharacters.filter(c => 
             c.name.toLowerCase().includes(query) || 
             (c.series && c.series.toLowerCase().includes(query))
         );
 
         // Sort
-        matches.sort((a, b) => {
+        searchMatches.sort((a, b) => {
             if (sortMode === 'name') return a.name.localeCompare(b.name);
             if (sortMode === 'series') {
                 const sA = a.series || '';
@@ -118,25 +119,47 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const rB = parseInt(b.rank) || 999999;
                 return rA - rB;
             }
-            if (sortMode === 'kakera') {
-                const kA = parseInt(a.kakera) || 0;
-                const kB = parseInt(b.kakera) || 0;
-                return kB - kA; // Descending for Kakera
-            }
             return 0;
         });
 
-        // Limit results
-        matches = matches.slice(0, 10);
+        // Reset limit and render
+        visibleSearchLimit = 10;
+        renderSuggestions();
+        
+        // If Search Page is open, refresh it too
+        if (document.getElementById('searchPage').style.display === 'block') {
+            showSearchPage();
+        }
+    }
 
-        if (matches.length > 0) {
-            matches.forEach(char => {
+    function renderSuggestions() {
+        suggestionsBox.innerHTML = '';
+        
+        const visibleMatches = searchMatches.slice(0, visibleSearchLimit);
+
+        if (visibleMatches.length > 0) {
+            visibleMatches.forEach(char => {
                 const div = document.createElement('div');
                 div.className = 'suggestion-item';
                 div.innerHTML = `<strong>${char.name}</strong> <small>(${char.series || '—'})</small>`;
                 div.onclick = () => navigateTo('/character', char);
                 suggestionsBox.appendChild(div);
             });
+
+            // "Load More" Button
+            if (searchMatches.length > visibleSearchLimit) {
+                const remaining = searchMatches.length - visibleSearchLimit;
+                const loadMoreDiv = document.createElement('div');
+                loadMoreDiv.className = 'suggestion-item load-more';
+                loadMoreDiv.innerHTML = `<strong>Load More results...</strong> <small>(${remaining} remaining)</small>`;
+                loadMoreDiv.onclick = (e) => {
+                    e.stopPropagation(); // Prevent closing
+                    visibleSearchLimit += 10;
+                    renderSuggestions();
+                };
+                suggestionsBox.appendChild(loadMoreDiv);
+            }
+
             suggestionsBox.style.display = 'block';
         } else {
             suggestionsBox.style.display = 'none';
@@ -146,6 +169,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     searchInput.addEventListener('input', updateSearch);
     searchInput.addEventListener('focus', updateSearch); // Show results on click/focus
     sortSelect.addEventListener('change', updateSearch);
+    
+    // Enter key for Advanced Search
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            showSearchPage();
+            searchInput.blur();
+        }
+    });
 
     // Close suggestions on click outside
     document.addEventListener('click', (e) => {
@@ -250,6 +282,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         navigateTo('/');
     });
 
+    // Customs button functionality
+    document.getElementById('customsLink').addEventListener('click', function(e) {
+        e.preventDefault();
+        navigateTo('/customs');
+    });
+
     // Saved button functionality
     document.getElementById('savedLink').addEventListener('click', function(e) {
         e.preventDefault();
@@ -272,6 +310,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     handleRoute();
 });
 
+function showSearchPage() {
+    document.getElementById('selectedCharacter').style.display = 'none';
+    document.getElementById('customImagesSection').style.display = 'none';
+    document.getElementById('savedPage').style.display = 'none';
+    document.getElementById('addPage').style.display = 'none';
+    document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('suggestions').style.display = 'none';
+    document.getElementById('customsPage').style.display = 'none';
+    
+    const searchPage = document.getElementById('searchPage');
+    searchPage.style.display = 'block';
+    
+    const list = document.getElementById('searchResultsList');
+    list.innerHTML = '';
+    
+    document.getElementById('searchCount').textContent = `Found ${searchMatches.length} result${searchMatches.length !== 1 ? 's' : ''}`;
+    
+    // Render first 50
+    const toRender = searchMatches.slice(0, 50);
+    
+    if (toRender.length === 0) {
+        list.innerHTML = '<p style="text-align:center; padding: 20px;">No results found.</p>';
+        return;
+    }
+    
+    toRender.forEach(char => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.onclick = () => navigateTo('/character', char);
+        
+        const imgUrl = getImageUrl(char.image);
+        const img = document.createElement('img');
+        img.className = 'search-result-img';
+        img.src = imgUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2MiIHN0cm9rZS13aWR0aD0iMSI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48L3N2Zz4=';
+        
+        const info = document.createElement('div');
+        info.className = 'search-result-info';
+        info.innerHTML = `
+            <h3>${char.name}</h3>
+            <p><strong>Series:</strong> ${char.series || '—'}</p>
+            <p><strong>Rank:</strong> ${char.rank || '—'}</p>
+        `;
+        
+        item.appendChild(img);
+        item.appendChild(info);
+        list.appendChild(item);
+    });
+    
+    if (searchMatches.length > 50) {
+         const more = document.createElement('div');
+         more.style.textAlign = 'center';
+         more.style.padding = '20px';
+         more.style.color = '#666';
+         more.textContent = `And ${searchMatches.length - 50} more... (Refine search to see them)`;
+         list.appendChild(more);
+    }
+}
+
 function navigateTo(path, char) {
     if (path === '/') {
         window.location.hash = '#/';
@@ -279,6 +375,8 @@ function navigateTo(path, char) {
         window.location.hash = '#/saved';
     } else if (path === '/add') {
         window.location.hash = '#/add';
+    } else if (path === '/customs') {
+        window.location.hash = '#/customs';
     } else if (path === '/character' && char) {
         window.location.hash = '#/character/' + encodeURIComponent(char.name);
     }
@@ -291,6 +389,8 @@ function handleRoute() {
         showSavedPage();
     } else if (parts[0] === 'add') {
         showAddPage();
+    } else if (parts[0] === 'customs') {
+        showCustomsPage();
     } else if (parts[0] === 'character' && parts[1]) {
         const name = decodeURIComponent(parts[1]);
         const char = allCharacters.find(c => c.name === name) || savedCharacters.find(c => c.name === name);
@@ -309,6 +409,8 @@ function showHomePage() {
     document.getElementById('customImagesSection').style.display = 'none';
     document.getElementById('savedPage').style.display = 'none';
     document.getElementById('addPage').style.display = 'none';
+    document.getElementById('searchPage').style.display = 'none';
+    document.getElementById('customsPage').style.display = 'none';
     document.getElementById('uploadSection').style.display = 'block';
     document.getElementById('charSearch').value = '';
 }
@@ -318,6 +420,8 @@ function showAddPage() {
     document.getElementById('customImagesSection').style.display = 'none';
     document.getElementById('savedPage').style.display = 'none';
     document.getElementById('uploadSection').style.display = 'none';
+    document.getElementById('searchPage').style.display = 'none';
+    document.getElementById('customsPage').style.display = 'none';
     document.getElementById('addPage').style.display = 'block';
 }
 
@@ -326,6 +430,8 @@ function showSavedPage() {
     document.getElementById('customImagesSection').style.display = 'none';
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('addPage').style.display = 'none';
+    document.getElementById('searchPage').style.display = 'none';
+    document.getElementById('customsPage').style.display = 'none';
     document.getElementById('savedPage').style.display = 'block';
     displaySavedCharacters();
 }
@@ -809,6 +915,8 @@ function selectCharacter(char) {
     document.getElementById('uploadSection').style.display = 'none';
     document.getElementById('savedPage').style.display = 'none';
     document.getElementById('addPage').style.display = 'none';
+    document.getElementById('searchPage').style.display = 'none';
+    document.getElementById('customsPage').style.display = 'none';
     
     selectedDiv.style.display = 'flex';
     document.getElementById('customImagesSection').style.display = 'block';
@@ -902,5 +1010,72 @@ async function uploadCustomImages(files) {
         statusDiv.textContent = 'Error uploading images';
         statusDiv.style.color = 'red';
         showToast('Error uploading images', 'error');
+    }
+}
+
+async function showCustomsPage() {
+    document.getElementById('selectedCharacter').style.display = 'none';
+    document.getElementById('customImagesSection').style.display = 'none';
+    document.getElementById('savedPage').style.display = 'none';
+    document.getElementById('addPage').style.display = 'none';
+    document.getElementById('searchPage').style.display = 'none';
+    document.getElementById('uploadSection').style.display = 'none';
+    
+    const page = document.getElementById('customsPage');
+    page.style.display = 'block';
+    
+    const list = document.getElementById('customsList');
+    list.innerHTML = '<div class="spinner" style="margin: 20px auto;"></div>';
+    
+    try {
+        const res = await fetch('custom_images.json', { cache: 'no-cache' });
+        let customData = {};
+        if (res.ok) {
+            customData = await res.json();
+        }
+        
+        const names = Object.keys(customData);
+        // Filter out empty arrays just in case
+        const activeNames = names.filter(n => customData[n] && customData[n].length > 0);
+        
+        const customs = allCharacters.filter(c => activeNames.includes(c.name));
+        
+        list.innerHTML = '';
+        if (customs.length === 0) {
+            list.innerHTML = '<p style="text-align:center; padding: 20px;">No characters with custom images found.</p>';
+            return;
+        }
+        
+        // Sort by name
+        customs.sort((a, b) => a.name.localeCompare(b.name));
+        
+        customs.forEach(char => {
+             const item = document.createElement('div');
+             item.className = 'search-result-item';
+             item.onclick = () => navigateTo('/character', char);
+             
+             const count = customData[char.name] ? customData[char.name].length : 0;
+             
+             const imgUrl = getImageUrl(char.image);
+             const img = document.createElement('img');
+             img.className = 'search-result-img';
+             img.src = imgUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2MiIHN0cm9rZS13aWR0aD0iMSI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48L3N2Zz4=';
+
+             const info = document.createElement('div');
+             info.className = 'search-result-info';
+             info.innerHTML = `
+                <h3>${char.name}</h3>
+                <p><strong>Series:</strong> ${char.series || '—'}</p>
+                <p><strong>Custom Images:</strong> ${count}</p>
+             `;
+             
+             item.appendChild(img);
+             item.appendChild(info);
+             list.appendChild(item);
+        });
+        
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p style="text-align:center; color:red;">Failed to load custom images list.</p>';
     }
 }
