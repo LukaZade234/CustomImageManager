@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageOps
 import os
 
 def convert_to_png(input_path):
@@ -9,6 +9,9 @@ def convert_to_png(input_path):
     try:
         # Open the image
         with Image.open(input_path) as img:
+            # Apply EXIF rotation if present (fixes orientation issues)
+            img = ImageOps.exif_transpose(img)
+            
             # Convert to RGBA to handle transparency and ensure compatibility
             img = img.convert('RGBA')
             
