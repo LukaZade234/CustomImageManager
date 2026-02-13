@@ -497,6 +497,11 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     border: 1px solid #dee2e6;
     background-color: #f8f9fa;
     transition: transform 0.2s;
+    /* Rendering fixes */
+    image-rendering: auto;
+    image-rendering: high-quality;
+    transform: translateZ(0); /* Fixes low-res rasterization on some browsers */
+    backface-visibility: hidden;
 }
 .preview-thumb:hover {
     transform: scale(1.05);
