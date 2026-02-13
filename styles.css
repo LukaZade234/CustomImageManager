@@ -503,6 +503,17 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     border-color: #007bff;
 }
 
+/* Customs Page Specifics */
+#customsList .search-result-item {
+    align-items: stretch;
+}
+#customsList .search-result-img {
+    width: 160px;
+    height: auto;
+    min-height: 100%;
+    object-fit: cover;
+}
+
 /* Spinner */
 .spinner {
     border: 2px solid rgba(255,255,255,0.3);
