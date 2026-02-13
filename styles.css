@@ -492,14 +492,14 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 .preview-thumb {
     width: 120px;
     height: 120px;
-    object-fit: cover; /* Back to filling the square */
+    object-fit: cover;
     border-radius: 4px;
     border: 1px solid #dee2e6;
     background-color: #f8f9fa;
     transition: transform 0.2s;
-    /* Rendering fixes */
-    image-rendering: -webkit-optimize-contrast; /* sharper upscaling/downscaling */
-    image-rendering: crisp-edges;
+    /* Revert to smooth rendering */
+    image-rendering: auto;
+    image-rendering: high-quality;
     transform: translateZ(0); 
     backface-visibility: hidden;
 }
