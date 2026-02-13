@@ -1054,7 +1054,8 @@ async function showCustomsPage() {
              item.className = 'search-result-item';
              item.onclick = () => navigateTo('/character', char);
              
-             const count = customData[char.name] ? customData[char.name].length : 0;
+             const charImages = customData[char.name] || [];
+             const count = charImages.length;
              
              const imgUrl = getImageUrl(char.image);
              const img = document.createElement('img');
@@ -1063,11 +1064,24 @@ async function showCustomsPage() {
 
              const info = document.createElement('div');
              info.className = 'search-result-info';
-             info.innerHTML = `
+             
+             let infoHtml = `
                 <h3>${char.name}</h3>
                 <p><strong>Series:</strong> ${char.series || '—'}</p>
                 <p><strong>Custom Images:</strong> ${count}</p>
              `;
+             
+             if (count > 0) {
+                 const previews = charImages.slice(0, 3);
+                 let previewHtml = '<div class="custom-preview-row">';
+                 previews.forEach(url => {
+                     previewHtml += `<img src="${url}" class="preview-thumb" alt="Preview">`;
+                 });
+                 previewHtml += '</div>';
+                 infoHtml += previewHtml;
+             }
+             
+             info.innerHTML = infoHtml;
              
              item.appendChild(img);
              item.appendChild(info);
