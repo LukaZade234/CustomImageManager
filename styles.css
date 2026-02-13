@@ -490,8 +490,8 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     gap: 8px;
 }
 .preview-thumb {
-    width: 90px;
-    height: 90px;
+    width: 120px;
+    height: 120px;
     object-fit: cover;
     border-radius: 4px;
     border: 1px solid #dee2e6;
