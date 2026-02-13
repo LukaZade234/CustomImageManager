@@ -217,7 +217,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     transform: translateY(-1px);
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
-#editButton { /* Removed specific styling, uses .action-btn class */ }
+#editButton { /* Removed specific styling */ }
 
 #backButton {
     position: absolute;
@@ -391,3 +391,52 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     border-radius: 4px;
     font-size: 1em;
 }
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    top: 80px; /* Below navbar */
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.toast {
+    background: white;
+    color: #333;
+    padding: 12px 20px;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    min-width: 250px;
+    animation: slideIn 0.3s ease-out forwards;
+    border-left: 4px solid #007bff;
+    font-size: 0.95em;
+}
+.toast.success { border-left-color: #28a745; }
+.toast.error { border-left-color: #dc3545; }
+.toast.info { border-left-color: #17a2b8; }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes fadeOut {
+    to { opacity: 0; transform: translateX(10%); }
+}
+
+/* Spinner */
+.spinner {
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top: 2px solid white;
+    width: 14px;
+    height: 14px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }

@@ -1,3 +1,20 @@
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    // Auto remove
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+        toast.addEventListener('animationend', () => {
+            toast.remove();
+        });
+    }, 3000);
+}
+
 // Global State
 let allCharacters = [];
 let currentCharacter = null;
@@ -143,13 +160,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 // Update UI
                 selectCharacter(currentCharacter);
-                alert('Main image updated!');
+                showToast('Main image updated!', 'success');
             } else {
-                alert(data.error || 'Failed to set main image');
+                showToast(data.error || 'Failed to set main image', 'error');
             }
         } catch (err) {
             console.error(err);
-            alert('Error uploading main image');
+            showToast('Error uploading main image', 'error');
         }
         
         imgDisplay.style.opacity = originalOpacity;
@@ -561,7 +578,7 @@ async function saveEdit() {
     const newRank = document.getElementById('editCharRank').value.trim();
     
     if (!newName) {
-        alert('Name cannot be empty');
+        showToast('Name cannot be empty', 'error');
         return;
     }
     
@@ -575,7 +592,7 @@ async function saveEdit() {
     // Disable button
     const btn = document.getElementById('saveEditBtn');
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.innerHTML = '<span class="spinner"></span> Saving...';
     
     try {
         const res = await fetch('/api/edit-character', {
@@ -613,13 +630,13 @@ async function saveEdit() {
                 selectCharacter(currentCharacter);
             }
             
-            alert('Character updated!');
+            showToast('Character updated!', 'success');
         } else {
-            alert(data.error || 'Failed to update character');
+            showToast(data.error || 'Failed to update character', 'error');
         }
     } catch (e) {
         console.error(e);
-        alert('Error saving changes');
+        showToast('Error saving changes', 'error');
     }
     
     btn.disabled = false;
@@ -642,13 +659,14 @@ async function deleteCustomImage(url) {
         if (res.ok) {
             // Refresh gallery
             loadCustomImages(currentCharacter.name);
+            showToast('Image deleted', 'success');
         } else {
             const data = await res.json();
-            alert(data.error || 'Failed to delete image');
+            showToast(data.error || 'Failed to delete image', 'error');
         }
     } catch (e) {
         console.error(e);
-        alert('Error deleting image');
+        showToast('Error deleting image', 'error');
     }
 }
 
@@ -794,6 +812,7 @@ async function handleAddCharacter(e) {
     }
     const btn = document.getElementById('addCharSubmitBtn');
     btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Adding...';
     try {
         const res = await fetch('/api/add-character', {
             method: 'POST',
@@ -813,6 +832,7 @@ async function handleAddCharacter(e) {
         showAddCharStatus('Could not reach server. Run the app with Python (python upload_imgchest.py --web) to add characters.', 'error');
     }
     btn.disabled = false;
+    btn.textContent = 'Add Character';
 }
 
 function showAddCharStatus(msg, type) {
