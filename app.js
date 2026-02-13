@@ -694,7 +694,16 @@ function enableEditMode() {
     
     // Enable Gallery Editing (Show Delete Buttons)
     document.getElementById('customImagesGallery').classList.add('gallery-editing');
-    loadCustomImages(currentCharacter.name); // Reload to show delete buttons if they weren't rendered
+    loadCustomImages(currentCharacter.name); 
+    
+    // Allow clicking main image to change it
+    const img = document.getElementById('charImageDisplay');
+    img.style.cursor = 'pointer';
+    img.onclick = () => document.getElementById('mainImageInput').click();
+    img.title = "Click to replace main image";
+    
+    // Hide Save Button during edit to avoid confusion
+    document.getElementById('saveButton').style.display = 'none';
 }
 
 function disableEditMode() {
@@ -702,6 +711,18 @@ function disableEditMode() {
     document.getElementById('charDisplayMode').style.display = 'block';
     document.getElementById('charEditMode').style.display = 'none';
     document.getElementById('customImagesGallery').classList.remove('gallery-editing');
+    
+    document.getElementById('saveButton').style.display = 'block'; // Show save button again
+    
+    // Restore Main Image behavior
+    const img = document.getElementById('charImageDisplay');
+    if (currentCharacter.image) {
+        img.onclick = () => openModal(0);
+        img.title = currentCharacter.name;
+    } else {
+        img.onclick = () => document.getElementById('mainImageInput').click();
+        img.title = "Click to upload main image";
+    }
 }
 
 async function saveEdit() {
@@ -865,14 +886,6 @@ async function loadCustomImages(name) {
             gallery.classList.remove('gallery-editing');
         }
         
-        // Reset main image cursor since it's no longer clickable
-        // Only if we have a real main image (not a placeholder)
-        const mainImg = document.getElementById('charImageDisplay');
-        if (mainImg && currentCharacter && currentCharacter.image) {
-            mainImg.style.cursor = 'default';
-            mainImg.onclick = null;
-        }
-
     } catch (e) {
         console.error('Error loading custom images:', e);
     }
