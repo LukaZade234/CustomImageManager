@@ -23,6 +23,7 @@ const IMAGE_BASE = 'character_images';
 const STORAGE_KEY = 'savedCharacters';
 let searchMatches = [];
 let visibleSearchLimit = 10;
+let cachedCustoms = [];
 
 async function loadCharacterData() {
     // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
@@ -230,6 +231,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         uploadCustomImages(e.target.files);
         e.target.value = ''; // Reset input
     });
+
+    // Customs Page Event Listeners
+    document.getElementById('customsSearch').addEventListener('input', renderCustoms);
+    document.getElementById('customsSort').addEventListener('change', renderCustoms);
+    document.getElementById('customsSeriesFilter').addEventListener('change', renderCustoms);
 
     // ... Main Image Upload ...
     document.getElementById('mainImageInput').addEventListener('change', async (e) => {
@@ -1035,61 +1041,119 @@ async function showCustomsPage() {
         }
         
         const names = Object.keys(customData);
-        // Filter out empty arrays just in case
+        // Filter out empty arrays
         const activeNames = names.filter(n => customData[n] && customData[n].length > 0);
         
-        const customs = allCharacters.filter(c => activeNames.includes(c.name));
+        // Enrich characters
+        cachedCustoms = allCharacters
+            .filter(c => activeNames.includes(c.name))
+            .map(c => ({
+                ...c,
+                customImages: customData[c.name] || [],
+                customCount: (customData[c.name] || []).length
+            }));
+            
+        // Populate Series Filter
+        const seriesSet = new Set(cachedCustoms.map(c => c.series).filter(Boolean));
+        const seriesList = Array.from(seriesSet).sort();
         
-        list.innerHTML = '';
-        if (customs.length === 0) {
-            list.innerHTML = '<p style="text-align:center; padding: 20px;">No characters with custom images found.</p>';
-            return;
-        }
-        
-        // Sort by name
-        customs.sort((a, b) => a.name.localeCompare(b.name));
-        
-        customs.forEach(char => {
-             const item = document.createElement('div');
-             item.className = 'search-result-item';
-             item.onclick = () => navigateTo('/character', char);
-             
-             const charImages = customData[char.name] || [];
-             const count = charImages.length;
-             
-             const imgUrl = getImageUrl(char.image);
-             const img = document.createElement('img');
-             img.className = 'search-result-img';
-             img.src = imgUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2MiIHN0cm9rZS13aWR0aD0iMSI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48L3N2Zz4=';
-
-             const info = document.createElement('div');
-             info.className = 'search-result-info';
-             
-             let infoHtml = `
-                <h3>${char.name}</h3>
-                <p><strong>Series:</strong> ${char.series || '—'}</p>
-                <p><strong>Custom Images:</strong> ${count}</p>
-             `;
-             
-             if (count > 0) {
-                 const previews = charImages.slice(0, 3);
-                 let previewHtml = '<div class="custom-preview-row">';
-                 previews.forEach(url => {
-                     previewHtml += `<img src="${url}" class="preview-thumb" alt="Preview">`;
-                 });
-                 previewHtml += '</div>';
-                 infoHtml += previewHtml;
-             }
-             
-             info.innerHTML = infoHtml;
-             
-             item.appendChild(img);
-             item.appendChild(info);
-             list.appendChild(item);
+        const seriesSelect = document.getElementById('customsSeriesFilter');
+        // Save current selection if re-rendering? No, usually fresh open resets.
+        seriesSelect.innerHTML = '<option value="all">All Series</option>';
+        seriesList.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            seriesSelect.appendChild(opt);
         });
+        
+        renderCustoms();
         
     } catch (e) {
         console.error(e);
         list.innerHTML = '<p style="text-align:center; color:red;">Failed to load custom images list.</p>';
     }
+}
+
+function renderCustoms() {
+    const list = document.getElementById('customsList');
+    const searchVal = document.getElementById('customsSearch').value.toLowerCase();
+    const sortMode = document.getElementById('customsSort').value;
+    const seriesFilter = document.getElementById('customsSeriesFilter').value;
+    
+    // Filter
+    let filtered = cachedCustoms.filter(char => {
+        // Search
+        if (searchVal) {
+            const inName = char.name.toLowerCase().includes(searchVal);
+            const inSeries = (char.series || '').toLowerCase().includes(searchVal);
+            if (!inName && !inSeries) return false;
+        }
+        // Series Filter
+        if (seriesFilter !== 'all') {
+            if (char.series !== seriesFilter) return false;
+        }
+        return true;
+    });
+    
+    // Sort
+    filtered.sort((a, b) => {
+        if (sortMode === 'name_asc') return a.name.localeCompare(b.name);
+        if (sortMode === 'name_desc') return b.name.localeCompare(a.name);
+        if (sortMode === 'series_asc') return (a.series || '').localeCompare(b.series || '');
+        if (sortMode === 'rank_asc') {
+             const rA = parseInt(a.rank) || 999999;
+             const rB = parseInt(b.rank) || 999999;
+             return rA - rB;
+        }
+        if (sortMode === 'count_desc') return b.customCount - a.customCount;
+        if (sortMode === 'count_asc') return a.customCount - b.customCount;
+        return 0;
+    });
+    
+    // Render
+    list.innerHTML = '';
+    const countEl = document.getElementById('customsCount');
+    if (countEl) countEl.textContent = `Found ${filtered.length} character${filtered.length !== 1 ? 's' : ''}`;
+    
+    if (filtered.length === 0) {
+        list.innerHTML = '<p style="text-align:center; padding: 20px;">No characters found matching filters.</p>';
+        return;
+    }
+    
+    filtered.forEach(char => {
+         const item = document.createElement('div');
+         item.className = 'search-result-item';
+         item.onclick = () => navigateTo('/character', char);
+         
+         const imgUrl = getImageUrl(char.image);
+         const img = document.createElement('img');
+         img.className = 'search-result-img';
+         img.src = imgUrl || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2MiIHN0cm9rZS13aWR0aD0iMSI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48L3N2Zz4=';
+
+         const info = document.createElement('div');
+         info.className = 'search-result-info';
+         
+         let infoHtml = `
+            <h3>${char.name}</h3>
+            <p><strong>Series:</strong> ${char.series || '—'}</p>
+            <p><strong>Custom Images:</strong> ${char.customCount}</p>
+         `;
+         
+         if (char.customCount > 0) {
+             const previews = char.customImages.slice(0, 3);
+             let previewHtml = '<div class="custom-preview-row">';
+             previews.forEach(url => {
+                 previewHtml += `<img src="${url}" class="preview-thumb" alt="Preview">`;
+             });
+             previewHtml += '</div>';
+             infoHtml += previewHtml;
+         }
+         
+         info.innerHTML = infoHtml;
+         
+         item.appendChild(img);
+         item.appendChild(info);
+         list.appendChild(item);
+    });
 }
