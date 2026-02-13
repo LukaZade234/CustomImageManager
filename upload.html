@@ -118,12 +118,13 @@
 
         <div id="savedPage">
             <h2>Saved Characters</h2>
+            <p style="color: #666; margin-bottom: 20px;">Your personal collection of bookmarked characters.</p>
             <div id="savedCharactersContainer" class="saved-characters-grid"></div>
         </div>
 
         <div id="addPage">
-            <h2>Add Character</h2>
-            <p style="color: #666; margin-bottom: 20px;">Add a new character directly to CharName.csv.</p>
+            <h2>Add New Character</h2>
+            <p style="color: #666; margin-bottom: 20px;">Register a new character into the database to enable image uploads and management.</p>
             <form id="addCharForm" class="add-char-form">
                 <div class="form-group">
                     <label for="addCharName">Name *</label>
@@ -147,8 +148,18 @@
         </div>
 
         <div id="uploadSection">
-            <h2>ImgManager</h2>
-            <p style="color: #666; margin-bottom: 30px;">Search for characters above and save your favorites. Loads data from <code>character_image_mapping.json</code>. Run <code>python generate_mapping.py</code> when you update the mapping.</p>
+            <h2>Welcome to ImgManager</h2>
+            <p style="color: #666; margin-bottom: 20px;">Manage your character collection with ease. Search, customize, and organize your favorite characters.</p>
+            
+            <div style="text-align: left; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef;">
+                <h4 style="margin-top: 0; color: #333;">How to use:</h4>
+                <ul style="color: #555; line-height: 1.6; padding-left: 20px;">
+                    <li><strong>Search:</strong> Use the search bar above to find characters by Name or Series.</li>
+                    <li><strong>Customize:</strong> Click a character to upload custom images (Drag & Drop supported!) or change their thumbnail.</li>
+                    <li><strong>Save:</strong> Click the bookmark icon <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg> to add characters to your personal list.</li>
+                    <li><strong>Add:</strong> Missing a character? Use "Add Character" to register them in the database.</li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -165,6 +176,6 @@
     <div id="toast-container"></div>
 
     <script src="character_mapping.js"></script>
-    <script src="app.js?v=16"></script>
+    <script src="app.js?v=17"></script>
 </body>
 </html>
