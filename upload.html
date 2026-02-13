@@ -18,8 +18,14 @@
             <span>ImgManager</span>
         </a>
 
-        <div class="navbar-center search-container">
+        <div class="navbar-center search-container" style="display: flex; gap: 10px;">
             <input type="text" id="charSearch" placeholder="Search characters..." autocomplete="off">
+            <select id="sortSelect" class="sort-dropdown" title="Sort results">
+                <option value="name">Name (A-Z)</option>
+                <option value="series">Series (A-Z)</option>
+                <option value="rank">Rank (High-Low)</option>
+                <option value="kakera">Kakera (High-Low)</option>
+            </select>
             <div id="suggestions" class="suggestions-box"></div>
         </div>
 
@@ -103,6 +109,9 @@
             </div>
             <input type="file" id="customImageInput" accept="image/*" multiple style="display: none;">
             <input type="file" id="mainImageInput" accept="image/*" style="display: none;">
+            <p style="text-align: center; color: #6c757d; margin: 10px 0; font-size: 0.9em; border: 1px dashed #ccc; padding: 10px; border-radius: 5px;">
+                Drag & Drop images here or click "Add Custom Image"
+            </p>
             <div id="customImageStatus" style="font-size: 0.9em; margin-bottom: 10px;"></div>
             <div id="customImagesGallery" style="display: flex; flex-wrap: wrap; gap: 15px;"></div>
         </div>
@@ -156,6 +165,6 @@
     <div id="toast-container"></div>
 
     <script src="character_mapping.js"></script>
-    <script src="app.js?v=12"></script>
+    <script src="app.js?v=16"></script>
 </body>
 </html>

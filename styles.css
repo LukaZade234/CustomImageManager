@@ -440,3 +440,34 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     vertical-align: middle;
 }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Drag and Drop Styles */
+#customImagesSection {
+    transition: border-color 0.3s, background-color 0.3s;
+    border: 2px dashed transparent;
+}
+#customImagesSection.drag-over {
+    border-color: #007bff;
+    background-color: #f1f8ff;
+}
+
+/* Sort Dropdown */
+.sort-dropdown {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 20px;
+    background-color: #f8f9fa;
+    color: #495057;
+    font-size: 0.9em;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+    height: 38px; /* Match search input height if possible */
+}
+.sort-dropdown:hover {
+    background-color: #e2e6ea;
+}
+.sort-dropdown:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}

@@ -87,9 +87,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const searchInput = document.getElementById('charSearch');
     const suggestionsBox = document.getElementById('suggestions');
+    const sortSelect = document.getElementById('sortSelect');
 
-    searchInput.addEventListener('input', function() {
-        const query = this.value.toLowerCase();
+    function updateSearch() {
+        const query = searchInput.value.toLowerCase();
+        const sortMode = sortSelect.value;
         suggestionsBox.innerHTML = '';
 
         if (query.length === 0) {
@@ -97,11 +99,35 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Filter logic: name or series contains query
-        const matches = allCharacters.filter(c => 
+        // Filter
+        let matches = allCharacters.filter(c => 
             c.name.toLowerCase().includes(query) || 
             (c.series && c.series.toLowerCase().includes(query))
-        ).slice(0, 10);
+        );
+
+        // Sort
+        matches.sort((a, b) => {
+            if (sortMode === 'name') return a.name.localeCompare(b.name);
+            if (sortMode === 'series') {
+                const sA = a.series || '';
+                const sB = b.series || '';
+                return sA.localeCompare(sB);
+            }
+            if (sortMode === 'rank') {
+                const rA = parseInt(a.rank) || 999999;
+                const rB = parseInt(b.rank) || 999999;
+                return rA - rB;
+            }
+            if (sortMode === 'kakera') {
+                const kA = parseInt(a.kakera) || 0;
+                const kB = parseInt(b.kakera) || 0;
+                return kB - kA; // Descending for Kakera
+            }
+            return 0;
+        });
+
+        // Limit results
+        matches = matches.slice(0, 10);
 
         if (matches.length > 0) {
             matches.forEach(char => {
@@ -115,7 +141,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             suggestionsBox.style.display = 'none';
         }
-    });
+    }
+
+    searchInput.addEventListener('input', updateSearch);
+    searchInput.addEventListener('focus', updateSearch); // Show results on click/focus
+    sortSelect.addEventListener('change', updateSearch);
 
     // Close suggestions on click outside
     document.addEventListener('click', (e) => {
@@ -125,12 +155,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Custom Image Upload
-    // document.getElementById('addCustomImageBtn').addEventListener('click', () => {
-    //     document.getElementById('customImageInput').click();
-    // });
+    // Drop Zone Logic
+    const dropZone = document.getElementById('customImagesSection');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+    
+    function highlight(e) {
+        dropZone.classList.add('drag-over');
+    }
+    
+    function unhighlight(e) {
+        dropZone.classList.remove('drag-over');
+    }
+    
+    dropZone.addEventListener('drop', handleDrop, false);
+    
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+            uploadCustomImages(files);
+        }
+    }
 
-    // Main Image Upload (Thumbnail)
+    document.getElementById('customImageInput').addEventListener('change', async (e) => {
+        if (!e.target.files.length) return;
+        uploadCustomImages(e.target.files);
+        e.target.value = ''; // Reset input
+    });
+
+    // ... Main Image Upload ...
     document.getElementById('mainImageInput').addEventListener('change', async (e) => {
+
         if (!e.target.files.length) return;
         if (!currentCharacter) return;
         
@@ -170,57 +241,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         imgDisplay.style.opacity = originalOpacity;
-        e.target.value = '';
-    });
-
-    document.getElementById('customImageInput').addEventListener('change', async (e) => {
-        if (!e.target.files.length) return;
-        if (!currentCharacter) return;
-        
-        const files = e.target.files;
-        const formData = new FormData();
-        
-        // Validate PNG only - REMOVED: Auto-conversion implemented backend side
-        for (let i = 0; i < files.length; i++) {
-            // if (files[i].type !== 'image/png' && !files[i].name.toLowerCase().endsWith('.png')) {
-            //     alert(`File "${files[i].name}" is not a PNG. Only PNG images are allowed.`);
-            //     e.target.value = ''; // Clear selection
-            //     return;
-            // }
-            formData.append('files', files[i]);
-        }
-        
-        formData.append('character_name', currentCharacter.name);
-        
-        const statusDiv = document.getElementById('customImageStatus');
-        const fileCount = files.length;
-        statusDiv.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}... (This may take a moment)`;
-        statusDiv.style.color = '#666';
-        
-        try {
-            const res = await fetch('/api/custom-image', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                statusDiv.textContent = `${data.message}`;
-                statusDiv.style.color = 'green';
-                loadCustomImages(currentCharacter.name); // Refresh gallery
-            } else {
-                statusDiv.textContent = data.error || 'Upload failed';
-                statusDiv.style.color = 'red';
-                if (data.details) {
-                    console.error('Upload errors:', data.details);
-                }
-            }
-        } catch (err) {
-            console.error(err);
-            statusDiv.textContent = 'Error uploading images';
-            statusDiv.style.color = 'red';
-        }
-        
         e.target.value = '';
     });
 
@@ -748,7 +768,7 @@ async function loadCustomImages(name) {
 
 function selectCharacter(char) {
     currentCharacter = char;
-    document.getElementById('charSearch').value = char.name;
+    document.getElementById('charSearch').value = ''; // Clear search bar
     document.getElementById('suggestions').style.display = 'none';
     
     const selectedDiv = document.getElementById('selectedCharacter');
@@ -840,4 +860,47 @@ function showAddCharStatus(msg, type) {
     el.textContent = msg;
     el.className = type;
     el.style.display = 'block';
+}
+
+async function uploadCustomImages(files) {
+    if (!currentCharacter) return;
+    
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+    }
+    
+    formData.append('character_name', currentCharacter.name);
+    
+    const statusDiv = document.getElementById('customImageStatus');
+    const fileCount = files.length;
+    statusDiv.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}... (This may take a moment)`;
+    statusDiv.style.color = '#666';
+    
+    try {
+        const res = await fetch('/api/custom-image', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            statusDiv.textContent = `${data.message}`;
+            statusDiv.style.color = 'green';
+            loadCustomImages(currentCharacter.name); // Refresh gallery
+            showToast(`${fileCount} image(s) uploaded`, 'success');
+        } else {
+            statusDiv.textContent = data.error || 'Upload failed';
+            statusDiv.style.color = 'red';
+            showToast('Upload failed', 'error');
+            if (data.details) {
+                console.error('Upload errors:', data.details);
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        statusDiv.textContent = 'Error uploading images';
+        statusDiv.style.color = 'red';
+        showToast('Error uploading images', 'error');
+    }
 }
