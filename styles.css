@@ -263,8 +263,8 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     margin-top: 20px;
 }
 .saved-character-card {
-    width: fit-content;
-    min-width: 140px;
+    width: calc(25% - 15px);
+    box-sizing: border-box;
     background: #f8f9fa;
     border-radius: 10px;
     padding: 15px;
@@ -278,7 +278,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 }
 .saved-card-image-wrap {
     position: relative;
-    width: 140px;
+    width: 100%;
     margin: 0 auto 10px;
 }
 .saved-character-card img {
@@ -623,6 +623,9 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     /* Saved Grid */
     .saved-characters-grid {
         justify-content: center;
+    }
+    .saved-character-card {
+        width: calc(50% - 10px);
     }
     
     /* Custom Images */
