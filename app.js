@@ -874,8 +874,12 @@ function toggleReorderMode() {
         items.forEach(item => {
             item.setAttribute('draggable', 'false');
             item.classList.remove('draggable');
+            item.classList.remove('dragging'); // Ensure dragging class is removed
             removeDragListeners(item);
         });
+        
+        // Clear global drag state just in case
+        draggedItem = null;
     }
 }
 
