@@ -326,8 +326,13 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     margin: 0;
     color: #212529;
     font-size: 1.1em;
-    white-space: nowrap;
-    min-width: min-content;
+    /* Allow wrapping with 2-line limit */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
 }
 .empty-saved {
     text-align: center;
