@@ -210,7 +210,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     function highlight(e) {
-        dropZone.classList.add('drag-over');
+        // Only highlight if dragging files from OS
+        if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+            dropZone.classList.add('drag-over');
+        }
     }
     
     function unhighlight(e) {
