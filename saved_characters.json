@@ -6,19 +6,6 @@
     "series": "Chainsaw Man"
   },
   {
-    "image": "Rem.png",
-    "name": "Rem",
-    "rank": "3",
-    "series": "Re:Zero kara Hajimeru Isekai Seikatsu"
-  },
-  {
-    "name": "Zero Two",
-    "series": "DARLING in the FRANXX",
-    "rank": "1",
-    "kakera": "1161",
-    "image": "Zero_Two.png"
-  },
-  {
     "name": "Fors Wall",
     "series": "",
     "rank": "1002",
@@ -61,17 +48,17 @@
     "image": "Saber.png"
   },
   {
-    "name": "Mona",
-    "series": "Genshin Impact",
-    "rank": "810",
-    "kakera": "252",
-    "image": "Mona.png"
-  },
-  {
     "name": "Audrey Hall",
     "series": "",
     "rank": "1001",
     "kakera": "0",
     "image": "https://cdn.imgchest.com/files/d36c3ed8baed.png"
+  },
+  {
+    "name": "Klein Moretti",
+    "series": "Lord of the Mysteries",
+    "rank": "5272",
+    "kakera": "0",
+    "image": "https://cdn.imgchest.com/files/398c31e42cdc.png"
   }
 ]
