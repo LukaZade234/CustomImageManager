@@ -1368,11 +1368,26 @@ function selectCharacter(char) {
     // Removed duplicate loadCustomImages(char.name) call
 }
 
+function updateAddImageLabel(input) {
+    const label = document.getElementById('addCharImageLabel');
+    if (input.files && input.files.length > 0) {
+        label.textContent = input.files[0].name;
+        label.style.color = '#28a745';
+        label.style.fontWeight = 'bold';
+    } else {
+        label.textContent = 'Click to select image (can be added later)';
+        label.style.color = '#6c757d';
+        label.style.fontWeight = 'normal';
+    }
+}
+
 async function handleAddCharacter(e) {
     e.preventDefault();
     const name = document.getElementById('addCharName').value.trim();
     const series = document.getElementById('addCharSeries').value.trim();
-    const kakera = document.getElementById('addCharKakera').value.trim() || '0';
+    const rank = document.getElementById('addCharRank').value.trim();
+    const imageInput = document.getElementById('addCharImage');
+    
     if (!name) {
         showAddCharStatus('Please enter a name.', 'error');
         return;
@@ -1381,26 +1396,40 @@ async function handleAddCharacter(e) {
         showAddCharStatus(`Character "${name}" already exists.`, 'error');
         return;
     }
+    
     const btn = document.getElementById('addCharSubmitBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Adding...';
+    
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('series', series);
+    formData.append('rank', rank);
+    
+    if (imageInput.files.length > 0) {
+        formData.append('image', imageInput.files[0]);
+    }
+    
     try {
         const res = await fetch('/api/add-character', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, series, kakera })
+            body: formData
         });
         const data = await res.json();
+        
         if (res.ok) {
-            allCharacters.push({ name, image: '', series, rank: '' });
+            showAddCharStatus(`Added "${name}" successfully.`, 'success');
             document.getElementById('addCharForm').reset();
-            document.getElementById('addCharKakera').value = '0';
-            showAddCharStatus(`Added "${name}" to CharName.csv.`, 'success');
+            updateAddImageLabel(imageInput); // Reset label
+            
+            // Reload to get fresh data including new image
+            await loadCharacterData();
         } else {
             showAddCharStatus(data.error || 'Failed to add character.', 'error');
         }
     } catch (err) {
-        showAddCharStatus('Could not reach server. Run the app with Python (python upload_imgchest.py --web) to add characters.', 'error');
+        console.error(err);
+        showAddCharStatus('Could not reach server.', 'error');
     }
     btn.disabled = false;
     btn.textContent = 'Add Character';

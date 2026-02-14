@@ -170,16 +170,23 @@ def save_character():
 @app.route('/api/add-character', methods=['POST'])
 def add_character():
     """Append a new character to CharName.csv (Local + GitHub Sync)."""
-    data = request.get_json()
-    if not data or 'name' not in data:
-        return jsonify({'error': 'Name is required'}), 400
-    
-    name = str(data.get('name', '')).strip()
+    # Switch to request.form for multipart/form-data support
+    name = request.form.get('name', '').strip()
     if not name:
-        return jsonify({'error': 'Name is required'}), 400
-    
-    series = str(data.get('series', '')).strip()
-    kakera = str(data.get('kakera', '0')).strip() or '0'
+        # Fallback to JSON if not form data (for backward compatibility if needed)
+        json_data = request.get_json(silent=True)
+        if json_data:
+            name = str(json_data.get('name', '')).strip()
+            series = str(json_data.get('series', '')).strip()
+            rank = str(json_data.get('rank', '')).strip()
+        else:
+            return jsonify({'error': 'Name is required'}), 400
+    else:
+        series = request.form.get('series', '').strip()
+        rank = request.form.get('rank', '').strip()
+
+    # Kakera is removed from UI, default to 0 for CSV compatibility
+    kakera = '0'
     
     # --- 1. Update Local Files (Ephemeral on Cloud) ---
     csv_path = 'CharName.csv'
@@ -187,27 +194,23 @@ def add_character():
         return jsonify({'error': 'CharName.csv not found'}), 500
     
     try:
-        # Read and Append to CSV
+        # Read existing to check duplicates
         rows = []
-        max_rank = 0
         with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             fieldnames = reader.fieldnames
             for row in reader:
                 rows.append(row)
-                try:
-                    r = int(row.get('rank', 0))
-                    if r > max_rank:
-                        max_rank = r
-                except (ValueError, TypeError):
-                    pass
         
         if any(r.get('name') == name for r in rows):
             return jsonify({'error': f'Character "{name}" already exists'}), 400
         
-        max_rank += 1
+        # Rank Logic: Only assign if provided, otherwise leave blank
+        # Previously auto-assigned max_rank + 1
+        final_rank = rank if rank else ""
+        
         new_row = {
-            'rank': str(max_rank),
+            'rank': final_rank,
             'name': name,
             'series': series,
             'kakera': kakera
@@ -220,6 +223,24 @@ def add_character():
             writer.writeheader()
             writer.writerows(rows)
         
+        # Handle Main Image Upload
+        image_url = ""
+        if 'image' in request.files:
+            file = request.files['image']
+            if file.filename != '':
+                # Save temporarily
+                temp_path = os.path.join('.', 'temp_add_' + file.filename)
+                file.save(temp_path)
+                try:
+                    result = upload_to_imgchest(temp_path)
+                    if result:
+                        _, image_url = result
+                except Exception as e:
+                    print(f"Image upload failed: {e}")
+                finally:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+
         # Update Mapping JSON
         mapping_path = 'character_image_mapping.json'
         mapping = {}
@@ -231,7 +252,7 @@ def add_character():
                 pass
         
         if name not in mapping:
-            mapping[name] = {"filename": ""}
+            mapping[name] = {"filename": image_url}
             with open(mapping_path, 'w', encoding='utf-8') as f:
                 json.dump(mapping, f, ensure_ascii=False, indent=4)
 

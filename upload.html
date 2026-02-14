@@ -196,27 +196,45 @@
 
         <div id="addPage">
             <h2>Add New Character</h2>
-            <p style="color: #666; margin-bottom: 20px;">Register a new character into the database to enable image uploads and management.</p>
-            <form id="addCharForm" class="add-char-form">
-                <div class="form-group">
-                    <label for="addCharName">Name *</label>
-                    <input type="text" id="addCharName" required placeholder="Character name">
-                </div>
-                <div class="form-group">
-                    <label for="addCharSeries">Series (optional)</label>
-                    <input type="text" id="addCharSeries" placeholder="Series/source">
-                </div>
-                <div class="form-group">
-                    <label for="addCharRank">Rank (optional)</label>
-                    <input type="number" id="addCharRank" min="1" placeholder="Auto-assigned if empty">
-                </div>
-                <div class="form-group">
-                    <label for="addCharKakera">Kakera (optional)</label>
-                    <input type="number" id="addCharKakera" min="0" value="0" placeholder="0">
-                </div>
-                <button type="submit" class="upload-btn" id="addCharSubmitBtn">Add Character</button>
-            </form>
-            <div id="addCharStatus" style="display: none; margin-top: 15px;"></div>
+            
+            <div class="edit-form-container" style="max-width: 500px; margin: 0 auto;">
+                <form id="addCharForm" class="add-char-form" style="max-width: 100%;">
+                    
+                    <div class="edit-group full-width">
+                        <label for="addCharName">Character Name</label>
+                        <input type="text" id="addCharName" class="modern-input" placeholder="e.g. Saber" required>
+                    </div>
+                    
+                    <div class="edit-group full-width">
+                        <label for="addCharSeries">Series</label>
+                        <input type="text" id="addCharSeries" class="modern-input" placeholder="Series Name">
+                    </div>
+                    
+                    <div class="edit-group full-width">
+                        <label for="addCharRank">Rank (Optional)</label>
+                        <input type="number" id="addCharRank" class="modern-input" placeholder="Leave blank to skip">
+                    </div>
+                    
+                    <div class="edit-group full-width" style="margin-top: 10px;">
+                        <label>Main Photo (Optional)</label>
+                        <div class="file-upload-box" onclick="document.getElementById('addCharImage').click()" style="border: 1px dashed #ced4da; padding: 20px; border-radius: 8px; text-align: center; background: #fcfcfc; cursor: pointer; transition: all 0.2s;">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6c757d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 8px; display: block; margin: 0 auto 8px;">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <span id="addCharImageLabel" style="color: #6c757d; font-size: 0.9em;">Click to select image (can be added later)</span>
+                            <input type="file" id="addCharImage" accept="image/*" style="display: none;" onchange="updateAddImageLabel(this)">
+                        </div>
+                    </div>
+
+                    <div class="edit-actions" style="justify-content: flex-start; margin-top: 25px;">
+                        <button type="submit" id="addCharSubmitBtn" class="action-btn primary">Add Character</button>
+                    </div>
+                    
+                    <div id="addCharStatus" style="margin-top: 15px; display: none;"></div>
+                </form>
+            </div>
         </div>
 
         <div id="uploadSection">
