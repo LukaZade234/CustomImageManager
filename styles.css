@@ -636,7 +636,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 }
 .edit-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 10px;
     margin-top: 20px;
     border-top: 1px solid #f0f0f0;
