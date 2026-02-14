@@ -106,35 +106,8 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0;
     text-decoration: underline;
 }
 
-/* Main Image Edit Mode */
-.main-image-edit {
-    border: 3px dashed #007bff !important;
-    cursor: pointer !important;
-    opacity: 0.9;
-    position: relative;
-}
-.main-image-edit:hover {
-    opacity: 1;
-    background-color: #f1f8ff;
-}
-.main-image-dragover {
-    border-color: #28a745 !important;
-    background-color: #d4edda !important;
-    transform: scale(1.02);
-}
-.main-image-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(0,0,0,0.7);
-    color: white;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    pointer-events: none;
-    white-space: nowrap;
-}
+/* Main Content */
+.container {
     max-width: 800px;
     margin: 40px auto;
     padding: 0 20px;
@@ -558,6 +531,36 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     height: auto;
     min-height: 100%;
     object-fit: cover;
+}
+
+/* Main Image Edit Mode */
+.image-wrapper.edit-mode img {
+    border: 3px dashed #007bff;
+    opacity: 0.8;
+}
+.image-wrapper.edit-mode {
+    cursor: pointer;
+}
+.image-overlay {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: bold;
+    pointer-events: none; /* Let clicks pass through */
+    white-space: nowrap;
+}
+.image-wrapper.edit-mode .image-overlay {
+    display: block;
+}
+.image-wrapper.drag-over-main {
+    border-color: #28a745;
+    transform: scale(1.02);
 }
 
 /* Spinner */

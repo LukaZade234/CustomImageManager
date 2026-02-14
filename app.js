@@ -241,91 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('customsSort').addEventListener('change', renderCustoms);
     document.getElementById('customsSeriesFilter').addEventListener('change', renderCustoms);
 
-    // Main Image Drop Logic
-    const mainImgDropZone = document.getElementById('charImageDisplay');
-    
-    mainImgDropZone.addEventListener('dragenter', (e) => {
-        if (isEditing && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
-            e.preventDefault();
-            e.stopPropagation();
-            mainImgDropZone.classList.add('main-image-dragover');
-        }
-    });
-    
-    mainImgDropZone.addEventListener('dragover', (e) => {
-        if (isEditing && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
-            e.preventDefault();
-            e.stopPropagation();
-            mainImgDropZone.classList.add('main-image-dragover');
-        }
-    });
-    
-    mainImgDropZone.addEventListener('dragleave', (e) => {
-        if (isEditing) {
-            e.preventDefault();
-            e.stopPropagation();
-            mainImgDropZone.classList.remove('main-image-dragover');
-        }
-    });
-    
-    mainImgDropZone.addEventListener('drop', async (e) => {
-        if (!isEditing) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        mainImgDropZone.classList.remove('main-image-dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            uploadMainImage(files[0]);
-        }
-    });
-
     // ... Main Image Upload ...
-    async function uploadMainImage(file) {
-        if (!currentCharacter) return;
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('character_name', currentCharacter.name);
-        
-        // Show loading state on the image
-        const imgDisplay = document.getElementById('charImageDisplay');
-        const originalOpacity = imgDisplay.style.opacity;
-        imgDisplay.style.opacity = '0.5';
-        
-        try {
-            const res = await fetch('/api/set-main-image', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            
-            if (res.ok) {
-                // Update character data
-                currentCharacter.image = data.image_url;
-                // Update list in memory
-                const charInList = allCharacters.find(c => c.name === currentCharacter.name);
-                if (charInList) charInList.image = data.image_url;
-                
-                // Update UI
-                selectCharacter(currentCharacter);
-                // Re-enable edit mode UI if we were editing
-                if(isEditing) {
-                     enableEditMode(); 
-                }
-                showToast('Main image updated!', 'success');
-            } else {
-                showToast(data.error || 'Failed to set main image', 'error');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast('Error uploading main image', 'error');
-        }
-        
-        imgDisplay.style.opacity = originalOpacity;
-    }
-
     document.getElementById('mainImageInput').addEventListener('change', async (e) => {
         if (!e.target.files.length) return;
         uploadMainImage(e.target.files[0]);
@@ -725,6 +641,88 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// Main Image Drag and Drop Handlers
+function handleMainDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const wrapper = document.querySelector('.image-wrapper');
+    if (wrapper.classList.contains('edit-mode')) {
+        wrapper.classList.add('drag-over-main');
+    }
+}
+
+function handleMainDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const wrapper = document.querySelector('.image-wrapper');
+    if (wrapper.classList.contains('edit-mode')) {
+        wrapper.classList.add('drag-over-main');
+        e.dataTransfer.dropEffect = 'copy';
+    }
+}
+
+function handleMainDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.querySelector('.image-wrapper').classList.remove('drag-over-main');
+}
+
+function handleMainDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const wrapper = document.querySelector('.image-wrapper');
+    wrapper.classList.remove('drag-over-main');
+    
+    if (!wrapper.classList.contains('edit-mode')) return;
+    
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    
+    if (files.length > 0) {
+        uploadMainImage(files[0]);
+    }
+}
+
+// Separate function for Main Image upload logic to be reused
+async function uploadMainImage(file) {
+    if (!currentCharacter) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('character_name', currentCharacter.name);
+    
+    const imgDisplay = document.getElementById('charImageDisplay');
+    const originalOpacity = imgDisplay.style.opacity;
+    imgDisplay.style.opacity = '0.5';
+    
+    try {
+        const res = await fetch('/api/set-main-image', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            currentCharacter.image = data.image_url;
+            // Update list
+            const charInList = allCharacters.find(c => c.name === currentCharacter.name);
+            if (charInList) charInList.image = data.image_url;
+            
+            // UI Update
+            imgDisplay.src = getImageUrl(data.image_url);
+            showToast('Main image updated!', 'success');
+        } else {
+            showToast(data.error || 'Failed to set main image', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('Error uploading main image', 'error');
+    }
+    
+    imgDisplay.style.opacity = originalOpacity; // Will be reset by edit mode styles anyway but good practice
+}
+
 function enableEditMode() {
     console.log('Edit mode toggled');
     if (!currentCharacter) {
@@ -742,26 +740,25 @@ function enableEditMode() {
     document.getElementById('charDisplayMode').style.display = 'none';
     document.getElementById('charEditMode').style.display = 'block';
     
-    // Disable Custom Image Delete (Do NOT show delete buttons)
+    // NOTE: Removed gallery-editing class as requested (no delete buttons)
     // document.getElementById('customImagesGallery').classList.add('gallery-editing');
+    // loadCustomImages(currentCharacter.name); 
     
-    // Main Image Editing UI
+    // Main Image Visual Cues
+    const imgWrapper = document.querySelector('.image-wrapper');
+    imgWrapper.classList.add('edit-mode');
+    
+    // Attach DnD to Main Image
+    imgWrapper.addEventListener('dragenter', handleMainDragEnter);
+    imgWrapper.addEventListener('dragover', handleMainDragOver);
+    imgWrapper.addEventListener('dragleave', handleMainDragLeave);
+    imgWrapper.addEventListener('drop', handleMainDrop);
+    
+    // Allow clicking main image to change it
     const img = document.getElementById('charImageDisplay');
-    img.classList.add('main-image-edit');
+    img.style.cursor = 'pointer';
     img.onclick = () => document.getElementById('mainImageInput').click();
-    img.title = "Click or Drop to replace main image";
-    
-    // Add overlay hint
-    let overlay = document.getElementById('mainImageOverlay');
-    if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'mainImageOverlay';
-        overlay.className = 'main-image-overlay';
-        overlay.textContent = 'Click/Drop to Edit';
-        // Insert after image in the wrapper
-        img.parentNode.appendChild(overlay);
-    }
-    overlay.style.display = 'block';
+    img.title = "Click to replace main image";
     
     // Hide Save Button during edit to avoid confusion
     document.getElementById('saveButton').style.display = 'none';
@@ -773,16 +770,21 @@ function disableEditMode() {
     document.getElementById('charEditMode').style.display = 'none';
     // document.getElementById('customImagesGallery').classList.remove('gallery-editing');
     
+    // Remove Main Image Visual Cues
+    const imgWrapper = document.querySelector('.image-wrapper');
+    imgWrapper.classList.remove('edit-mode');
+    imgWrapper.classList.remove('drag-over-main');
+    
+    // Remove DnD
+    imgWrapper.removeEventListener('dragenter', handleMainDragEnter);
+    imgWrapper.removeEventListener('dragover', handleMainDragOver);
+    imgWrapper.removeEventListener('dragleave', handleMainDragLeave);
+    imgWrapper.removeEventListener('drop', handleMainDrop);
+    
     document.getElementById('saveButton').style.display = 'block'; // Show save button again
     
     // Restore Main Image behavior
     const img = document.getElementById('charImageDisplay');
-    img.classList.remove('main-image-edit');
-    img.classList.remove('main-image-dragover');
-    
-    const overlay = document.getElementById('mainImageOverlay');
-    if (overlay) overlay.style.display = 'none';
-    
     if (currentCharacter.image) {
         img.onclick = () => openModal(0);
         img.title = currentCharacter.name;
