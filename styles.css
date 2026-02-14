@@ -120,12 +120,12 @@ input:checked + .slider:before {
     opacity: 0;
     max-width: 0;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Pop effect */
 }
 .search-toggle-wrapper:hover .toggle-label {
     opacity: 1;
-    max-width: 50px; /* Reveal text */
-    margin: 0 4px;
+    max-width: 60px; /* Reveal text with safe width */
+    margin: 0 6px;
 }
 .toggle-label.active {
     color: #007bff;
