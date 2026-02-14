@@ -1,0 +1,120 @@
+#5,272 - Klein Moretti - Lord of the Mysteries
+#9,508 - Audrey Hall  - Lord of the Mysteries
+#10,503 - Trissy  - Lord of the Mysteries
+#12,089 - Evernight Goddess  - Lord of the Mysteries
+#12,397 - Leonard Mitchell - Lord of the Mysteries
+#13,846 - Amon (LoM) - Lord of the Mysteries
+#14,017 - Fors Wall  - Lord of the Mysteries
+#21,182 - Medici (LoM) - Lord of the Mysteries
+#22,422 - Alger Wilson - Lord of the Mysteries
+#22,691 - Emlyn White - Lord of the Mysteries
+#23,524 - Sharron  - Lord of the Mysteries
+#24,182 - Ouroboros (LoM) - Lord of the Mysteries
+#26,589 - Cattleya (LoM)  - Lord of the Mysteries
+#29,317 - Arrodes  - Lord of the Mysteries
+#29,331 - Reinette Tinekerr  - Lord of the Mysteries
+#35,437 - Daly Simone  - Lord of the Mysteries
+#37,227 - Royale Reideen  - Lord of the Mysteries
+#38,943 - Xio Derecha  - Lord of the Mysteries
+#40,626 - Melissa Moretti  - Lord of the Mysteries
+#41,516 - Elizabeth (LoM)  - Lord of the Mysteries
+#41,823 - Danitz - Lord of the Mysteries
+#44,278 - Bernadette Gustav  - Lord of the Mysteries
+#44,488 - True Creator - Lord of the Mysteries
+#44,496 - Derrick Berg - Lord of the Mysteries
+#45,267 - Susie (LoM)  - Lord of the Mysteries
+#50,339 - Anderson Hood - Lord of the Mysteries
+#50,831 - Dunn Smith - Lord of the Mysteries
+#53,342 - Benson Moretti - Lord of the Mysteries
+#53,514 - Rozanne  - Lord of the Mysteries
+#57,160 - Seeka Tron  - Lord of the Mysteries
+#60,073 - Edwina Edwards  - Lord of the Mysteries
+#66,194 - Azik Eggers - Lord of the Mysteries
+#67,311 - Viscount Glaint - Lord of the Mysteries
+#73,240 - Colin Iliad - Lord of the Mysteries
+#76,238 - Old Neil - Lord of the Mysteries
+#82,678 - Will Auceptin - Lord of the Mysteries
+#88,736 - Frank Lee - Lord of the Mysteries
+#91,708 - Roselle Gustav - Lord of the Mysteries
+#94,835 - Frye (LoM) - Lord of the Mysteries
+#99,945 - Ademisaul - Lord of the Mysteries
+#101,124 - Adam (LoM) - Lord of the Mysteries
+#105,765 - Ince Zangwill - Lord of the Mysteries
+#110,118 - Cohinem - Lord of the Mysteries
+#110,799 - Father Utravsky - Lord of the Mysteries
+#20,749 - Franca Roland - Lord of Mysteries 2: Circle of Inevitability
+#31,245 - Jenna (LoM) - Lord of Mysteries 2: Circle of Inevitability
+#57,470 - Aurore Lee - Lord of Mysteries 2: Circle of Inevitability
+#58,679 - Lumian Lee - Lord of Mysteries 2: Circle of Inevitability
+#92 - Lucy  - Cyberpunk: Edgerunners
+#284 - Rebecca  - Cyberpunk: Edgerunners
+#964 - David Martinez - Cyberpunk: Edgerunners
+#2,570 - Kiwi  - Cyberpunk: Edgerunners
+#3,433 - Gloria Martinez  - Cyberpunk: Edgerunners
+#4,481 - Sasha Yakovleva  - Cyberpunk: Edgerunners
+#5,427 - Adam Smasher - Cyberpunk 2077
+#8,887 - Maine - Cyberpunk: Edgerunners
+#10,317 - Dorio  - Cyberpunk: Edgerunners
+#17,958 - Pilar - Cyberpunk: Edgerunners
+#22,827 - Faraday - Cyberpunk: Edgerunners
+#23,671 - Falco (CP) - Cyberpunk: Edgerunners
+#36,348 - James Norris - Cyberpunk: Edgerunners
+#52,947 - Doc (CP) - Cyberpunk: Edgerunners
+#57,083 - Julio (CP) - Cyberpunk: Edgerunners
+#87,711 - Katsuo Tanaka - Cyberpunk: Edgerunners
+#90,145 - Jimmy Kurosaki - Cyberpunk: Edgerunners
+#390 - Kim Dokja - Omniscient Reader's Viewpoint
+#590 - Han Sooyoung  - Omniscient Reader's Viewpoint
+#928 - Yoo Joonghyuk - Omniscient Reader's Viewpoint
+#1,431 - Lee Jihye  - Omniscient Reader's Viewpoint
+#2,237 - Demon-like Judge of Fire  - Omniscient Reader's Viewpoint
+#2,734 - Yoo Sangah - Omniscient Reader's Viewpoint
+#3,686 - Jung Heewon  - Omniscient Reader's Viewpoint
+#4,319 - Abyssal Black Flame Dragon - Omniscient Reader's Viewpoint
+#5,483 - Prisoner of the Golden Headband - Omniscient Reader's Viewpoint
+#5,556 - Secretive Plotter - Omniscient Reader's Viewpoint
+#5,570 - Nirvana Moebius - Omniscient Reader's Viewpoint
+#6,152 - Queen of the Darkest Spring  - Omniscient Reader's Viewpoint
+#6,670 - Lee Seolhwa  - Omniscient Reader's Viewpoint
+#6,970 - Yoo Mia  - Omniscient Reader's Viewpoint
+#8,004 - Kyrgios Rodgraim - Omniscient Reader's Viewpoint
+#8,101 - Lee Hyunsung - Omniscient Reader's Viewpoint
+#8,328 - Lee Gilyoung - Omniscient Reader's Viewpoint
+#9,647 - Father of the Rich Night - Omniscient Reader's Viewpoint
+#10,126 - Shin Yoosung  - Omniscient Reader's Viewpoint
+#12,497 - Jang Hayoung - Omniscient Reader's Viewpoint
+#12,653 - Bihyung - Omniscient Reader's Viewpoint
+#12,737 - Biyoo - Omniscient Reader's Viewpoint
+#14,650 - Kim Namwoon - Omniscient Reader's Viewpoint
+#15,089 - Fourth Wall (ORV)  - Omniscient Reader's Viewpoint
+#15,270 - Lee Hakhyun - Omniscient Reader's Viewpoint
+#17,032 - Lee Sookyung - Omniscient Reader's Viewpoint
+#18,531 - Anna Croft  - Omniscient Reader's Viewpoint
+#18,745 - Scribe of Heaven - Omniscient Reader's Viewpoint
+#20,541 - Min Jiwon - Omniscient Reader's Viewpoint
+#21,992 - Jung Youngho - Omniscient Reader's Viewpoint
+#22,936 - Han Donghoon - Omniscient Reader's Viewpoint
+#23,004 - Asuka Ren - Omniscient Reader's Viewpoint
+#23,436 - Goryeo's First Sword - Omniscient Reader's Viewpoint
+#23,546 - Devil of Lust and Wrath - Omniscient Reader's Viewpoint
+#25,027 - Breaking the Sky Sword Saint  - Omniscient Reader's Viewpoint
+#29,008 - Han Myungoh - Omniscient Reader's Viewpoint
+#32,992 - Lily Blooming in Aquarius - Omniscient Reader's Viewpoint
+#35,759 - Apostle IV - Omniscient Reader's Viewpoint
+#36,255 - Mark Javier - Omniscient Reader's Viewpoint
+#40,137 - Eileen Makerfield - Omniscient Reader's Viewpoint
+#42,632 - Lycaon Isparang - Omniscient Reader's Viewpoint
+#47,913 - Cheon Inho - Omniscient Reader's Viewpoint
+#49,840 - Paul (ORV) - Omniscient Reader's Viewpoint
+#54,891 - Gong Pildu - Omniscient Reader's Viewpoint
+#59,141 - Dokgak - Omniscient Reader's Viewpoint
+#80,603 - Jung Minseob - Omniscient Reader's Viewpoint
+#84,158 - Lee Sungkook - Omniscient Reader's Viewpoint
+#24,103 - Gu Yue Fang Yuan - Reverend Insanity
+#76,793 - Bai Ning Bing - Reverend Insanity
+#94,647 - Gu Yue Fang Zheng - Reverend Insanity
+#12,777 - Sunless - Shadow Slave
+#15,725 - Nephis - Shadow Slave
+#29,545 - Cassie (SS) - Shadow Slave
+#31,615 - Effie (SS) - Shadow Slave
+#46,601 - Kai (SS) - Shadow Slave

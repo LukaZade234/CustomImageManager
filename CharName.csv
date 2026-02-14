@@ -296,7 +296,7 @@ rank,name,series,kakera
 295,Alice Nakiri,Shokugeki no Souma,347
 296,Sylveon,Pokédex,207
 297,Toge Inumaki,Jujutsu Kaisen,386
-298,Rebecca,Cyberpunk: Edgerunners,327
+284,Rebecca,Cyberpunk: Edgerunners,327
 299,Uta,One Piece Film: Red,261
 300,Aerith Gainsborough,Final Fantasy VII,270
 301,Chuuya Nakahara,Bungou Stray Dogs,406
@@ -409,7 +409,7 @@ rank,name,series,kakera
 408,Iris,Enen no Shouboutai,258
 409,Haru Okumura,Persona 5,244
 410,Hisoka,Hunter × Hunter,372
-411,Kim Dokja,Omniscient Reader's Viewpoint,350
+390,Kim Dokja,Omniscient Reader's Viewpoint,350
 412,Temari,Naruto,250
 413,The Knight,Hollow Knight,246
 414,Konan,Naruto,251
@@ -605,7 +605,7 @@ rank,name,series,kakera
 604,Earth-chan,Gijinka Series,202
 605,Diluc,Genshin Impact,316
 606,Denki Kaminari,Boku no Hero Academia,278
-607,Han Sooyoung,Omniscient Reader's Viewpoint,222
+590,Han Sooyoung,Omniscient Reader's Viewpoint,222
 608,Creeper,Minecraft,196
 609,Yuu Nishinoya,Haikyuu!!,279
 610,Vanilla,Nekopara,227
@@ -895,7 +895,7 @@ rank,name,series,kakera
 894,Zack,Angels of Death,212
 895,Vash the Stampede,Trigun,203
 896,Silica,Sword Art Online,155
-897,Yoo Joonghyuk,Omniscient Reader's Viewpoint,211
+928,Yoo Joonghyuk,Omniscient Reader's Viewpoint,211
 898,Hinata Tachibana,Tokyo卍Revengers,177
 899,Sayu Ogiwara,Hige wo Soru. Soshite Joshikosei wo Hiro.,181
 900,Yui,Angel Beats!,185
@@ -1011,7 +1011,7 @@ rank,name,series,kakera
 12619,Hiori Kazano,THE iDOLM@STER Shiny Colors,0
 1548,Riyo,Gachiakuta,0
 5582,Kitsune Saiguu,Genshin Impact,0
-5427,Adam Smasher,Cyberpunk: Edgerunners,0
+5427,Adam Smasher,Cyberpunk 2077,0
 8413,Lauma,Genshin Impact,0
 10317,Dorio,Cyberpunk: Edgerunners,0
 8887,Maine,Cyberpunk: Edgerunners,0
@@ -1022,3 +1022,109 @@ rank,name,series,kakera
 1317,Semiramis,Fate/Apocrypha,0
 964,David Martinez,Cyberpunk: Edgerunners,0
 3053,Fujiwara no Mokou,Touhou Eiyashou ~ Imperishable Night,0
+10503,Trissy,Lord of the Mysteries,0
+12397,Leonard Mitchell,Lord of the Mysteries,0
+13846,Amon (LoM),Lord of the Mysteries,0
+21182,Medici (LoM),Lord of the Mysteries,0
+22422,Alger Wilson,Lord of the Mysteries,0
+22691,Emlyn White,Lord of the Mysteries,0
+23524,Sharron,Lord of the Mysteries,0
+24182,Ouroboros (LoM),Lord of the Mysteries,0
+26589,Cattleya (LoM),Lord of the Mysteries,0
+29317,Arrodes,Lord of the Mysteries,0
+29331,Reinette Tinekerr,Lord of the Mysteries,0
+35437,Daly Simone,Lord of the Mysteries,0
+37227,Royale Reideen,Lord of the Mysteries,0
+38943,Xio Derecha,Lord of the Mysteries,0
+40626,Melissa Moretti,Lord of the Mysteries,0
+41516,Elizabeth (LoM),Lord of the Mysteries,0
+41823,Danitz,Lord of the Mysteries,0
+44278,Bernadette Gustav,Lord of the Mysteries,0
+44488,True Creator,Lord of the Mysteries,0
+44496,Derrick Berg,Lord of the Mysteries,0
+45267,Susie (LoM),Lord of the Mysteries,0
+50339,Anderson Hood,Lord of the Mysteries,0
+50831,Dunn Smith,Lord of the Mysteries,0
+53342,Benson Moretti,Lord of the Mysteries,0
+53514,Rozanne,Lord of the Mysteries,0
+57160,Seeka Tron,Lord of the Mysteries,0
+60073,Edwina Edwards,Lord of the Mysteries,0
+66194,Azik Eggers,Lord of the Mysteries,0
+67311,Viscount Glaint,Lord of the Mysteries,0
+73240,Colin Iliad,Lord of the Mysteries,0
+76238,Old Neil,Lord of the Mysteries,0
+82678,Will Auceptin,Lord of the Mysteries,0
+88736,Frank Lee,Lord of the Mysteries,0
+91708,Roselle Gustav,Lord of the Mysteries,0
+94835,Frye (LoM),Lord of the Mysteries,0
+99945,Ademisaul,Lord of the Mysteries,0
+101124,Adam (LoM),Lord of the Mysteries,0
+105765,Ince Zangwill,Lord of the Mysteries,0
+110118,Cohinem,Lord of the Mysteries,0
+110799,Father Utravsky,Lord of the Mysteries,0
+20749,Franca Roland,Lord of Mysteries 2: Circle of Inevitability,0
+31245,Jenna (LoM),Lord of Mysteries 2: Circle of Inevitability,0
+57470,Aurore Lee,Lord of Mysteries 2: Circle of Inevitability,0
+58679,Lumian Lee,Lord of Mysteries 2: Circle of Inevitability,0
+3433,Gloria Martinez,Cyberpunk: Edgerunners,0
+4481,Sasha Yakovleva,Cyberpunk: Edgerunners,0
+17958,Pilar,Cyberpunk: Edgerunners,0
+22827,Faraday,Cyberpunk: Edgerunners,0
+23671,Falco (CP),Cyberpunk: Edgerunners,0
+36348,James Norris,Cyberpunk: Edgerunners,0
+52947,Doc (CP),Cyberpunk: Edgerunners,0
+57083,Julio (CP),Cyberpunk: Edgerunners,0
+87711,Katsuo Tanaka,Cyberpunk: Edgerunners,0
+90145,Jimmy Kurosaki,Cyberpunk: Edgerunners,0
+1431,Lee Jihye,Omniscient Reader's Viewpoint,0
+2237,Demon,like Judge of Fire  - Omniscient Reader's Viewpoint,0
+2734,Yoo Sangah,Omniscient Reader's Viewpoint,0
+3686,Jung Heewon,Omniscient Reader's Viewpoint,0
+4319,Abyssal Black Flame Dragon,Omniscient Reader's Viewpoint,0
+5483,Prisoner of the Golden Headband,Omniscient Reader's Viewpoint,0
+5556,Secretive Plotter,Omniscient Reader's Viewpoint,0
+5570,Nirvana Moebius,Omniscient Reader's Viewpoint,0
+6152,Queen of the Darkest Spring,Omniscient Reader's Viewpoint,0
+6670,Lee Seolhwa,Omniscient Reader's Viewpoint,0
+6970,Yoo Mia,Omniscient Reader's Viewpoint,0
+8004,Kyrgios Rodgraim,Omniscient Reader's Viewpoint,0
+8101,Lee Hyunsung,Omniscient Reader's Viewpoint,0
+8328,Lee Gilyoung,Omniscient Reader's Viewpoint,0
+9647,Father of the Rich Night,Omniscient Reader's Viewpoint,0
+10126,Shin Yoosung,Omniscient Reader's Viewpoint,0
+12497,Jang Hayoung,Omniscient Reader's Viewpoint,0
+12653,Bihyung,Omniscient Reader's Viewpoint,0
+12737,Biyoo,Omniscient Reader's Viewpoint,0
+14650,Kim Namwoon,Omniscient Reader's Viewpoint,0
+15089,Fourth Wall (ORV),Omniscient Reader's Viewpoint,0
+15270,Lee Hakhyun,Omniscient Reader's Viewpoint,0
+17032,Lee Sookyung,Omniscient Reader's Viewpoint,0
+18531,Anna Croft,Omniscient Reader's Viewpoint,0
+18745,Scribe of Heaven,Omniscient Reader's Viewpoint,0
+20541,Min Jiwon,Omniscient Reader's Viewpoint,0
+21992,Jung Youngho,Omniscient Reader's Viewpoint,0
+22936,Han Donghoon,Omniscient Reader's Viewpoint,0
+23004,Asuka Ren,Omniscient Reader's Viewpoint,0
+23436,Goryeo's First Sword,Omniscient Reader's Viewpoint,0
+23546,Devil of Lust and Wrath,Omniscient Reader's Viewpoint,0
+25027,Breaking the Sky Sword Saint,Omniscient Reader's Viewpoint,0
+29008,Han Myungoh,Omniscient Reader's Viewpoint,0
+32992,Lily Blooming in Aquarius,Omniscient Reader's Viewpoint,0
+35759,Apostle IV,Omniscient Reader's Viewpoint,0
+36255,Mark Javier,Omniscient Reader's Viewpoint,0
+40137,Eileen Makerfield,Omniscient Reader's Viewpoint,0
+42632,Lycaon Isparang,Omniscient Reader's Viewpoint,0
+47913,Cheon Inho,Omniscient Reader's Viewpoint,0
+49840,Paul (ORV),Omniscient Reader's Viewpoint,0
+54891,Gong Pildu,Omniscient Reader's Viewpoint,0
+59141,Dokgak,Omniscient Reader's Viewpoint,0
+80603,Jung Minseob,Omniscient Reader's Viewpoint,0
+84158,Lee Sungkook,Omniscient Reader's Viewpoint,0
+24103,Gu Yue Fang Yuan,Reverend Insanity,0
+76793,Bai Ning Bing,Reverend Insanity,0
+94647,Gu Yue Fang Zheng,Reverend Insanity,0
+12777,Sunless,Shadow Slave,0
+15725,Nephis,Shadow Slave,0
+29545,Cassie (SS),Shadow Slave,0
+31615,Effie (SS),Shadow Slave,0
+46601,Kai (SS),Shadow Slave,0
