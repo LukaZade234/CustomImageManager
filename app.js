@@ -300,6 +300,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load saved characters from localStorage
     loadSavedCharacters();
+    
+    // Load Stats
+    loadStats();
 
     // Setup Series Autocomplete
     setupSeriesAutocomplete(document.getElementById('addCharSeries'), document.getElementById('addSeriesSuggestions'));
@@ -309,6 +312,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('hashchange', handleRoute);
     handleRoute();
 });
+
+async function loadStats() {
+    try {
+        const res = await fetch('custom_images.json', { cache: 'no-cache' });
+        if (res.ok) {
+            const customData = await res.json();
+            const names = Object.keys(customData);
+            
+            // Calculate totals
+            let totalImages = 0;
+            let totalChars = 0;
+            
+            names.forEach(name => {
+                const images = customData[name];
+                if (images && images.length > 0) {
+                    totalChars++;
+                    totalImages += images.length;
+                }
+            });
+            
+            // Animate Numbers
+            animateValue("totalImagesCount", 0, totalImages, 1000);
+            animateValue("totalCharsCount", 0, totalChars, 1000);
+            
+        } else {
+            console.warn('Failed to load stats');
+            document.getElementById('totalImagesCount').textContent = '0';
+            document.getElementById('totalCharsCount').textContent = '0';
+        }
+    } catch (e) {
+        console.error('Error loading stats:', e);
+        document.getElementById('totalImagesCount').textContent = '0';
+        document.getElementById('totalCharsCount').textContent = '0';
+    }
+}
+
+function animateValue(id, start, end, duration) {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        obj.innerHTML = Math.floor(progress * (end - start) + start);
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
 
 function setupSeriesAutocomplete(input, container) {
     if (!input || !container) return;
