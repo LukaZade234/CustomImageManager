@@ -114,6 +114,18 @@ input:checked + .slider:before {
     color: #6c757d;
     font-weight: 600;
     white-space: nowrap; /* Prevent label wrapping */
+    transition: all 0.3s ease;
+}
+.toggle-label {
+    opacity: 0;
+    max-width: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+.search-toggle-wrapper:hover .toggle-label {
+    opacity: 1;
+    max-width: 50px; /* Reveal text */
+    margin: 0 4px;
 }
 .toggle-label.active {
     color: #007bff;
