@@ -278,10 +278,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load saved characters from localStorage
     loadSavedCharacters();
 
+    // Setup Series Autocomplete
+    setupSeriesAutocomplete(document.getElementById('addCharSeries'), document.getElementById('addSeriesSuggestions'));
+    setupSeriesAutocomplete(document.getElementById('editCharSeries'), document.getElementById('editSeriesSuggestions'));
+
     // Handle hash routing
     window.addEventListener('hashchange', handleRoute);
     handleRoute();
 });
+
+function setupSeriesAutocomplete(input, container) {
+    if (!input || !container) return;
+
+    input.addEventListener('input', function(e) {
+        const val = this.value;
+        closeAllLists();
+        if (!val) return false;
+        
+        container.style.display = 'block';
+        container.innerHTML = '';
+        
+        // Get unique series
+        const seriesSet = new Set(allCharacters.map(c => c.series).filter(s => s));
+        const uniqueSeries = Array.from(seriesSet).sort();
+        
+        // Filter matches
+        const matches = uniqueSeries.filter(s => s.toLowerCase().includes(val.toLowerCase()));
+        
+        matches.slice(0, 10).forEach(series => {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            // Highlight match
+            const regex = new RegExp(`(${val})`, "gi");
+            item.innerHTML = series.replace(regex, "<strong>$1</strong>");
+            item.innerHTML += `<input type='hidden' value="${series}">`;
+            
+            item.addEventListener('click', function(e) {
+                input.value = this.getElementsByTagName("input")[0].value;
+                closeAllLists();
+            });
+            container.appendChild(item);
+        });
+        
+        if (matches.length === 0) {
+            container.style.display = 'none';
+        }
+    });
+    
+    // Close on click outside
+    document.addEventListener("click", function (e) {
+        if (e.target !== input && e.target !== container) {
+            container.style.display = 'none';
+        }
+    });
+    
+    function closeAllLists() {
+        container.innerHTML = '';
+        container.style.display = 'none';
+    }
+}
 
 function showSearchPage() {
     document.getElementById('selectedCharacter').style.display = 'none';

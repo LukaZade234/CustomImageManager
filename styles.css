@@ -603,7 +603,45 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     flex-direction: column;
     margin-bottom: 15px;
     flex: 1;
+    position: relative; /* For autocomplete positioning */
 }
+/* Autocomplete Styles */
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    z-index: 1000;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    max-height: 200px;
+    overflow-y: auto;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: none;
+}
+.autocomplete-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    background-color: #fff;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.95em;
+    color: #333;
+}
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+.autocomplete-item:hover {
+    background-color: #f8f9fa;
+    color: #007bff;
+}
+.autocomplete-item strong {
+    font-weight: 600;
+    color: #007bff;
+}
+
 .edit-row {
     display: flex;
     gap: 15px;
