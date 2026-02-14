@@ -93,10 +93,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchInput = document.getElementById('charSearch');
     const suggestionsBox = document.getElementById('suggestions');
     const sortSelect = document.getElementById('sortSelect');
+    const searchToggle = document.getElementById('searchModeToggle');
+    const labelName = document.getElementById('searchLabelName');
+    const labelSeries = document.getElementById('searchLabelSeries');
+    
+    // Toggle Event
+    searchToggle.addEventListener('change', () => {
+        if (searchToggle.checked) {
+            // Series Mode
+            searchInput.placeholder = 'Search series...';
+            labelName.classList.remove('active');
+            labelSeries.classList.add('active');
+        } else {
+            // Name Mode
+            searchInput.placeholder = 'Search characters...';
+            labelSeries.classList.remove('active');
+            labelName.classList.add('active');
+        }
+        updateSearch();
+    });
     
     function updateSearch() {
         const query = searchInput.value.toLowerCase();
         const sortMode = sortSelect.value;
+        const searchBySeries = searchToggle.checked;
         
         if (query.length === 0) {
             suggestionsBox.style.display = 'none';
@@ -104,10 +124,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Filter
-        searchMatches = allCharacters.filter(c => 
-            c.name.toLowerCase().includes(query) || 
-            (c.series && c.series.toLowerCase().includes(query))
-        );
+        searchMatches = allCharacters.filter(c => {
+            if (searchBySeries) {
+                return c.series && c.series.toLowerCase().includes(query);
+            } else {
+                return c.name.toLowerCase().includes(query);
+            }
+        });
 
         // Sort
         searchMatches.sort((a, b) => {

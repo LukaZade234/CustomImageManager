@@ -18,7 +18,15 @@
             <span>ImgManager</span>
         </a>
 
-        <div class="navbar-center search-container" style="display: flex; gap: 10px;">
+        <div class="navbar-center search-container" style="display: flex; gap: 10px; align-items: center;">
+            <div class="search-toggle-wrapper">
+                <span id="searchLabelName" class="toggle-label active">Name</span>
+                <label class="switch">
+                    <input type="checkbox" id="searchModeToggle">
+                    <span class="slider round"></span>
+                </label>
+                <span id="searchLabelSeries" class="toggle-label">Series</span>
+            </div>
             <input type="text" id="charSearch" placeholder="Search characters..." autocomplete="off">
             <select id="sortSelect" class="sort-dropdown" title="Sort results">
                 <option value="rank">Rank (High-Low)</option>
