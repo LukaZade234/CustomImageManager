@@ -26,6 +26,7 @@ let visibleSearchLimit = 10;
 let cachedCustoms = [];
 let isReordering = false;
 let isDeleting = false;
+let isAiCommand = false;
 
 async function loadCharacterData() {
     // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
@@ -976,6 +977,8 @@ let selectedImages = new Set();
 function toggleDeleteMode() {
     // If reordering is active, turn it off
     if (isReordering) toggleReorderMode();
+    // If AI command mode is active, turn it off
+    if (isAiCommand) toggleAiCommandMode();
     
     isDeleting = !isDeleting;
     const deleteBtn = document.getElementById('deleteModeBtn');
@@ -990,13 +993,14 @@ function toggleDeleteMode() {
         confirmBtn.style.display = 'inline-flex';
         cancelBtn.style.display = 'inline-flex';
         
-        // Hide Add/Reorder buttons
+        // Hide Add/Reorder/AI buttons
         document.getElementById('addCustomImageBtn').style.display = 'none';
         document.getElementById('reorderBtn').style.display = 'none';
+        // Hide AI buttons if they are somehow visible (they shouldn't be due to check above)
         
         // Reset Selection
         selectedImages.clear();
-        updateDeleteButtonCount();
+        updateSelectionUI();
         
         // Add listeners
         items.forEach(item => {
@@ -1054,26 +1058,44 @@ function handleImageSelect(e) {
         item.classList.add('selected');
     }
     
-    updateDeleteButtonCount();
+    updateSelectionUI();
 }
 
-function updateDeleteButtonCount() {
-    const btn = document.getElementById('confirmDeleteBtn');
-    btn.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-            <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-        </svg>
-        Delete Selected (${selectedImages.size})
-    `;
-    
-    // Optional: Disable if 0
-    if (selectedImages.size === 0) {
-        btn.style.opacity = '0.6';
-        btn.style.cursor = 'not-allowed';
-    } else {
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
+function updateSelectionUI() {
+    if (isDeleting) {
+        const btn = document.getElementById('confirmDeleteBtn');
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Delete Selected (${selectedImages.size})
+        `;
+        
+        if (selectedImages.size === 0) {
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        } else {
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        }
+    } else if (isAiCommand) {
+        const btn = document.getElementById('copyAiCmdBtn');
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copy Command (${selectedImages.size})
+        `;
+        
+        if (selectedImages.size === 0) {
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        } else {
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+        }
     }
 }
 
@@ -1113,9 +1135,123 @@ async function deleteSelectedImages() {
     }
 }
 
+function toggleAiCommandMode() {
+    // If reordering is active, turn it off
+    if (isReordering) toggleReorderMode();
+    // If delete mode is active, turn it off
+    if (isDeleting) toggleDeleteMode();
+    
+    isAiCommand = !isAiCommand;
+    const gallery = document.getElementById('customImagesGallery');
+    const items = gallery.querySelectorAll('.gallery-item-wrapper');
+    
+    // Buttons
+    const copyBtn = document.getElementById('copyAiCmdBtn');
+    const selectAllBtn = document.getElementById('selectAllAiBtn');
+    const cancelBtn = document.getElementById('cancelAiBtn');
+    
+    // Other main buttons
+    const addBtn = document.getElementById('addCustomImageBtn');
+    const reorderBtn = document.getElementById('reorderBtn');
+    const deleteBtn = document.getElementById('deleteModeBtn');
+    
+    if (isAiCommand) {
+        // Show AI controls
+        copyBtn.style.display = 'inline-flex';
+        selectAllBtn.style.display = 'inline-flex';
+        cancelBtn.style.display = 'inline-flex';
+        
+        // Hide others
+        addBtn.style.display = 'none';
+        reorderBtn.style.display = 'none';
+        deleteBtn.style.display = 'none';
+        
+        // Reset Selection
+        selectedImages.clear();
+        updateSelectionUI();
+        
+        // Enable Selection Mode
+        items.forEach(item => {
+            item.classList.add('ai-mode');
+            item.addEventListener('click', handleImageSelect);
+            
+            // Disable lightbox click
+            const img = item.querySelector('img');
+            if (img) img.onclick = null;
+        });
+        
+        // Scroll to gallery
+        document.getElementById('customImagesSection').scrollIntoView({ behavior: 'smooth' });
+        
+    } else {
+        // Hide AI controls
+        copyBtn.style.display = 'none';
+        selectAllBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
+        
+        // Show others
+        addBtn.style.display = 'inline-flex';
+        reorderBtn.style.display = 'inline-flex';
+        deleteBtn.style.display = 'inline-flex';
+        
+        // Clear Selection
+        selectedImages.clear();
+        items.forEach(item => {
+            item.classList.remove('ai-mode');
+            item.classList.remove('selected');
+            item.removeEventListener('click', handleImageSelect);
+        });
+        
+        // Restore Lightbox (Reload)
+        loadCustomImages(currentCharacter.name);
+    }
+}
+
+function selectAllImages() {
+    const gallery = document.getElementById('customImagesGallery');
+    const items = gallery.querySelectorAll('.gallery-item-wrapper');
+    
+    items.forEach(item => {
+        const img = item.querySelector('img');
+        if (img) {
+            selectedImages.add(img.src);
+            item.classList.add('selected');
+        }
+    });
+    updateSelectionUI();
+}
+
+async function generateAiCommand() {
+    if (selectedImages.size === 0) {
+        showToast('Please select at least one image.', 'error');
+        return;
+    }
+    
+    // Format: $ai <name> $ <link> $ <link>
+    const links = Array.from(selectedImages);
+    let command = `$ai ${currentCharacter.name}`;
+    
+    links.forEach(link => {
+        command += ` $ ${link}`;
+    });
+    
+    try {
+        await navigator.clipboard.writeText(command);
+        showToast('Command copied to clipboard!', 'success');
+        toggleAiCommandMode(); // Close mode
+    } catch (err) {
+        console.error('Failed to copy', err);
+        showToast('Failed to copy command (Clipboard permission denied?)', 'error');
+        // Fallback: Show in a prompt?
+        // prompt("Copy this command:", command);
+    }
+}
+
 function toggleReorderMode() {
     // If deleting is active, turn it off
     if (isDeleting) toggleDeleteMode();
+    // If AI command mode is active, turn it off
+    if (isAiCommand) toggleAiCommandMode();
 
     isReordering = !isReordering;
     const btn = document.getElementById('reorderBtn');
@@ -1313,22 +1449,28 @@ async function loadCustomImages(name) {
         isDeleting = false;
         selectedImages.clear();
         
-        // Hide Confirm/Cancel
         const confirmBtn = document.getElementById('confirmDeleteBtn');
         const cancelBtn = document.getElementById('cancelDeleteBtn');
         if (confirmBtn) confirmBtn.style.display = 'none';
         if (cancelBtn) cancelBtn.style.display = 'none';
         
-        // Show Delete Button
         const delBtn = document.getElementById('deleteModeBtn');
         if (delBtn) delBtn.style.display = 'inline-flex';
+    }
+    
+    // Reset AI Command State
+    if (isAiCommand) {
+        isAiCommand = false;
+        selectedImages.clear();
         
-        // Remove gallery classes if any
-        if (gallery) {
-            gallery.classList.remove('gallery-editing');
-             // Also remove .selected and .delete-mode from any existing items?
-             // They are about to be replaced by new HTML anyway.
-        }
+        const copyBtn = document.getElementById('copyAiCmdBtn');
+        const selectAllBtn = document.getElementById('selectAllAiBtn');
+        const cancelBtn = document.getElementById('cancelAiBtn');
+        if (copyBtn) copyBtn.style.display = 'none';
+        if (selectAllBtn) selectAllBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        
+        // Ensure buttons visible are handled below
     }
     
     // Ensure buttons visible

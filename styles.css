@@ -680,6 +680,23 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     border-color: #dc3545;
 }
 
+/* AI Command Mode Styles */
+.gallery-item-wrapper.ai-mode {
+    cursor: pointer;
+}
+.gallery-item-wrapper.ai-mode:hover img {
+    opacity: 0.9;
+    border-color: #28a745;
+}
+.gallery-item-wrapper.ai-mode.selected img {
+    border: 3px solid #28a745;
+    opacity: 0.8;
+}
+.gallery-item-wrapper.ai-mode.selected::after {
+    background: rgba(40, 167, 69, 0.8);
+}
+
+
 /* Main Image Edit Mode */
 .image-wrapper.edit-mode img {
     border: 3px dashed #007bff;
