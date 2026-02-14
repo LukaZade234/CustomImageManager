@@ -72,22 +72,26 @@
                     </div>
                 </div>
                 <div id="charEditMode" style="display: none;">
-                    <div class="form-group">
-                        <label>Name</label>
-                        <input type="text" id="editCharName" class="edit-input">
-                    </div>
-                    <div class="form-group">
-                        <label>Series</label>
-                        <input type="text" id="editCharSeries" class="edit-input">
-                    </div>
-                    <div class="form-group">
-                        <label>Rank</label>
-                        <input type="number" id="editCharRank" class="edit-input">
-                    </div>
-                    
-                    <div style="margin-top: 10px; display: flex; gap: 10px;">
-                        <button id="saveEditBtn" class="upload-btn" style="padding: 5px 10px; font-size: 0.9em;" onclick="saveEdit()">Save</button>
-                        <button id="cancelEditBtn" class="upload-btn" style="padding: 5px 10px; font-size: 0.9em; background-color: #6c757d;" onclick="disableEditMode()">Cancel</button>
+                    <div class="edit-form-container">
+                        <div class="edit-group full-width">
+                            <label for="editCharName">Name</label>
+                            <input type="text" id="editCharName" class="modern-input" placeholder="Character Name">
+                        </div>
+                        <div class="edit-row">
+                            <div class="edit-group">
+                                <label for="editCharSeries">Series</label>
+                                <input type="text" id="editCharSeries" class="modern-input" placeholder="Series Name">
+                            </div>
+                            <div class="edit-group">
+                                <label for="editCharRank">Rank</label>
+                                <input type="number" id="editCharRank" class="modern-input" placeholder="#">
+                            </div>
+                        </div>
+                        
+                        <div class="edit-actions">
+                            <button id="saveEditBtn" class="action-btn primary" onclick="saveEdit()">Save Changes</button>
+                            <button id="cancelEditBtn" class="action-btn secondary" onclick="disableEditMode()">Cancel</button>
+                        </div>
                     </div>
                 </div>
             </div>

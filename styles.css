@@ -594,6 +594,75 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     transform: scale(1.02);
 }
 
+/* Modern Edit Form Styles */
+.edit-form-container {
+    padding: 10px 0;
+}
+.edit-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+    flex: 1;
+}
+.edit-row {
+    display: flex;
+    gap: 15px;
+}
+.edit-group.full-width {
+    width: 100%;
+}
+.edit-group label {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.modern-input {
+    padding: 12px 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background: #fcfcfc;
+    color: #212529;
+    outline: none;
+}
+.modern-input:focus {
+    border-color: #80bdff;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(0,123,255,0.15);
+}
+.edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 20px;
+}
+.action-btn.primary {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+}
+.action-btn.primary:hover {
+    background-color: #0056b3;
+    color: white;
+}
+.action-btn.secondary {
+    background-color: #e9ecef;
+    color: #495057;
+    border: 1px solid #ced4da;
+    padding: 10px 20px;
+}
+.action-btn.secondary:hover {
+    background-color: #dee2e6;
+    color: #212529;
+}
+
 /* Spinner */
 .spinner {
     border: 2px solid rgba(255,255,255,0.3);
