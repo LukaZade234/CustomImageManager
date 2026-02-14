@@ -854,8 +854,12 @@ function toggleReorderMode() {
         
         btn.innerHTML = `
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-                <polyline points="21 15 16 10 5 21"></polyline>
-                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="5 9 2 12 5 15"></polyline>
+                <polyline points="9 5 12 2 15 5"></polyline>
+                <polyline points="19 9 22 12 19 15"></polyline>
+                <polyline points="9 19 12 22 15 19"></polyline>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="12" y1="2" x2="12" y2="22"></line>
             </svg>
             Reorder
         `;
@@ -881,6 +885,7 @@ function addDragListeners(item) {
     item.addEventListener('drop', handleDrop);
     item.addEventListener('dragenter', handleDragEnter);
     item.addEventListener('dragleave', handleDragLeave);
+    item.addEventListener('dragend', handleDragEnd);
 }
 
 function removeDragListeners(item) {
@@ -889,12 +894,20 @@ function removeDragListeners(item) {
     item.removeEventListener('drop', handleDrop);
     item.removeEventListener('dragenter', handleDragEnter);
     item.removeEventListener('dragleave', handleDragLeave);
+    item.removeEventListener('dragend', handleDragEnd);
 }
 
 function handleDragStart(e) {
     draggedItem = this;
     this.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    draggedItem = null;
+    // Ensure all clean
+    document.querySelectorAll('.gallery-item-wrapper').forEach(el => el.classList.remove('dragging'));
 }
 
 function handleDragOver(e) {
@@ -977,8 +990,12 @@ async function loadCustomImages(name) {
         if (btn) {
             btn.innerHTML = `
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <polyline points="5 9 2 12 5 15"></polyline>
+                    <polyline points="9 5 12 2 15 5"></polyline>
+                    <polyline points="19 9 22 12 19 15"></polyline>
+                    <polyline points="9 19 12 22 15 19"></polyline>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <line x1="12" y1="2" x2="12" y2="22"></line>
                 </svg>
                 Reorder
             `;

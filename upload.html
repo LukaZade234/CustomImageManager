@@ -115,8 +115,12 @@
                 <div>
                     <button id="reorderBtn" class="action-btn" onclick="toggleReorderMode()" style="padding: 6px 12px; font-size: 0.9em; margin-right: 5px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-                            <polyline points="21 15 16 10 5 21"></polyline>
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <polyline points="5 9 2 12 5 15"></polyline>
+                            <polyline points="9 5 12 2 15 5"></polyline>
+                            <polyline points="19 9 22 12 19 15"></polyline>
+                            <polyline points="9 19 12 22 15 19"></polyline>
+                            <line x1="2" y1="12" x2="22" y2="12"></line>
+                            <line x1="12" y1="2" x2="12" y2="22"></line>
                         </svg>
                         Reorder
                     </button>
@@ -226,6 +230,6 @@
     <div id="toast-container"></div>
 
     <script src="character_mapping.js"></script>
-    <script src="app.js?v=29"></script>
+    <script src="app.js?v=30"></script>
 </body>
 </html>
