@@ -3,7 +3,7 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0;
 /* Navbar Styles */
 .navbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* Strictly center the search bar */
     align-items: center;
     background-color: #ffffff;
     padding: 10px 30px;
@@ -19,17 +19,21 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0;
     text-decoration: none;
     display: flex;
     align-items: center;
+    position: absolute; /* Remove from flow to prevent shifting center */
+    left: 30px;
 }
 .navbar-brand span { margin-left: 10px; }
 .navbar-center {
-    flex-grow: 1;
-    max-width: 600px;
-    margin: 0 20px;
+    width: 100%;
+    max-width: 700px;
+    margin: 0;
     position: relative;
 }
 .navbar-right {
     display: flex;
     align-items: center;
+    position: absolute; /* Remove from flow */
+    right: 30px;
 }
 .btn-saved {
     display: inline-flex;
@@ -63,6 +67,39 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0;
 .btn-add-char:hover {
     background-color: #218838;
     color: white;
+}
+
+/* Search Styles */
+.search-input-wrapper {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 5px 15px;
+    border: 1px solid #ced4da;
+    border-radius: 20px;
+    background-color: white;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+.search-input-wrapper:focus-within {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+#charSearch { 
+    width: 100%; 
+    padding: 5px; 
+    border: none; 
+    border-radius: 0; 
+    font-size: 1em;
+    outline: none;
+    background: transparent;
+    flex-grow: 1;
+}
+#charSearch:focus { border-color: transparent; box-shadow: none; }
+
+/* Suggestions Position */
+.suggestions-box { 
+    /* ... existing ... */
 }
 
 /* Toggle Switch */
@@ -107,67 +144,48 @@ input:checked + .slider {
 input:checked + .slider:before {
     transform: translateX(18px);
 }
+
 .search-toggle-wrapper {
     display: flex;
     align-items: center;
     font-size: 0.85em;
     color: #6c757d;
     font-weight: 600;
-    position: relative; /* Anchor for absolute labels */
-    margin-left: 10px; /* Spacing from filter */
+    white-space: nowrap;
+    margin-left: auto; /* Push to far right */
+    flex-shrink: 0; /* Don't shrink */
 }
 .toggle-label {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
     opacity: 0;
     max-width: 0;
-    padding: 0; /* Reset padding */
     overflow: hidden;
-    white-space: nowrap;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    background-color: rgba(255,255,255,0.9);
-    border-radius: 4px;
-    pointer-events: none;
+    padding: 0;
 }
-/* Specific positioning */
+/* No absolute positioning */
 #searchLabelName {
-    right: 100%;
+    padding-right: 0;
     text-align: right;
-    transform-origin: right center;
 }
 #searchLabelSeries {
-    left: 100%;
+    padding-left: 0;
     text-align: left;
-    transform-origin: left center;
 }
 
 .search-toggle-wrapper:hover .toggle-label {
     opacity: 1;
-    max-width: 80px;
+    max-width: 60px; /* Expand flow width */
 }
 .search-toggle-wrapper:hover #searchLabelName {
-    padding-right: 8px; /* Add spacing on hover */
+    padding-right: 6px;
 }
 .search-toggle-wrapper:hover #searchLabelSeries {
-    padding-left: 8px; /* Add spacing on hover */
+    padding-left: 6px;
 }
 .toggle-label.active {
     color: #007bff;
     font-weight: 700;
 }
-
-/* Search Styles */
-#charSearch { 
-    width: 100%; 
-    padding: 10px 15px; 
-    border: 1px solid #ced4da; 
-    border-radius: 20px; 
-    font-size: 1em;
-    outline: none;
-    transition: border-color 0.3s;
-}
-#charSearch:focus { border-color: #80bdff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
 .suggestions-box { 
     position: absolute; 
     top: 100%; 
@@ -847,8 +865,14 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
     .navbar {
+        display: flex; /* Restore flex for mobile */
         flex-wrap: wrap;
         padding: 10px 15px;
+        justify-content: space-between; /* Reset justify for mobile */
+    }
+    .navbar-brand, .navbar-right {
+        position: static; /* Reset absolute positioning */
+        margin-bottom: 10px;
     }
     .navbar-brand {
         order: 1;

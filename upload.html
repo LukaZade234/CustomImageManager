@@ -19,20 +19,22 @@
         </a>
 
         <div class="navbar-center search-container" style="display: flex; gap: 10px; align-items: center;">
-            <input type="text" id="charSearch" placeholder="Search characters..." autocomplete="off">
+            <div class="search-input-wrapper">
+                <input type="text" id="charSearch" placeholder="Search characters..." autocomplete="off">
+                <div class="search-toggle-wrapper">
+                    <span id="searchLabelName" class="toggle-label active">Name</span>
+                    <label class="switch">
+                        <input type="checkbox" id="searchModeToggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <span id="searchLabelSeries" class="toggle-label">Series</span>
+                </div>
+            </div>
             <select id="sortSelect" class="sort-dropdown" title="Sort results">
                 <option value="rank">Rank (High-Low)</option>
                 <option value="name">Name (A-Z)</option>
                 <option value="series">Series (A-Z)</option>
             </select>
-            <div class="search-toggle-wrapper">
-                <span id="searchLabelName" class="toggle-label active">Name</span>
-                <label class="switch">
-                    <input type="checkbox" id="searchModeToggle">
-                    <span class="slider round"></span>
-                </label>
-                <span id="searchLabelSeries" class="toggle-label">Series</span>
-            </div>
             <div id="suggestions" class="suggestions-box"></div>
         </div>
 
@@ -251,7 +253,7 @@
             <h2>Welcome to ImgManager</h2>
             <p style="color: #666; margin-bottom: 20px;">Manage your character collection with ease. Search, customize, and organize your favorite characters.</p>
             
-            <div style="text-align: left; max-width: 600px; margin: 0 auto; background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef;">
+            <div style="text-align: left; max-width: 700px; margin: 0 auto; background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef;">
                 <h4 style="margin-top: 0; color: #333;">How to use:</h4>
                 <ul style="color: #555; line-height: 1.6; padding-left: 20px;">
                     <li><strong>Search:</strong> Use the search bar above to find characters by Name or Series.</li>
