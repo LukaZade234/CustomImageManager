@@ -162,12 +162,13 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     text-align: left;
 }
 #charImageContainer {
-    flex: 1;
+    flex: 0 0 auto; /* Size to content to allow text more space */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     align-items: flex-end; /* Move image to the right */
     position: relative;
+    max-width: 50%; /* Prevent image from dominating too much */
 }
 #charImageContainer img {
     max-width: 100%;
@@ -790,6 +791,8 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     #charImageContainer {
         order: 1;
         width: 100%;
+        max-width: 100%; /* Reset max-width from base styles */
+        align-items: center; /* Center image on mobile */
     }
     #charInfo {
         order: 2;
