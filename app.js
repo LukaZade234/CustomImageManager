@@ -241,13 +241,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('customsSort').addEventListener('change', renderCustoms);
     document.getElementById('customsSeriesFilter').addEventListener('change', renderCustoms);
 
-    // ... Main Image Upload ...
-    document.getElementById('mainImageInput').addEventListener('change', async (e) => {
+    // Main Image Drop Logic
+    const mainImgDropZone = document.getElementById('charImageDisplay');
+    
+    mainImgDropZone.addEventListener('dragenter', (e) => {
+        if (isEditing && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+            e.preventDefault();
+            e.stopPropagation();
+            mainImgDropZone.classList.add('main-image-dragover');
+        }
+    });
+    
+    mainImgDropZone.addEventListener('dragover', (e) => {
+        if (isEditing && e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) {
+            e.preventDefault();
+            e.stopPropagation();
+            mainImgDropZone.classList.add('main-image-dragover');
+        }
+    });
+    
+    mainImgDropZone.addEventListener('dragleave', (e) => {
+        if (isEditing) {
+            e.preventDefault();
+            e.stopPropagation();
+            mainImgDropZone.classList.remove('main-image-dragover');
+        }
+    });
+    
+    mainImgDropZone.addEventListener('drop', async (e) => {
+        if (!isEditing) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        mainImgDropZone.classList.remove('main-image-dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            uploadMainImage(files[0]);
+        }
+    });
 
-        if (!e.target.files.length) return;
+    // ... Main Image Upload ...
+    async function uploadMainImage(file) {
         if (!currentCharacter) return;
         
-        const file = e.target.files[0];
         const formData = new FormData();
         formData.append('file', file);
         formData.append('character_name', currentCharacter.name);
@@ -273,6 +310,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
                 // Update UI
                 selectCharacter(currentCharacter);
+                // Re-enable edit mode UI if we were editing
+                if(isEditing) {
+                     enableEditMode(); 
+                }
                 showToast('Main image updated!', 'success');
             } else {
                 showToast(data.error || 'Failed to set main image', 'error');
@@ -283,6 +324,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         
         imgDisplay.style.opacity = originalOpacity;
+    }
+
+    document.getElementById('mainImageInput').addEventListener('change', async (e) => {
+        if (!e.target.files.length) return;
+        uploadMainImage(e.target.files[0]);
         e.target.value = '';
     });
 
@@ -696,15 +742,26 @@ function enableEditMode() {
     document.getElementById('charDisplayMode').style.display = 'none';
     document.getElementById('charEditMode').style.display = 'block';
     
-    // Enable Gallery Editing (Show Delete Buttons)
-    document.getElementById('customImagesGallery').classList.add('gallery-editing');
-    loadCustomImages(currentCharacter.name); 
+    // Disable Custom Image Delete (Do NOT show delete buttons)
+    // document.getElementById('customImagesGallery').classList.add('gallery-editing');
     
-    // Allow clicking main image to change it
+    // Main Image Editing UI
     const img = document.getElementById('charImageDisplay');
-    img.style.cursor = 'pointer';
+    img.classList.add('main-image-edit');
     img.onclick = () => document.getElementById('mainImageInput').click();
-    img.title = "Click to replace main image";
+    img.title = "Click or Drop to replace main image";
+    
+    // Add overlay hint
+    let overlay = document.getElementById('mainImageOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'mainImageOverlay';
+        overlay.className = 'main-image-overlay';
+        overlay.textContent = 'Click/Drop to Edit';
+        // Insert after image in the wrapper
+        img.parentNode.appendChild(overlay);
+    }
+    overlay.style.display = 'block';
     
     // Hide Save Button during edit to avoid confusion
     document.getElementById('saveButton').style.display = 'none';
@@ -714,12 +771,18 @@ function disableEditMode() {
     isEditing = false;
     document.getElementById('charDisplayMode').style.display = 'block';
     document.getElementById('charEditMode').style.display = 'none';
-    document.getElementById('customImagesGallery').classList.remove('gallery-editing');
+    // document.getElementById('customImagesGallery').classList.remove('gallery-editing');
     
     document.getElementById('saveButton').style.display = 'block'; // Show save button again
     
     // Restore Main Image behavior
     const img = document.getElementById('charImageDisplay');
+    img.classList.remove('main-image-edit');
+    img.classList.remove('main-image-dragover');
+    
+    const overlay = document.getElementById('mainImageOverlay');
+    if (overlay) overlay.style.display = 'none';
+    
     if (currentCharacter.image) {
         img.onclick = () => openModal(0);
         img.title = currentCharacter.name;
