@@ -880,6 +880,7 @@ function toggleReorderMode() {
         
         // Clear global drag state just in case
         draggedItem = null;
+        document.getElementById('customImagesSection').classList.remove('drag-over');
     }
 }
 
@@ -912,6 +913,8 @@ function handleDragEnd(e) {
     draggedItem = null;
     // Ensure all clean
     document.querySelectorAll('.gallery-item-wrapper').forEach(el => el.classList.remove('dragging'));
+    // Ensure container unhighlight
+    document.getElementById('customImagesSection').classList.remove('drag-over');
 }
 
 function handleDragOver(e) {
@@ -946,6 +949,8 @@ function handleDrop(e) {
     if (draggedItem) {
         draggedItem.classList.remove('dragging');
     }
+    // Ensure container unhighlight
+    document.getElementById('customImagesSection').classList.remove('drag-over');
     return false;
 }
 
