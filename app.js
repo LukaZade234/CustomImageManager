@@ -894,44 +894,145 @@ async function deleteCustomImage(url) {
 }
 
 let draggedItem = null;
+let selectedImages = new Set();
 
 function toggleDeleteMode() {
     // If reordering is active, turn it off
     if (isReordering) toggleReorderMode();
     
     isDeleting = !isDeleting;
-    const btn = document.getElementById('deleteModeBtn');
+    const deleteBtn = document.getElementById('deleteModeBtn');
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const cancelBtn = document.getElementById('cancelDeleteBtn');
     const gallery = document.getElementById('customImagesGallery');
+    const items = gallery.querySelectorAll('.gallery-item-wrapper');
     
     if (isDeleting) {
-        btn.innerHTML = 'Done';
-        btn.style.backgroundColor = '#dc3545';
-        btn.style.color = 'white';
-        btn.style.borderColor = '#dc3545';
-        
-        gallery.classList.add('gallery-editing');
+        // Switch Buttons
+        deleteBtn.style.display = 'none';
+        confirmBtn.style.display = 'inline-flex';
+        cancelBtn.style.display = 'inline-flex';
         
         // Hide Add/Reorder buttons
         document.getElementById('addCustomImageBtn').style.display = 'none';
         document.getElementById('reorderBtn').style.display = 'none';
         
-    } else {
-        btn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-                <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-            </svg>
-            Delete
-        `;
-        btn.style.backgroundColor = '';
-        btn.style.color = '';
-        btn.style.borderColor = '';
+        // Reset Selection
+        selectedImages.clear();
+        updateDeleteButtonCount();
         
-        gallery.classList.remove('gallery-editing');
+        // Add listeners
+        items.forEach(item => {
+            item.classList.add('delete-mode');
+            item.addEventListener('click', handleImageSelect);
+            // Disable lightbox click on img
+            const img = item.querySelector('img');
+            if (img) img.onclick = null; 
+        });
+        
+    } else {
+        // Switch Buttons
+        deleteBtn.style.display = 'inline-flex';
+        confirmBtn.style.display = 'none';
+        cancelBtn.style.display = 'none';
         
         // Show Add/Reorder buttons
         document.getElementById('addCustomImageBtn').style.display = 'inline-flex';
         document.getElementById('reorderBtn').style.display = 'inline-flex';
+        
+        // Clear Selection
+        selectedImages.clear();
+        items.forEach(item => {
+            item.classList.remove('delete-mode');
+            item.classList.remove('selected');
+            item.removeEventListener('click', handleImageSelect);
+            
+            // Restore lightbox click
+            const img = item.querySelector('img');
+            // We need the index to restore lightbox properly. 
+            // Luckily `loadCustomImages` sets the index in the onclick closure.
+            // But we can't easily retrieve the index here.
+            // Best strategy: Reload gallery to restore clean state.
+        });
+        
+        // Reload to restore original onclick handlers
+        loadCustomImages(currentCharacter.name);
+    }
+}
+
+function handleImageSelect(e) {
+    e.stopPropagation(); // Prevent anything else
+    
+    const item = this; // .gallery-item-wrapper
+    const img = item.querySelector('img');
+    if (!img) return;
+    
+    const url = img.src;
+    
+    if (selectedImages.has(url)) {
+        selectedImages.delete(url);
+        item.classList.remove('selected');
+    } else {
+        selectedImages.add(url);
+        item.classList.add('selected');
+    }
+    
+    updateDeleteButtonCount();
+}
+
+function updateDeleteButtonCount() {
+    const btn = document.getElementById('confirmDeleteBtn');
+    btn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Delete Selected (${selectedImages.size})
+    `;
+    
+    // Optional: Disable if 0
+    if (selectedImages.size === 0) {
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'not-allowed';
+    } else {
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+}
+
+async function deleteSelectedImages() {
+    if (selectedImages.size === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${selectedImages.size} image(s)?`)) return;
+    
+    const btn = document.getElementById('confirmDeleteBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner"></span> Deleting...';
+    
+    try {
+        const res = await fetch('/api/delete-custom-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                character_name: currentCharacter.name,
+                image_urls: Array.from(selectedImages)
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+            showToast(data.message || 'Images deleted', 'success');
+            // Exit delete mode and reload
+            toggleDeleteMode(); 
+        } else {
+            showToast(data.error || 'Failed to delete images', 'error');
+            btn.innerHTML = originalText;
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Error deleting images', 'error');
+        btn.innerHTML = originalText;
     }
 }
 
@@ -1133,18 +1234,23 @@ async function loadCustomImages(name) {
     // Reset Delete State
     if (isDeleting) {
         isDeleting = false;
-        const btn = document.getElementById('deleteModeBtn');
-        if (btn) {
-            btn.innerHTML = `
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                Delete
-            `;
-            btn.style.backgroundColor = '';
-            btn.style.color = '';
-            btn.style.borderColor = '';
+        selectedImages.clear();
+        
+        // Hide Confirm/Cancel
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const cancelBtn = document.getElementById('cancelDeleteBtn');
+        if (confirmBtn) confirmBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        
+        // Show Delete Button
+        const delBtn = document.getElementById('deleteModeBtn');
+        if (delBtn) delBtn.style.display = 'inline-flex';
+        
+        // Remove gallery classes if any
+        if (gallery) {
+            gallery.classList.remove('gallery-editing');
+             // Also remove .selected and .delete-mode from any existing items?
+             // They are about to be replaced by new HTML anyway.
         }
     }
     
@@ -1192,27 +1298,16 @@ async function loadCustomImages(name) {
                 
                 img.onclick = () => openModal(i);
                 
-                // Delete Button
-                const delBtn = document.createElement('button');
-                delBtn.className = 'delete-btn';
-                delBtn.innerHTML = '&times;';
-                delBtn.title = 'Delete image';
-                delBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    deleteCustomImage(url);
-                };
-                
                 wrapper.appendChild(img);
-                wrapper.appendChild(delBtn);
                 gallery.appendChild(wrapper);
             });
         }
         
         // Check if editing mode is active to show delete buttons
         if (isEditing) {
-            gallery.classList.add('gallery-editing');
+            // gallery.classList.add('gallery-editing');
         } else {
-            gallery.classList.remove('gallery-editing');
+            // gallery.classList.remove('gallery-editing');
         }
         
     } catch (e) {

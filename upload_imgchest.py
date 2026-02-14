@@ -564,6 +564,69 @@ def delete_custom_image():
         print(f"Error deleting image: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/delete-custom-images', methods=['POST'])
+def delete_custom_images():
+    data = request.get_json()
+    if not data or 'character_name' not in data or 'image_urls' not in data:
+        return jsonify({'error': 'Missing data'}), 400
+        
+    char_name = data['character_name']
+    image_urls = data['image_urls']
+    
+    if not isinstance(image_urls, list):
+        return jsonify({'error': 'image_urls must be a list'}), 400
+        
+    json_file = 'custom_images.json'
+    
+    if not os.path.exists(json_file):
+        return jsonify({'error': 'File not found'}), 404
+        
+    try:
+        with open(json_file, 'r', encoding='utf-8') as f:
+            custom_data = json.load(f)
+            
+        if char_name in custom_data:
+            current_list = custom_data[char_name]
+            original_len = len(current_list)
+            
+            # Remove images
+            custom_data[char_name] = [url for url in current_list if url not in image_urls]
+            
+            if len(custom_data[char_name]) == original_len:
+                 return jsonify({'message': 'No images were deleted (none matched)'})
+            
+            # Save locally
+            with open(json_file, 'w', encoding='utf-8') as f:
+                json.dump(custom_data, f, indent=4, ensure_ascii=False)
+                
+            # Sync GitHub
+            github_token = os.environ.get('GITHUB_TOKEN')
+            github_repo = os.environ.get('GITHUB_REPO')
+            sync_msg = ""
+            
+            if github_token and github_repo:
+                try:
+                    json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
+                    update_github_file(
+                        github_repo, 
+                        json_file, 
+                        json_content, 
+                        f"Delete {original_len - len(custom_data[char_name])} custom images for: {char_name}", 
+                        github_token
+                    )
+                    sync_msg = " & Synced to GitHub"
+                except Exception as gh_e:
+                    print(f"GitHub Sync Error: {gh_e}")
+                    sync_msg = " (GitHub Sync Failed)"
+            
+            return jsonify({'success': True, 'message': f'Images deleted{sync_msg}'})
+        else:
+            return jsonify({'error': 'Character not found'}), 404
+            
+    except Exception as e:
+        print(f"Error deleting images: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/edit-character', methods=['POST'])
 def edit_character():
     data = request.get_json()

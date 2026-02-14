@@ -533,6 +533,37 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     object-fit: cover;
 }
 
+/* Delete Mode Styles */
+.gallery-item-wrapper.selected img {
+    border: 3px solid #dc3545;
+    opacity: 0.8;
+}
+.gallery-item-wrapper.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
+    background: rgba(220, 53, 69, 0.8);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.gallery-item-wrapper.delete-mode {
+    cursor: pointer;
+}
+.gallery-item-wrapper.delete-mode:hover img {
+    opacity: 0.9;
+    border-color: #dc3545;
+}
+
 /* Main Image Edit Mode */
 .image-wrapper.edit-mode img {
     border: 3px dashed #007bff;

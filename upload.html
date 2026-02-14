@@ -111,6 +111,17 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0; color: #212529;">Custom Images</h3>
                 <div>
+                    <button id="confirmDeleteBtn" class="action-btn" onclick="deleteSelectedImages()" style="display: none; padding: 6px 12px; font-size: 0.9em; margin-right: 5px; background-color: #dc3545; color: white; border-color: #dc3545;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Delete Selected (0)
+                    </button>
+                    <button id="cancelDeleteBtn" class="action-btn" onclick="toggleDeleteMode()" style="display: none; padding: 6px 12px; font-size: 0.9em; margin-right: 5px;">
+                        Cancel
+                    </button>
+                    
                     <button id="deleteModeBtn" class="action-btn" onclick="toggleDeleteMode()" style="padding: 6px 12px; font-size: 0.9em; margin-right: 5px;">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
                             <polyline points="3 6 5 6 21 6"></polyline>
