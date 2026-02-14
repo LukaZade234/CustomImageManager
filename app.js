@@ -24,6 +24,7 @@ const STORAGE_KEY = 'savedCharacters';
 let searchMatches = [];
 let visibleSearchLimit = 10;
 let cachedCustoms = [];
+let isReordering = false;
 
 async function loadCharacterData() {
     // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
@@ -823,9 +824,171 @@ async function deleteCustomImage(url) {
     }
 }
 
+let draggedItem = null;
+
+function toggleReorderMode() {
+    isReordering = !isReordering;
+    const btn = document.getElementById('reorderBtn');
+    const gallery = document.getElementById('customImagesGallery');
+    const items = gallery.querySelectorAll('.gallery-item-wrapper');
+    
+    if (isReordering) {
+        btn.innerHTML = 'Save Order';
+        btn.style.backgroundColor = '#28a745';
+        btn.style.color = 'white';
+        btn.style.borderColor = '#28a745';
+        
+        // Disable Add Button
+        document.getElementById('addCustomImageBtn').style.display = 'none';
+        
+        // Make items draggable
+        items.forEach(item => {
+            item.setAttribute('draggable', 'true');
+            item.classList.add('draggable');
+            addDragListeners(item);
+        });
+        
+    } else {
+        // Save
+        saveReorder();
+        
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                <polyline points="21 15 16 10 5 21"></polyline>
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+            </svg>
+            Reorder
+        `;
+        btn.style.backgroundColor = ''; // Reset
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        
+        // Enable Add Button
+        document.getElementById('addCustomImageBtn').style.display = 'inline-flex';
+        
+        // Remove draggable
+        items.forEach(item => {
+            item.setAttribute('draggable', 'false');
+            item.classList.remove('draggable');
+            removeDragListeners(item);
+        });
+    }
+}
+
+function addDragListeners(item) {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragover', handleDragOver);
+    item.addEventListener('drop', handleDrop);
+    item.addEventListener('dragenter', handleDragEnter);
+    item.addEventListener('dragleave', handleDragLeave);
+}
+
+function removeDragListeners(item) {
+    item.removeEventListener('dragstart', handleDragStart);
+    item.removeEventListener('dragover', handleDragOver);
+    item.removeEventListener('drop', handleDrop);
+    item.removeEventListener('dragenter', handleDragEnter);
+    item.removeEventListener('dragleave', handleDragLeave);
+}
+
+function handleDragStart(e) {
+    draggedItem = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (this === draggedItem) return;
+    
+    const gallery = document.getElementById('customImagesGallery');
+    const items = [...gallery.querySelectorAll('.gallery-item-wrapper')];
+    const draggedIdx = items.indexOf(draggedItem);
+    const targetIdx = items.indexOf(this);
+    
+    // Swap in DOM
+    if (draggedIdx < targetIdx) {
+        this.after(draggedItem);
+    } else {
+        this.before(draggedItem);
+    }
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+}
+
+function handleDragLeave(e) {
+    // Optional styling cleanup
+}
+
+function handleDrop(e) {
+    e.stopPropagation();
+    if (draggedItem) {
+        draggedItem.classList.remove('dragging');
+    }
+    return false;
+}
+
+async function saveReorder() {
+    if (!currentCharacter) return;
+    
+    const gallery = document.getElementById('customImagesGallery');
+    const items = gallery.querySelectorAll('.gallery-item-wrapper img');
+    const newOrder = Array.from(items).map(img => img.src);
+    
+    // Optimistic update of local cache?
+    // We'll just let the server confirm, but we should update our cached `galleryImages` so subsequent clicks on images open correct index
+    galleryImages = newOrder;
+    
+    try {
+        const res = await fetch('/api/reorder-custom-images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                character_name: currentCharacter.name,
+                new_order: newOrder
+            })
+        });
+        
+        if (res.ok) {
+            showToast('Order saved!', 'success');
+        } else {
+            showToast('Failed to save order', 'error');
+            loadCustomImages(currentCharacter.name); // Revert on fail
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('Error saving order', 'error');
+        loadCustomImages(currentCharacter.name); // Revert
+    }
+}
+
 async function loadCustomImages(name) {
     const gallery = document.getElementById('customImagesGallery');
     if (!gallery) return;
+    
+    // Reset Reorder State on load/refresh
+    if (isReordering) {
+        isReordering = false;
+        const btn = document.getElementById('reorderBtn');
+        if (btn) {
+            btn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                </svg>
+                Reorder
+            `;
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+        }
+        const addBtn = document.getElementById('addCustomImageBtn');
+        if (addBtn) addBtn.style.display = 'inline-flex';
+    }
     
     // Reset Gallery List
     galleryImages = [];

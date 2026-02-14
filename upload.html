@@ -112,13 +112,22 @@
         <div id="customImagesSection" style="display: none; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 900px; margin: 20px auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0; color: #212529;">Custom Images</h3>
-                <button id="addCustomImageBtn" class="action-btn" title="Add Custom Image" onclick="document.getElementById('customImageInput').click()" style="padding: 6px 12px; font-size: 0.9em;">
-                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Add Image
-                </button>
+                <div>
+                    <button id="reorderBtn" class="action-btn" onclick="toggleReorderMode()" style="padding: 6px 12px; font-size: 0.9em; margin-right: 5px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                        </svg>
+                        Reorder
+                    </button>
+                    <button id="addCustomImageBtn" class="action-btn" title="Add Custom Image" onclick="document.getElementById('customImageInput').click()" style="padding: 6px 12px; font-size: 0.9em;">
+                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Add Image
+                    </button>
+                </div>
             </div>
             <input type="file" id="customImageInput" accept="image/*" multiple style="display: none;">
             <input type="file" id="mainImageInput" accept="image/*" style="display: none;">

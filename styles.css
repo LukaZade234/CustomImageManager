@@ -370,6 +370,20 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     position: relative;
     display: inline-block;
 }
+.gallery-item-wrapper.draggable {
+    cursor: grab;
+}
+.gallery-item-wrapper.draggable:active {
+    cursor: grabbing;
+}
+.gallery-item-wrapper.dragging {
+    opacity: 0.5;
+    border: 2px dashed #007bff;
+    border-radius: 8px;
+}
+.gallery-item-wrapper.draggable .delete-btn {
+    display: none !important;
+}
 .delete-btn {
     display: none; /* Hidden by default */
     position: absolute;

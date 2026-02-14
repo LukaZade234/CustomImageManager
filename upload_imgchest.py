@@ -461,6 +461,54 @@ def get_custom_images(char_name):
         print(f"Error reading custom images: {e}")
         return jsonify([])
 
+@app.route('/api/reorder-custom-images', methods=['POST'])
+def reorder_custom_images():
+    try:
+        data = request.json
+        char_name = data.get('character_name')
+        new_order = data.get('new_order')
+        
+        if not char_name or not new_order:
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        json_file = 'custom_images.json'
+        if not os.path.exists(json_file):
+            return jsonify({'error': 'No custom images found'}), 404
+            
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        if char_name in data:
+            data[char_name] = new_order
+            
+            with open(json_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+                
+            # GitHub Sync
+            github_token = os.environ.get('GITHUB_TOKEN')
+            github_repo = os.environ.get('GITHUB_REPO')
+            
+            if github_token and github_repo:
+                try:
+                    json_content = json.dumps(data, ensure_ascii=False, indent=4)
+                    update_github_file(
+                        github_repo, 
+                        json_file, 
+                        json_content, 
+                        f"Reorder images for: {char_name}", 
+                        github_token
+                    )
+                except Exception as gh_e:
+                    print(f"GitHub Sync Error: {gh_e}")
+                    
+            return jsonify({'message': 'Order updated successfully'})
+        else:
+            return jsonify({'error': 'Character not found'}), 404
+            
+    except Exception as e:
+        print(f"Error reordering images: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/delete-custom-image', methods=['POST'])
 def delete_custom_image():
     data = request.get_json()
