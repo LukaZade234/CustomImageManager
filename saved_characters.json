@@ -19,13 +19,6 @@
     "image": "Zero_Two.png"
   },
   {
-    "name": "Audrey Hall",
-    "series": "",
-    "rank": "1001",
-    "kakera": "0",
-    "image": ""
-  },
-  {
     "name": "Fors Wall",
     "series": "",
     "rank": "1002",
@@ -73,5 +66,12 @@
     "rank": "810",
     "kakera": "252",
     "image": "Mona.png"
+  },
+  {
+    "name": "Audrey Hall",
+    "series": "",
+    "rank": "1001",
+    "kakera": "0",
+    "image": "https://cdn.imgchest.com/files/d36c3ed8baed.png"
   }
 ]

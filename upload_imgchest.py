@@ -3,6 +3,13 @@ import sys
 import os
 import csv
 import json
+import io
+
+# Force UTF-8 for stdout/stderr to fix Windows console encoding errors
+if sys.platform.startswith('win'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 from flask import Flask, request, jsonify, send_from_directory, abort
 
 # Import utility functions
