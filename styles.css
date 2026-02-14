@@ -166,7 +166,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: center;
+    align-items: flex-end; /* Move image to the right */
     position: relative;
 }
 #charImageContainer img {

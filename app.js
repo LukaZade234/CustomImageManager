@@ -25,6 +25,7 @@ let searchMatches = [];
 let visibleSearchLimit = 10;
 let cachedCustoms = [];
 let isReordering = false;
+let isDeleting = false;
 
 async function loadCharacterData() {
     // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
@@ -894,7 +895,50 @@ async function deleteCustomImage(url) {
 
 let draggedItem = null;
 
+function toggleDeleteMode() {
+    // If reordering is active, turn it off
+    if (isReordering) toggleReorderMode();
+    
+    isDeleting = !isDeleting;
+    const btn = document.getElementById('deleteModeBtn');
+    const gallery = document.getElementById('customImagesGallery');
+    
+    if (isDeleting) {
+        btn.innerHTML = 'Done';
+        btn.style.backgroundColor = '#dc3545';
+        btn.style.color = 'white';
+        btn.style.borderColor = '#dc3545';
+        
+        gallery.classList.add('gallery-editing');
+        
+        // Hide Add/Reorder buttons
+        document.getElementById('addCustomImageBtn').style.display = 'none';
+        document.getElementById('reorderBtn').style.display = 'none';
+        
+    } else {
+        btn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            Delete
+        `;
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        
+        gallery.classList.remove('gallery-editing');
+        
+        // Show Add/Reorder buttons
+        document.getElementById('addCustomImageBtn').style.display = 'inline-flex';
+        document.getElementById('reorderBtn').style.display = 'inline-flex';
+    }
+}
+
 function toggleReorderMode() {
+    // If deleting is active, turn it off
+    if (isDeleting) toggleDeleteMode();
+
     isReordering = !isReordering;
     const btn = document.getElementById('reorderBtn');
     const gallery = document.getElementById('customImagesGallery');
@@ -906,8 +950,9 @@ function toggleReorderMode() {
         btn.style.color = 'white';
         btn.style.borderColor = '#28a745';
         
-        // Disable Add Button
+        // Disable Add/Delete Buttons
         document.getElementById('addCustomImageBtn').style.display = 'none';
+        document.getElementById('deleteModeBtn').style.display = 'none';
         
         // Make items draggable
         items.forEach(item => {
@@ -935,8 +980,9 @@ function toggleReorderMode() {
         btn.style.color = '';
         btn.style.borderColor = '';
         
-        // Enable Add Button
+        // Enable Add/Delete Buttons
         document.getElementById('addCustomImageBtn').style.display = 'inline-flex';
+        document.getElementById('deleteModeBtn').style.display = 'inline-flex';
         
         // Remove draggable
         items.forEach(item => {
@@ -1062,10 +1108,12 @@ async function loadCustomImages(name) {
     
     // Reset Reorder State on load/refresh
     if (isReordering) {
+        // ... existing reset logic ...
         isReordering = false;
+        // reset UI
         const btn = document.getElementById('reorderBtn');
-        if (btn) {
-            btn.innerHTML = `
+        if(btn) {
+             btn.innerHTML = `
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
                     <polyline points="5 9 2 12 5 15"></polyline>
                     <polyline points="9 5 12 2 15 5"></polyline>
@@ -1080,9 +1128,33 @@ async function loadCustomImages(name) {
             btn.style.color = '';
             btn.style.borderColor = '';
         }
-        const addBtn = document.getElementById('addCustomImageBtn');
-        if (addBtn) addBtn.style.display = 'inline-flex';
     }
+    
+    // Reset Delete State
+    if (isDeleting) {
+        isDeleting = false;
+        const btn = document.getElementById('deleteModeBtn');
+        if (btn) {
+            btn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px; vertical-align: text-bottom;">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Delete
+            `;
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+            btn.style.borderColor = '';
+        }
+    }
+    
+    // Ensure buttons visible
+    const addBtn = document.getElementById('addCustomImageBtn');
+    if (addBtn) addBtn.style.display = 'inline-flex';
+    const reorderBtn = document.getElementById('reorderBtn');
+    if (reorderBtn) reorderBtn.style.display = 'inline-flex';
+    const deleteBtn = document.getElementById('deleteModeBtn');
+    if (deleteBtn) deleteBtn.style.display = 'inline-flex';
     
     // Reset Gallery List
     galleryImages = [];
