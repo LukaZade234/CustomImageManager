@@ -113,22 +113,48 @@ input:checked + .slider:before {
     font-size: 0.85em;
     color: #6c757d;
     font-weight: 600;
-    white-space: nowrap; /* Prevent label wrapping */
-    transition: all 0.3s ease;
+    position: relative; /* Anchor for absolute labels */
+    margin-left: 10px; /* Spacing from filter */
 }
 .toggle-label {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
     opacity: 0;
     max-width: 0;
+    padding: 0; /* Reset padding */
     overflow: hidden;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Pop effect */
+    white-space: nowrap;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background-color: rgba(255,255,255,0.9);
+    border-radius: 4px;
+    pointer-events: none;
 }
+/* Specific positioning */
+#searchLabelName {
+    right: 100%;
+    text-align: right;
+    transform-origin: right center;
+}
+#searchLabelSeries {
+    left: 100%;
+    text-align: left;
+    transform-origin: left center;
+}
+
 .search-toggle-wrapper:hover .toggle-label {
     opacity: 1;
-    max-width: 60px; /* Reveal text with safe width */
-    margin: 0 6px;
+    max-width: 80px;
+}
+.search-toggle-wrapper:hover #searchLabelName {
+    padding-right: 8px; /* Add spacing on hover */
+}
+.search-toggle-wrapper:hover #searchLabelSeries {
+    padding-left: 8px; /* Add spacing on hover */
 }
 .toggle-label.active {
     color: #007bff;
+    font-weight: 700;
 }
 
 /* Search Styles */
