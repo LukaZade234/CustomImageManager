@@ -862,6 +862,35 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
 }
 
+/* Responsive adjustments to prevent overlap and simplify */
+@media (max-width: 1500px) { /* Increased breakpoint to prevent overlap */
+    .navbar {
+        justify-content: space-between;
+    }
+    .navbar-brand, .navbar-right {
+        position: static; /* Switch to flow layout to prevent overlap */
+    }
+    .navbar-center {
+        margin: 0 20px;
+        flex: 1; /* Allow search bar to shrink */
+        width: auto;
+        max-width: none; /* Allow it to fill space if needed, or shrink */
+    }
+}
+
+@media (max-width: 1300px) { /* increased breakpoint for collapsing buttons */
+    /* Hide button text to save space on medium screens */
+    .btn-add-char span, .btn-saved span {
+        display: none;
+    }
+    .btn-add-char svg, .btn-saved svg {
+        margin-right: 0 !important;
+    }
+    .btn-add-char, .btn-saved {
+        padding: 8px 10px;
+    }
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
     .navbar {

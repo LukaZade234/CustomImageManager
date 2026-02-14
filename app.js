@@ -120,6 +120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (query.length === 0) {
             suggestionsBox.style.display = 'none';
+            // If search is cleared, return to the current route's view
+            handleRoute(); 
             return;
         }
 
@@ -148,14 +150,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             return 0;
         });
 
-        // Reset limit and render
-        visibleSearchLimit = 10;
-        renderSuggestions();
+        // Hide dropdown suggestions (user wants direct page results)
+        suggestionsBox.style.display = 'none';
         
-        // If Search Page is open, refresh it too
-        if (document.getElementById('searchPage').style.display === 'block') {
-            showSearchPage();
-        }
+        // Directly show the full results page
+        showSearchPage();
     }
 
     function renderSuggestions() {
