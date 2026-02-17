@@ -165,10 +165,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (visibleMatches.length > 0) {
             visibleMatches.forEach(char => {
-                const div = document.createElement('div');
+                const div = document.createElement('a'); // Changed to <a>
+                div.href = '#/character/' + encodeURIComponent(char.name); // Set href
                 div.className = 'suggestion-item';
                 div.innerHTML = `<strong>${char.name}</strong> <small>(${char.series || '—'})</small>`;
-                div.onclick = () => navigateTo('/character', char);
+                // div.onclick = () => navigateTo('/character', char); // Removed onclick
                 suggestionsBox.appendChild(div);
             });
 
@@ -441,9 +442,10 @@ function showSearchPage() {
     }
     
     toRender.forEach(char => {
-        const item = document.createElement('div');
+        const item = document.createElement('a'); // Changed to <a>
+        item.href = '#/character/' + encodeURIComponent(char.name); // Set href
         item.className = 'search-result-item';
-        item.onclick = () => navigateTo('/character', char);
+        // item.onclick = () => navigateTo('/character', char); // Removed onclick
         
         const imgUrl = getImageUrl(char.image);
         const img = document.createElement('img');
@@ -584,7 +586,8 @@ function displaySavedCharacters() {
     }
 
     savedCharacters.forEach(char => {
-        const card = document.createElement('div');
+        const card = document.createElement('a'); // Changed to <a>
+        card.href = '#/character/' + encodeURIComponent(char.name); // Set href
         card.className = 'saved-character-card';
         
         // Use fresh image data from allCharacters if available
@@ -610,15 +613,12 @@ function displaySavedCharacters() {
         
         const unsaveBtn = card.querySelector('.saved-card-unsave-btn');
         unsaveBtn.addEventListener('click', (e) => {
+            e.preventDefault(); // Prevent link following
             e.stopPropagation();
             removeSavedCharacter(char.name, e, true);
         });
         
-        card.addEventListener('click', (e) => {
-            if (!e.target.closest('.saved-card-unsave-btn')) {
-                navigateTo('/character', char);
-            }
-        });
+        // card.addEventListener('click', ...); // Removed, handled by <a>
         
         container.appendChild(card);
     });
@@ -980,7 +980,8 @@ async function saveEdit() {
             
             // Refresh UI
             if (oldName !== newName) {
-                navigateTo('/character', currentCharacter); // Update URL
+                // Direct hash update to keep same window
+                window.location.hash = '#/character/' + encodeURIComponent(currentCharacter.name);
             } else {
                 selectCharacter(currentCharacter);
             }
@@ -1869,9 +1870,10 @@ function renderCustoms() {
     }
     
     filtered.forEach(char => {
-         const item = document.createElement('div');
+         const item = document.createElement('a'); // Changed to <a>
+         item.href = '#/character/' + encodeURIComponent(char.name); // Set href
          item.className = 'search-result-item';
-         item.onclick = () => navigateTo('/character', char);
+         // item.onclick = () => navigateTo('/character', char); // Removed onclick
          
          const imgUrl = getImageUrl(char.image);
          const img = document.createElement('img');

@@ -202,7 +202,15 @@ input:checked + .slider:before {
     margin-top: 5px;
     display: none;
 }
-.suggestion-item { padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: background 0.2s; }
+.suggestion-item { 
+    padding: 12px 15px; 
+    cursor: pointer; 
+    border-bottom: 1px solid #f0f0f0; 
+    transition: background 0.2s;
+    text-decoration: none; /* For <a> tag */
+    color: #333;          /* Specific color */
+    display: block;       /* Ensure block behavior */
+}
 .suggestion-item:hover { background-color: #e9ecef; }
 .suggestion-item:last-child { border-bottom: none; }
 .suggestion-item.load-more {
@@ -382,6 +390,9 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     border: 1px solid #e9ecef;
+    text-decoration: none; /* For <a> tag */
+    color: inherit;       /* For <a> tag */
+    display: block;       /* Ensure block behavior for <a> */
 }
 .saved-character-card:hover {
     transform: translateY(-2px);
@@ -581,6 +592,8 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     border-bottom: 1px solid #f0f0f0;
     cursor: pointer;
     transition: background 0.2s;
+    text-decoration: none; /* For <a> tag */
+    color: inherit;       /* For <a> tag */
 }
 .search-result-item:hover {
     background-color: #f8f9fa;
