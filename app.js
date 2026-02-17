@@ -1780,6 +1780,12 @@ async function showCustomsPage() {
         }
         
         const names = Object.keys(customData);
+        // Map names to their insertion index (which we use as recency timestamp)
+        const recencyMap = {};
+        names.forEach((name, index) => {
+            recencyMap[name] = index;
+        });
+
         // Filter out empty arrays
         const activeNames = names.filter(n => customData[n] && customData[n].length > 0);
         
@@ -1789,7 +1795,8 @@ async function showCustomsPage() {
             .map(c => ({
                 ...c,
                 customImages: customData[c.name] || [],
-                customCount: (customData[c.name] || []).length
+                customCount: (customData[c.name] || []).length,
+                recentIndex: recencyMap[c.name] || 0
             }));
             
         // Populate Series Filter
@@ -1837,6 +1844,7 @@ function renderCustoms() {
     
     // Sort
     filtered.sort((a, b) => {
+        if (sortMode === 'recent') return b.recentIndex - a.recentIndex; // Newest first
         if (sortMode === 'name_asc') return a.name.localeCompare(b.name);
         if (sortMode === 'name_desc') return b.name.localeCompare(a.name);
         if (sortMode === 'series_asc') return (a.series || '').localeCompare(b.series || '');

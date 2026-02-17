@@ -431,6 +431,11 @@ def add_custom_image():
     # Initialize list if not exists
     if char_name not in data:
         data[char_name] = []
+    else:
+        # Move to end to track recency (Python 3.7+ preserves insertion order)
+        # We temporarily remove and re-add the key
+        imgs = data.pop(char_name)
+        data[char_name] = imgs
         
     # Add links
     data[char_name].extend(uploaded_links)
