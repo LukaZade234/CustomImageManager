@@ -284,10 +284,6 @@
     "Nobara Kugisaki": [
         "https://cdn.imgchest.com/files/42364ef60349.png"
     ],
-    "Asuka Langley Souryuu": [
-        "https://cdn.imgchest.com/files/58385ff00143.png",
-        "https://cdn.imgchest.com/files/5b393e09ef5a.png"
-    ],
     "Rei Ayanami": [
         "https://cdn.imgchest.com/files/693747f0826f.png",
         "https://cdn.imgchest.com/files/40e1d6b857a2.png",
@@ -924,5 +920,10 @@
         "https://cdn.imgchest.com/files/c08b332c6e17.png",
         "https://cdn.imgchest.com/files/f090d1c2d01a.png",
         "https://cdn.imgchest.com/files/b156118d0e5c.png"
+    ],
+    "Asuka Langley Souryuu": [
+        "https://cdn.imgchest.com/files/58385ff00143.png",
+        "https://cdn.imgchest.com/files/5b393e09ef5a.png",
+        "https://cdn.imgchest.com/files/27c21f34a9f4.png"
     ]
 }
