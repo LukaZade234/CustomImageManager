@@ -97,9 +97,88 @@ document.addEventListener('DOMContentLoaded', async () => {
     const searchToggle = document.getElementById('searchModeToggle');
     const labelName = document.getElementById('searchLabelName');
     const labelSeries = document.getElementById('searchLabelSeries');
+    const searchToggleWrapper = document.getElementById('searchToggleWrapper');
     
-    // Toggle Event
+    // Sort Dropdown Logic
+    const sortContainer = document.getElementById('sortDropdownContainer');
+    const sortTrigger = document.getElementById('sortDropdownTrigger');
+    const sortOptions = document.getElementById('sortDropdownOptions');
+    const sortHiddenInput = document.getElementById('sortSelect');
+    const currentSortLabel = document.getElementById('currentSortLabel');
+    
+    // Toggle Dropdown
+    sortTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isActive = sortContainer.classList.contains('active');
+        
+        if (isActive) {
+            closeSortDropdown();
+        } else {
+            openSortDropdown();
+        }
+    });
+    
+    function openSortDropdown() {
+        sortContainer.classList.add('active');
+        sortContainer.classList.add('expanded'); // Ensure full width on mobile
+        sortOptions.classList.add('show');
+    }
+    
+    function closeSortDropdown() {
+        sortContainer.classList.remove('active');
+        sortOptions.classList.remove('show');
+        
+        // On mobile: Check if we should collapse width
+        if (window.innerWidth <= 992) {
+            // Delay collapse to show selection briefly? Or just collapse?
+            // User requested: "make it automatically collapse after clicked on mobile like the toggle"
+            setTimeout(() => {
+                sortContainer.classList.remove('expanded');
+            }, 1000); // 1s delay before shrinking
+        }
+    }
+    
+    // Handle Option Click
+    sortOptions.querySelectorAll('.dropdown-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const value = option.dataset.value;
+            const label = option.textContent;
+            
+            // Update UI
+            currentSortLabel.textContent = label;
+            sortHiddenInput.value = value;
+            
+            // Update Active State
+            sortOptions.querySelectorAll('.dropdown-option').forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+            
+            // Trigger Search Update
+            updateSearch();
+            
+            // Close
+            closeSortDropdown();
+        });
+    });
+    
+    // Close on click outside
+    document.addEventListener('click', (e) => {
+        if (!sortContainer.contains(e.target)) {
+            sortContainer.classList.remove('active');
+            sortOptions.classList.remove('show');
+            // Remove expanded on outside click
+            sortContainer.classList.remove('expanded');
+        }
+    });
+
+    // Toggle Event for Search Mode
     searchToggle.addEventListener('change', () => {
+        // Expand briefly to show change
+        searchToggleWrapper.classList.add('expanded');
+        setTimeout(() => {
+            searchToggleWrapper.classList.remove('expanded');
+        }, 1000);
+
         if (searchToggle.checked) {
             // Series Mode
             searchInput.placeholder = 'Search series...';
@@ -113,10 +192,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         updateSearch();
     });
+
+    // Handle Hover/Click for Toggle Expansion
+    // Desktop: Hover
+    searchToggleWrapper.addEventListener('mouseenter', () => {
+        searchToggleWrapper.classList.add('expanded');
+    });
+    searchToggleWrapper.addEventListener('mouseleave', () => {
+        if (!searchToggle.checked && !document.activeElement.closest('.search-toggle-wrapper')) {
+             searchToggleWrapper.classList.remove('expanded');
+        } else if (searchToggle.checked) {
+             searchToggleWrapper.classList.remove('expanded');
+        }
+    });
+
+    // Mobile/Click
+    searchToggleWrapper.addEventListener('click', (e) => {
+        // If clicking the switch itself, let the change event handle the collapse timeout
+        if (e.target.tagName === 'INPUT' || e.target.classList.contains('slider')) return;
+        
+        searchToggleWrapper.classList.add('expanded');
+        // Auto collapse after 3s if no interaction
+        setTimeout(() => {
+            // Only collapse if mouse is not over (for desktop safety)
+            // For mobile, this just collapses it
+            searchToggleWrapper.classList.remove('expanded');
+        }, 3000);
+    });
     
     function updateSearch() {
         const query = searchInput.value.toLowerCase();
-        const sortMode = sortSelect.value;
+        // Use hidden input value
+        const sortMode = document.getElementById('sortSelect').value; 
         const searchBySeries = searchToggle.checked;
         
         if (query.length === 0) {
@@ -193,9 +300,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // searchInput.addEventListener('input', updateSearch); // Handled below
     searchInput.addEventListener('input', updateSearch);
     searchInput.addEventListener('focus', updateSearch); // Show results on click/focus
-    sortSelect.addEventListener('change', updateSearch);
+    // sortSelect.addEventListener('change', updateSearch); // Removed, handled by custom dropdown
     
     // Enter key for Advanced Search
     searchInput.addEventListener('keydown', (e) => {
@@ -312,6 +420,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Handle hash routing
     window.addEventListener('hashchange', handleRoute);
     handleRoute();
+
+    // Dark Mode Logic
+    const darkModeToggle = document.getElementById('darkModeToggle');
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+    
+    // Check saved preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        updateThemeIcon(true);
+    }
+
+    darkModeToggle.addEventListener('click', () => {
+        const isDark = document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        updateThemeIcon(isDark);
+    });
+
+    function updateThemeIcon(isDark) {
+        if (isDark) {
+            sunIcon.style.display = 'none';
+            moonIcon.style.display = 'block';
+        } else {
+            sunIcon.style.display = 'block';
+            moonIcon.style.display = 'none';
+        }
+    }
 });
 
 async function loadStats() {
@@ -737,11 +873,13 @@ function openModal(index) {
     currentGalleryIndex = index;
     const modal = document.getElementById('imageModal');
     modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
     updateModalImage();
 }
 
 function closeModal() {
     document.getElementById('imageModal').style.display = 'none';
+    document.body.style.overflow = ''; // Restore scrolling
 }
 
 function changeImage(n) {
@@ -773,6 +911,29 @@ document.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight') changeImage(1);
     }
 });
+
+// Swipe Support for Mobile
+let touchStartX = 0;
+let touchEndX = 0;
+const modal = document.getElementById('imageModal');
+
+modal.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].screenX;
+}, {passive: true});
+
+modal.addEventListener('touchend', e => {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipe();
+}, {passive: true});
+
+function handleSwipe() {
+    if (touchEndX < touchStartX - 50) {
+        changeImage(1); // Swipe Left -> Next
+    }
+    if (touchEndX > touchStartX + 50) {
+        changeImage(-1); // Swipe Right -> Prev
+    }
+}
 
 // Main Image Drag and Drop Handlers
 function handleMainDragEnter(e) {

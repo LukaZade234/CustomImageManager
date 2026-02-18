@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ImgChest Uploader</title>
-    <link rel="stylesheet" href="styles.css?v=10">
+    <link rel="stylesheet" href="styles.css?v=18">
 </head>
 <body>
 
@@ -21,7 +21,7 @@
         <div class="navbar-center search-container" style="display: flex; gap: 10px; align-items: center;">
             <div class="search-input-wrapper">
                 <input type="text" id="charSearch" placeholder="Search characters..." autocomplete="off">
-                <div class="search-toggle-wrapper">
+                <div class="search-toggle-wrapper" id="searchToggleWrapper">
                     <span id="searchLabelName" class="toggle-label active">Name</span>
                     <label class="switch">
                         <input type="checkbox" id="searchModeToggle">
@@ -30,15 +30,40 @@
                     <span id="searchLabelSeries" class="toggle-label">Series</span>
                 </div>
             </div>
-            <select id="sortSelect" class="sort-dropdown" title="Sort results">
-                <option value="rank">Rank (High-Low)</option>
-                <option value="name">Name (A-Z)</option>
-                <option value="series">Series (A-Z)</option>
-            </select>
+            <div class="custom-dropdown" id="sortDropdownContainer">
+                <div class="dropdown-selected" id="sortDropdownTrigger">
+                    <span class="selected-text" id="currentSortLabel">Rank (High-Low)</span>
+                    <svg class="dropdown-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <div class="dropdown-options" id="sortDropdownOptions">
+                    <div class="dropdown-option selected" data-value="rank">Rank (High-Low)</div>
+                    <div class="dropdown-option" data-value="name">Name (A-Z)</div>
+                    <div class="dropdown-option" data-value="series">Series (A-Z)</div>
+                </div>
+                <input type="hidden" id="sortSelect" value="rank">
+            </div>
             <div id="suggestions" class="suggestions-box"></div>
         </div>
 
         <div class="navbar-right">
+            <button id="darkModeToggle" class="theme-toggle-btn" title="Toggle Dark Mode">
+                <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
             <a href="#/add" class="btn-add-char" id="addCharLink">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 5px;">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -333,6 +358,6 @@
     <div id="toast-container"></div>
 
     <script src="character_mapping.js"></script>
-    <script src="app.js?v=37"></script>
+    <script src="app.js?v=45"></script>
 </body>
 </html>
