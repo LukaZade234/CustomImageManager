@@ -297,14 +297,15 @@ body.dark-mode .toast {
 /* Navbar Styles */
 .navbar {
     display: flex;
-    justify-content: center; /* Strictly center the search bar */
     align-items: center;
+    justify-content: space-between; /* Use flex spacing instead of absolute centering */
     background-color: #ffffff;
     padding: 10px 30px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     position: sticky;
     top: 0;
     z-index: 1000;
+    gap: 20px; /* Prevent touching */
 }
 .navbar-brand {
     font-size: 1.5em;
@@ -313,22 +314,23 @@ body.dark-mode .toast {
     text-decoration: none;
     display: flex;
     align-items: center;
-    position: absolute; /* Remove from flow to prevent shifting center */
-    left: 30px;
+    position: static; /* Keep in flow */
+    flex-shrink: 0;
 }
 .navbar-brand span { margin-left: 10px; }
 .navbar-center {
     width: 100%;
-    max-width: 900px;
-    margin: 0;
+    max-width: 900px; /* Desired width */
+    margin: 0 auto; /* Center in available space if possible */
     position: relative;
+    flex: 1; /* Allow shrinking/growing */
 }
 .navbar-right {
     display: flex;
     align-items: center;
-    position: absolute; /* Remove from flow */
-    right: 30px;
-    z-index: 10; /* Ensure buttons stay on top */
+    position: static; /* Keep in flow */
+    flex-shrink: 0;
+    z-index: 10;
 }
 .btn-saved {
     display: inline-flex;
@@ -1346,23 +1348,32 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 
 
 /* Responsive adjustments to prevent overlap and simplify */
-@media (max-width: 1500px) { /* Increased breakpoint to prevent overlap */
-    .navbar {
-        justify-content: space-between;
-    }
-    .navbar-brand, .navbar-right {
-        position: static; /* Switch to flow layout to prevent overlap */
-    }
-    .navbar-center {
-        margin: 0 20px;
-        flex: 1; /* Allow search bar to shrink */
-        width: auto;
-        max-width: none; /* Allow it to fill space if needed, or shrink */
-    }
+@media (max-width: 1500px) {
+    /* Flexbox handles spacing naturally now */
 }
 
-@media (max-width: 1300px) { /* increased breakpoint for collapsing buttons */
-    /* Hide button text to save space on medium screens */
+@media (max-width: 1200px) { /* NEW BREAKPOINT: Earlier collapse */
+    .navbar {
+        flex-wrap: wrap;
+        padding-bottom: 10px;
+    }
+    .navbar-brand {
+        order: 1;
+        margin-bottom: 10px;
+    }
+    .navbar-right {
+        order: 2;
+        margin-bottom: 10px;
+        margin-left: auto; /* Push to right */
+    }
+    .navbar-center {
+        order: 3;
+        width: 100%;
+        margin: 0;
+        min-width: 100%; /* Force full width line */
+    }
+    
+    /* Hide button text earlier */
     .btn-add-char span, .btn-saved span {
         display: none;
     }

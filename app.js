@@ -27,6 +27,7 @@ let cachedCustoms = [];
 let isReordering = false;
 let isDeleting = false;
 let isAiCommand = false;
+let isEditing = false;
 
 async function loadCharacterData() {
     // REMOVED: Prioritizing window.CHARACTERS_DATA caused stale data issues.
