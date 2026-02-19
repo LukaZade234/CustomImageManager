@@ -319,7 +319,7 @@ body.dark-mode .toast {
 .navbar-brand span { margin-left: 10px; }
 .navbar-center {
     width: 100%;
-    max-width: 700px;
+    max-width: 900px;
     margin: 0;
     position: relative;
 }
@@ -520,7 +520,7 @@ input:checked + .slider:before {
 
 /* Main Content */
 .container {
-    max-width: 800px;
+    max-width: 1400px;
     margin: 40px auto;
     padding: 0 20px;
 }
@@ -563,7 +563,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     background-color: white;
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto;
     gap: 40px;
 }
