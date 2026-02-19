@@ -13,6 +13,10 @@ body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
+    width: 40px; /* Explicit width */
+    height: 40px; /* Explicit height */
+    -webkit-appearance: none; /* Linux/Browser safety */
+    appearance: none;
 }
 .theme-toggle-btn:hover {
     background-color: #f8f9fa;
@@ -324,6 +328,7 @@ body.dark-mode .toast {
     align-items: center;
     position: absolute; /* Remove from flow */
     right: 30px;
+    z-index: 10; /* Ensure buttons stay on top */
 }
 .btn-saved {
     display: inline-flex;
