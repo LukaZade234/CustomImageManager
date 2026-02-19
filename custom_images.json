@@ -1214,10 +1214,6 @@
         "https://cdn.imgchest.com/files/f4c55930ecac.png",
         "https://cdn.imgchest.com/files/3e1811e3b7a2.png"
     ],
-    "Furina": [
-        "https://cdn.imgchest.com/files/2268daa62547.png",
-        "https://cdn.imgchest.com/files/07d15126cd1e.png"
-    ],
     "Kobeni Higashiyama": [
         "https://cdn.imgchest.com/files/164d847dbd0b.png",
         "https://cdn.imgchest.com/files/6052ca564411.png",
@@ -1232,5 +1228,10 @@
         "https://cdn.imgchest.com/files/2a327da83553.png",
         "https://cdn.imgchest.com/files/026cde5d5ffc.png",
         "https://cdn.imgchest.com/files/dd8a0b4ace65.png"
+    ],
+    "Furina": [
+        "https://cdn.imgchest.com/files/2268daa62547.png",
+        "https://cdn.imgchest.com/files/07d15126cd1e.png",
+        "https://cdn.imgchest.com/files/cb94a59da82f.png"
     ]
 }
