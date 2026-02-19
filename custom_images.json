@@ -1123,11 +1123,6 @@
         "https://cdn.imgchest.com/files/b37a7d64db7c.png",
         "https://cdn.imgchest.com/files/40fc4fab702f.png"
     ],
-    "Arlecchino": [
-        "https://cdn.imgchest.com/files/a31699820e97.png",
-        "https://cdn.imgchest.com/files/8768e985c36e.png",
-        "https://cdn.imgchest.com/files/4cd16ec6cf86.png"
-    ],
     "Ado": [
         "https://cdn.imgchest.com/files/9d6104ab9708.png",
         "https://cdn.imgchest.com/files/092abb54342a.png",
@@ -1232,12 +1227,33 @@
     "Quanxi": [
         "https://cdn.imgchest.com/files/cedf9530e8e2.png"
     ],
+    "Arlecchino": [
+        "https://cdn.imgchest.com/files/a31699820e97.png",
+        "https://cdn.imgchest.com/files/8768e985c36e.png",
+        "https://cdn.imgchest.com/files/4cd16ec6cf86.png",
+        "https://cdn.imgchest.com/files/f5bf8e7b88d6.png"
+    ],
     "Furina": [
         "https://cdn.imgchest.com/files/2268daa62547.png",
         "https://cdn.imgchest.com/files/07d15126cd1e.png",
         "https://cdn.imgchest.com/files/cb94a59da82f.png",
         "https://cdn.imgchest.com/files/1eb468add9fa.png",
         "https://cdn.imgchest.com/files/c3a59286d04b.png",
-        "https://cdn.imgchest.com/files/76f0b16113fa.png"
+        "https://cdn.imgchest.com/files/76f0b16113fa.png",
+        "https://cdn.imgchest.com/files/a1dcd0328f11.png",
+        "https://cdn.imgchest.com/files/d60133cee317.png",
+        "https://cdn.imgchest.com/files/b136c7981e83.png",
+        "https://cdn.imgchest.com/files/81868da44be8.png",
+        "https://cdn.imgchest.com/files/cc88401ba87e.png",
+        "https://cdn.imgchest.com/files/1812e588781a.png",
+        "https://cdn.imgchest.com/files/305be91bb661.png",
+        "https://cdn.imgchest.com/files/1ab498e967fe.png",
+        "https://cdn.imgchest.com/files/6d771d306d80.png",
+        "https://cdn.imgchest.com/files/dd8d882f3e23.png",
+        "https://cdn.imgchest.com/files/ab6b35c72def.png",
+        "https://cdn.imgchest.com/files/59b844791032.png",
+        "https://cdn.imgchest.com/files/45d834ffe737.png",
+        "https://cdn.imgchest.com/files/3baf8f07c607.png",
+        "https://cdn.imgchest.com/files/acbca99b007c.png"
     ]
 }
