@@ -355,42 +355,24 @@ def add_custom_image():
     char_name = request.form['character_name']
     
     # Handle multiple files
-    if 'files' in request.files:
-         files = request.files.getlist('files')
-    elif 'files[]' in request.files:
-         files = request.files.getlist('files[]')
-    elif 'file' in request.files:
-         files = request.files.getlist('file')
-    else:
-        files = []
-         
-    # Filter out empty filenames
-    files = [f for f in files if f.filename != '']
-    
-    print(f"DEBUG: files list length: {len(files)}")
-    
-    if not files:
+    files = request.files.getlist('files')
+    # If no 'files' list, check for single 'file'
+    if not files and 'file' in request.files:
+        files = [request.files['file']]
+        
+    if not files or (len(files) == 1 and files[0].filename == ''):
         return jsonify({'error': 'No files selected'}), 400
 
     uploaded_links = []
     errors = []
 
     for file in files:
-        print(f"DEBUG: Processing file: {file.filename}")
         if file.filename == '':
             continue
             
         # Save temporarily
-        # Sanitize filename to prevent issues
-        safe_filename = "".join(x for x in file.filename if x.isalnum() or x in "._-")
-        temp_path = os.path.join('.', 'temp_custom_' + safe_filename)
-        print(f"DEBUG: Saving to temp path: {temp_path}")
-        
-        try:
-            file.save(temp_path)
-        except Exception as e:
-            errors.append(f"Failed to save temp file {file.filename}: {e}")
-            continue
+        temp_path = os.path.join('.', 'temp_custom_' + file.filename)
+        file.save(temp_path)
         
         conversion_created_new_file = False
         final_path = temp_path
@@ -398,7 +380,6 @@ def add_custom_image():
         # Convert to PNG if not already PNG or GIF
         filename_lower = file.filename.lower()
         if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
-            print(f"DEBUG: Converting {file.filename} to PNG")
             converted_path = convert_to_png(temp_path)
             if converted_path:
                 final_path = converted_path
@@ -406,38 +387,19 @@ def add_custom_image():
             else:
                 errors.append(f"Failed to convert {file.filename} to PNG.")
                 if os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                    except:
-                        pass
+                    os.remove(temp_path)
                 continue
         
-        # Check file size (max 20MB for ImgChest free tier, adjusting safe margin)
-        try:
-            size = os.path.getsize(final_path)
-            if size > 20 * 1024 * 1024:
-                print(f"DEBUG: File {final_path} is too large ({size} bytes). Attempting compression/resize.")
-                # We could add resize logic here if needed, or just warn
-                # For now, let's try to convert to JPG if it's a massive PNG to save space? 
-                # Or just proceed and let ImgChest fail/succeed.
-                pass
-        except:
-            pass
-
         try:
             # Upload to ImgChest
-            print(f"DEBUG: Uploading {final_path} to ImgChest")
             result = upload_to_imgchest(final_path)
             
             if result:
                 post_link, direct_link = result
-                print(f"DEBUG: Upload success: {direct_link}")
                 uploaded_links.append(direct_link)
             else:
-                print(f"DEBUG: Upload returned None for {file.filename}")
                 errors.append(f"Failed to upload {file.filename}")
         except Exception as e:
-            print(f"DEBUG: Exception uploading {file.filename}: {e}")
             errors.append(f"Error uploading {file.filename}: {str(e)}")
         finally:
             # Clean up files
@@ -452,9 +414,6 @@ def add_custom_image():
                 except:
                     pass
     
-    print(f"DEBUG: Final uploaded links: {uploaded_links}")
-    print(f"DEBUG: Final errors: {errors}")
-
     if not uploaded_links:
         return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
         
@@ -472,11 +431,6 @@ def add_custom_image():
     # Initialize list if not exists
     if char_name not in data:
         data[char_name] = []
-    else:
-        # Move to end to track recency (Python 3.7+ preserves insertion order)
-        # We temporarily remove and re-add the key
-        imgs = data.pop(char_name)
-        data[char_name] = imgs
         
     # Add links
     data[char_name].extend(uploaded_links)
