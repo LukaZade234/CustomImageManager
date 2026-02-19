@@ -422,30 +422,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     handleRoute();
 
     // Dark Mode Logic
+    console.log('Initializing Dark Mode Logic');
     const darkModeToggle = document.getElementById('darkModeToggle');
     const sunIcon = document.querySelector('.sun-icon');
     const moonIcon = document.querySelector('.moon-icon');
     
+    console.log('Dark Mode Elements:', {
+        toggle: darkModeToggle,
+        sun: sunIcon,
+        moon: moonIcon
+    });
+
     // Check saved preference
     const savedTheme = localStorage.getItem('theme');
+    console.log('Saved theme:', savedTheme);
+
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode');
         updateThemeIcon(true);
     }
 
-    darkModeToggle.addEventListener('click', () => {
-        const isDark = document.body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        updateThemeIcon(isDark);
-    });
+    if (darkModeToggle) {
+        darkModeToggle.addEventListener('click', () => {
+            console.log('Dark mode toggle clicked');
+            const isDark = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        });
+    } else {
+        console.error('Dark mode toggle button not found!');
+    }
 
     function updateThemeIcon(isDark) {
+        console.log('Updating theme icon, isDark:', isDark);
         if (isDark) {
-            sunIcon.style.display = 'none';
-            moonIcon.style.display = 'block';
+            if (sunIcon) sunIcon.style.display = 'none';
+            if (moonIcon) moonIcon.style.display = 'block';
         } else {
-            sunIcon.style.display = 'block';
-            moonIcon.style.display = 'none';
+            if (sunIcon) sunIcon.style.display = 'block';
+            if (moonIcon) moonIcon.style.display = 'none';
         }
     }
 });
