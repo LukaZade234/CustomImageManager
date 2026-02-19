@@ -349,19 +349,6 @@
         "https://cdn.imgchest.com/files/a8ca4a685dca.png",
         "https://cdn.imgchest.com/files/634665302808.png"
     ],
-    "Ereshkigal": [
-        "https://cdn.imgchest.com/files/ee0619170bb1.png",
-        "https://cdn.imgchest.com/files/add49440e4da.png",
-        "https://cdn.imgchest.com/files/0f3452b9e1cc.png",
-        "https://cdn.imgchest.com/files/6c0cffc78161.png",
-        "https://cdn.imgchest.com/files/456effa3fc1b.png",
-        "https://cdn.imgchest.com/files/72c3ad4a11af.png",
-        "https://cdn.imgchest.com/files/cc8e5afa9470.png",
-        "https://cdn.imgchest.com/files/db8e3f9de83c.png",
-        "https://cdn.imgchest.com/files/59067eb1bd59.png",
-        "https://cdn.imgchest.com/files/965faf4dbaa7.png",
-        "https://cdn.imgchest.com/files/b185efe92dfc.png"
-    ],
     "Hiori Kazano": [
         "https://cdn.imgchest.com/files/41d62ad7f71a.png",
         "https://cdn.imgchest.com/files/23ce1d58b1d7.png",
@@ -1044,5 +1031,19 @@
         "https://cdn.imgchest.com/files/bc4499d3ac58.png",
         "https://cdn.imgchest.com/files/c655c2428a41.png",
         "https://cdn.imgchest.com/files/e57a3a659dbf.png"
+    ],
+    "Ereshkigal": [
+        "https://cdn.imgchest.com/files/ee0619170bb1.png",
+        "https://cdn.imgchest.com/files/add49440e4da.png",
+        "https://cdn.imgchest.com/files/0f3452b9e1cc.png",
+        "https://cdn.imgchest.com/files/6c0cffc78161.png",
+        "https://cdn.imgchest.com/files/456effa3fc1b.png",
+        "https://cdn.imgchest.com/files/72c3ad4a11af.png",
+        "https://cdn.imgchest.com/files/cc8e5afa9470.png",
+        "https://cdn.imgchest.com/files/db8e3f9de83c.png",
+        "https://cdn.imgchest.com/files/59067eb1bd59.png",
+        "https://cdn.imgchest.com/files/965faf4dbaa7.png",
+        "https://cdn.imgchest.com/files/b185efe92dfc.png",
+        "https://cdn.imgchest.com/files/2f79c20d4ee8.png"
     ]
 }
