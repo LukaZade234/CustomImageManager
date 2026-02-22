@@ -1957,11 +1957,35 @@ async function showCustomsPage() {
             customData = await res.json();
         }
         
+    try:
+        const res = await fetch('custom_images.json', { cache: 'no-cache' });
+        let customData = {};
+        if (res.ok) {
+            customData = await res.json();
+        }
+        
+        // Fetch Last Updated Timestamps
+        let lastUpdatedMap = {};
+        try {
+            const timeRes = await fetch('/api/last-updated', { cache: 'no-cache' });
+            if (timeRes.ok) {
+                lastUpdatedMap = await timeRes.json();
+            }
+        } catch (e) {
+            console.warn('Failed to load last_updated.json');
+        }
+        
         const names = Object.keys(customData);
-        // Map names to their insertion index (which we use as recency timestamp)
+        // Map names to their insertion index OR explicit timestamp
         const recencyMap = {};
         names.forEach((name, index) => {
-            recencyMap[name] = index;
+            if (lastUpdatedMap[name]) {
+                recencyMap[name] = lastUpdatedMap[name];
+            } else {
+                // Fallback for characters not yet updated with new system
+                // Use index as a rough proxy (higher index = more recent in file)
+                recencyMap[name] = index; 
+            }
         });
 
         // Filter out empty arrays

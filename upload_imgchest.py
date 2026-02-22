@@ -17,7 +17,36 @@ from github_utils import update_github_file
 from imgchest_utils import upload_to_imgchest
 from image_utils import convert_to_png
 
+import time
+
 app = Flask(__name__)
+
+# --- Helper for Last Modified Tracking ---
+LAST_UPDATED_FILE = 'last_updated.json'
+
+def update_last_modified(char_name):
+    """Updates the last modified timestamp for a character."""
+    timestamps = {}
+    if os.path.exists(LAST_UPDATED_FILE):
+        try:
+            with open(LAST_UPDATED_FILE, 'r', encoding='utf-8') as f:
+                timestamps = json.load(f)
+        except:
+            pass
+            
+    timestamps[char_name] = time.time()
+    
+    try:
+        with open(LAST_UPDATED_FILE, 'w', encoding='utf-8') as f:
+            json.dump(timestamps, f, indent=4)
+    except Exception as e:
+        print(f"Error updating timestamp: {e}")
+
+@app.route('/api/last-updated', methods=['GET'])
+def get_last_updated():
+    if os.path.exists(LAST_UPDATED_FILE):
+        return send_from_directory('.', LAST_UPDATED_FILE)
+    return jsonify({})
 
 @app.route('/')
 @app.route('/saved')
@@ -438,6 +467,9 @@ def add_custom_image():
     # Save locally
     with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
+        
+    # Update Timestamp
+    update_last_modified(char_name)
         
     # GitHub Sync
     github_token = os.environ.get('GITHUB_TOKEN')
