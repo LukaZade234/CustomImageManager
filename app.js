@@ -1957,13 +1957,6 @@ async function showCustomsPage() {
             customData = await res.json();
         }
         
-    try:
-        const res = await fetch('custom_images.json', { cache: 'no-cache' });
-        let customData = {};
-        if (res.ok) {
-            customData = await res.json();
-        }
-        
         // Fetch Last Updated Timestamps
         let lastUpdatedMap = {};
         try {

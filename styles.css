@@ -678,11 +678,11 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     margin-top: 20px;
 }
 .saved-character-card {
-    width: calc(25% - 15px);
+    width: calc(12.5% - 18px);
     box-sizing: border-box;
     background: #f8f9fa;
     border-radius: 10px;
-    padding: 15px;
+    padding: 10px; /* Reduced padding */
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     border: 1px solid #e9ecef;
@@ -742,7 +742,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 .saved-character-card h4 {
     margin: 0;
     color: #212529;
-    font-size: 1.1em;
+    font-size: 0.9em; /* Smaller text for smaller cards */
     /* Allow wrapping with 2-line limit */
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -1514,10 +1514,10 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     
     /* Saved Grid */
     .saved-characters-grid {
-        justify-content: center;
+        justify-content: flex-start; /* Align left for grid */
     }
     .saved-character-card {
-        width: calc(50% - 10px);
+        width: calc(25% - 15px); /* 4 per row on tablet */
     }
     
     /* Custom Images */
@@ -1529,7 +1529,7 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
 /* Extra Small Devices (Phones) */
 @media (max-width: 480px) {
     .saved-character-card {
-        width: 100%; /* Full width cards for better visibility */
+        width: calc(50% - 10px); /* 2 per row on mobile */
         margin-bottom: 10px;
     }
     
