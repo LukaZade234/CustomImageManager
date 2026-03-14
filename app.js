@@ -1,3 +1,10 @@
+function _reloadPreservingScroll() {
+    try {
+        sessionStorage.setItem('scrollRestore', JSON.stringify({ x: window.scrollX, y: window.scrollY }));
+    } catch (e) {}
+    window.location.reload();
+}
+
 function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -106,6 +113,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // Re-run handleRoute after data is loaded (fixes character page on refresh)
     handleRoute();
+
+    // Restore scroll position after reload (from image add/remove/reorder)
+    try {
+        const saved = sessionStorage.getItem('scrollRestore');
+        if (saved) {
+            sessionStorage.removeItem('scrollRestore');
+            const { x, y } = JSON.parse(saved);
+            requestAnimationFrame(() => {
+                window.scrollTo(x || 0, y || 0);
+            });
+        }
+    } catch (e) {}
 
     const searchInput = document.getElementById('charSearch');
     const suggestionsBox = document.getElementById('suggestions');
@@ -1207,8 +1226,8 @@ async function deleteCustomImage(url) {
         });
         
         if (res.ok) {
-            loadCustomImages(currentCharacter.name, true);
             showToast('Image deleted', 'success');
+            _reloadPreservingScroll();
         } else {
             const data = await res.json();
             showToast(data.error || 'Failed to delete image', 'error');
@@ -1370,8 +1389,7 @@ async function deleteSelectedImages() {
         
         if (res.ok) {
             showToast(data.message || 'Images deleted', 'success');
-            toggleDeleteMode();
-            loadCustomImages(currentCharacter.name, true);
+            _reloadPreservingScroll();
         } else {
             showToast(data.error || 'Failed to delete images', 'error');
             btn.innerHTML = originalText;
@@ -1653,6 +1671,7 @@ async function saveReorder() {
         
         if (res.ok) {
             showToast('Order saved!', 'success');
+            _reloadPreservingScroll();
         } else {
             showToast('Failed to save order', 'error');
             loadCustomImages(currentCharacter.name, true);
@@ -1944,8 +1963,6 @@ async function uploadCustomImages(files) {
         if (res.ok) {
             statusDiv.textContent = data.message;
             statusDiv.style.color = 'green';
-            loadCustomImages(currentCharacter.name, true);
-
             if (data.errors && data.errors.length > 0 && errorsDiv) {
                 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
                 errorsDiv.innerHTML = '<strong>Some images failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
@@ -1955,6 +1972,7 @@ async function uploadCustomImages(files) {
             } else {
                 showToast(`${fileCount} image(s) uploaded`, 'success');
             }
+            _reloadPreservingScroll();
         } else {
             statusDiv.textContent = data.error || 'Upload failed';
             statusDiv.style.color = 'red';

@@ -19,8 +19,8 @@ from image_utils import convert_to_png
 
 import time
 
-# Max file size (20MB) - reject larger files to avoid memory issues
-MAX_FILE_SIZE = 20 * 1024 * 1024
+# Max file size (30MB) - reject larger files to avoid memory issues
+MAX_FILE_SIZE = 30 * 1024 * 1024
 
 app = Flask(__name__)
 
