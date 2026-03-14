@@ -99,6 +99,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
         console.error('loadCharacterData failed:', e);
     }
+    try {
+        await loadSavedCharacters();
+    } catch (e) {
+        console.error('loadSavedCharacters failed:', e);
+    }
+    // Re-run handleRoute after data is loaded (fixes character page on refresh)
+    handleRoute();
 
     const searchInput = document.getElementById('charSearch');
     const suggestionsBox = document.getElementById('suggestions');
@@ -417,8 +424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Save button functionality (toggle: save or unsave)
     document.getElementById('saveButton').addEventListener('click', toggleSaveCharacter);
 
-    // Load saved characters from localStorage
-    loadSavedCharacters();
+    // loadSavedCharacters already called above before handleRoute retry
     
     // Load Stats
     loadStats();
@@ -647,8 +653,13 @@ function navigateTo(path, char) {
 }
 
 function handleRoute() {
-    const hash = window.location.hash.slice(1) || '/';
-    const parts = hash.split('/').filter(Boolean);
+    // Support both hash (#/saved) and path (/saved) for refresh and direct links
+    let route = window.location.hash.slice(1);
+    if (!route) {
+        const path = (window.location.pathname || '/').replace(/\/$/, '') || '/';
+        route = path === '/' ? '' : path.replace(/^\//, '');
+    }
+    const parts = route.split('/').filter(Boolean);
     if (parts[0] === 'saved') {
         showSavedPage();
     } else if (parts[0] === 'add') {
@@ -661,7 +672,8 @@ function handleRoute() {
         if (char) {
             selectCharacter(char);
         } else {
-            navigateTo('/');
+            // Don't navigate away - data may not be loaded yet; show home until retry
+            showHomePage();
         }
     } else {
         showHomePage();
@@ -1195,8 +1207,7 @@ async function deleteCustomImage(url) {
         });
         
         if (res.ok) {
-            // Refresh gallery
-            loadCustomImages(currentCharacter.name);
+            loadCustomImages(currentCharacter.name, true);
             showToast('Image deleted', 'success');
         } else {
             const data = await res.json();
@@ -1274,7 +1285,7 @@ function toggleDeleteMode() {
         });
         
         // Reload to restore original onclick handlers
-        loadCustomImages(currentCharacter.name);
+        loadCustomImages(currentCharacter.name, true);
     }
 }
 
@@ -1359,8 +1370,8 @@ async function deleteSelectedImages() {
         
         if (res.ok) {
             showToast(data.message || 'Images deleted', 'success');
-            // Exit delete mode and reload
-            toggleDeleteMode(); 
+            toggleDeleteMode();
+            loadCustomImages(currentCharacter.name, true);
         } else {
             showToast(data.error || 'Failed to delete images', 'error');
             btn.innerHTML = originalText;
@@ -1440,7 +1451,7 @@ function toggleAiCommandMode() {
         });
         
         // Restore Lightbox (Reload)
-        loadCustomImages(currentCharacter.name);
+        loadCustomImages(currentCharacter.name, true);
     }
 }
 
@@ -1644,19 +1655,22 @@ async function saveReorder() {
             showToast('Order saved!', 'success');
         } else {
             showToast('Failed to save order', 'error');
-            loadCustomImages(currentCharacter.name); // Revert on fail
+            loadCustomImages(currentCharacter.name, true);
         }
     } catch (e) {
         console.error(e);
         showToast('Error saving order', 'error');
-        loadCustomImages(currentCharacter.name); // Revert
+        loadCustomImages(currentCharacter.name, true);
     }
 }
 
-async function loadCustomImages(name) {
+async function loadCustomImages(name, preserveScroll = false) {
     const gallery = document.getElementById('customImagesGallery');
     if (!gallery) return;
-    
+
+    const scrollY = preserveScroll ? window.scrollY : null;
+    const scrollX = preserveScroll ? window.scrollX : null;
+
     // Reset Reorder State on load/refresh
     if (isReordering) {
         // ... existing reset logic ...
@@ -1765,9 +1779,15 @@ async function loadCustomImages(name) {
         } else {
             // gallery.classList.remove('gallery-editing');
         }
-        
+
     } catch (e) {
         console.error('Error loading custom images:', e);
+    }
+
+    if (preserveScroll && scrollY !== null) {
+        requestAnimationFrame(() => {
+            window.scrollTo(scrollX, scrollY);
+        });
     }
 }
 
@@ -1924,7 +1944,7 @@ async function uploadCustomImages(files) {
         if (res.ok) {
             statusDiv.textContent = data.message;
             statusDiv.style.color = 'green';
-            loadCustomImages(currentCharacter.name); // Refresh gallery
+            loadCustomImages(currentCharacter.name, true);
 
             if (data.errors && data.errors.length > 0 && errorsDiv) {
                 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

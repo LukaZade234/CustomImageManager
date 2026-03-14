@@ -54,6 +54,7 @@ def get_last_updated():
 @app.route('/')
 @app.route('/saved')
 @app.route('/add')
+@app.route('/customs')
 @app.route('/character/<path:name>')
 def index(name=None):
     return send_from_directory('.', 'upload.html')
