@@ -105,7 +105,9 @@ def upload():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
-    
+
+    print(f"[UPLOAD] Starting single-file upload: {file.filename}", flush=True)
+
     # Save temporarily
     temp_path = os.path.join('.', 'temp_upload_' + file.filename)
     file.save(temp_path)
@@ -392,13 +394,20 @@ def add_custom_image():
     if not files or (len(files) == 1 and files[0].filename == ''):
         return jsonify({'error': 'No files selected'}), 400
 
+    file_count = len([f for f in files if f.filename])
+    print(f"[UPLOAD] Starting custom-image upload: {char_name}, {file_count} file(s)", flush=True)
+
     uploaded_links = []
     errors = []
+    processed = 0
 
     for file in files:
         if file.filename == '':
             continue
-            
+
+        processed += 1
+        print(f"[UPLOAD] Processing file {processed}/{file_count}: {file.filename}", flush=True)
+
         # Save temporarily
         temp_path = os.path.join('.', 'temp_custom_' + file.filename)
         file.save(temp_path)
