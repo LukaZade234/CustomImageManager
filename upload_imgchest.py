@@ -19,6 +19,9 @@ from image_utils import convert_to_png
 
 import time
 
+# Max file size (20MB) - reject larger files to avoid memory issues
+MAX_FILE_SIZE = 20 * 1024 * 1024
+
 app = Flask(__name__)
 
 # --- Helper for Last Modified Tracking ---
@@ -111,7 +114,12 @@ def upload():
     # Save temporarily
     temp_path = os.path.join('.', 'temp_upload_' + file.filename)
     file.save(temp_path)
-    
+
+    if os.path.getsize(temp_path) > MAX_FILE_SIZE:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)'}), 400
+
     try:
         result = upload_to_imgchest(temp_path)
         if result:
@@ -411,7 +419,13 @@ def add_custom_image():
         # Save temporarily
         temp_path = os.path.join('.', 'temp_custom_' + file.filename)
         file.save(temp_path)
-        
+
+        if os.path.getsize(temp_path) > MAX_FILE_SIZE:
+            errors.append(f"{file.filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)")
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            continue
+
         conversion_created_new_file = False
         final_path = temp_path
         
@@ -423,7 +437,7 @@ def add_custom_image():
                 final_path = converted_path
                 conversion_created_new_file = True
             else:
-                errors.append(f"Failed to convert {file.filename} to PNG.")
+                errors.append(f"{file.filename}: Failed to convert to PNG (image may be too large or corrupted).")
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 continue
