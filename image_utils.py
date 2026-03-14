@@ -4,8 +4,9 @@ import os
 # Max dimension (width or height) to reduce memory usage on small instances.
 # Large images (e.g. 4000x4000) can use 64MB+ in RGBA; 2048 keeps it ~16MB.
 MAX_DIMENSION = 2048
-# Reject images larger than this (avoids loading huge images into memory at all)
-MAX_DIMENSION_REJECT = 8192
+# Reject images larger than this (avoids loading huge images into memory at all).
+# 4096x4096 RGBA ≈ 64MB; 7500x7500 ≈ 225MB causes OOM on 1GB instances.
+MAX_DIMENSION_REJECT = 4096
 
 def _log(msg):
     print(f"[IMG] {msg}", flush=True)
