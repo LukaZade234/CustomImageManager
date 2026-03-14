@@ -1003,6 +1003,60 @@ button.upload-btn:hover { background-color: #0056b3; box-shadow: 0 6px 8px rgba(
     border-color: #dc3545;
 }
 
+/* Reorder Mode Styles */
+.gallery-item-wrapper.reorder-mode {
+    cursor: grab;
+}
+.gallery-item-wrapper.reorder-mode:active {
+    cursor: grabbing;
+}
+.gallery-item-wrapper.reorder-mode.selected img {
+    border: 3px solid #007bff;
+    opacity: 0.9;
+}
+.gallery-item-wrapper.reorder-mode.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    background: rgba(0, 123, 255, 0.8);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.gallery-item-wrapper.reorder-mode:hover img {
+    opacity: 0.95;
+}
+
+/* Reorder drop indicator - shows where items will be inserted */
+.reorder-drop-indicator {
+    flex: 0 0 auto;
+    width: 6px;
+    align-self: stretch;
+    min-height: 80px;
+    background: #007bff;
+    border-radius: 3px;
+    margin: 0 4px;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.6);
+    animation: reorder-pulse 0.8s ease-in-out infinite;
+}
+@keyframes reorder-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.gallery-item-wrapper.reorder-drop-before {
+    outline: 2px dashed #007bff;
+    outline-offset: 4px;
+}
+
 /* AI Command Mode Styles */
 .gallery-item-wrapper.ai-mode {
     cursor: pointer;

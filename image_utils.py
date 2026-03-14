@@ -7,6 +7,9 @@ MAX_DIMENSION = 2048
 # Reject images larger than this (avoids loading huge images into memory at all).
 # 4096x4096 RGBA ≈ 64MB; 7500x7500 ≈ 225MB causes OOM on 1GB instances.
 MAX_DIMENSION_REJECT = 4096
+# If file is under this size, skip dimension checks (allow large resolutions).
+# Should match MAX_FILE_SIZE in upload_imgchest.py.
+MAX_FILE_SIZE_SKIP_DIM_CHECK = 30 * 1024 * 1024  # 30MB
 
 def _log(msg):
     print(f"[IMG] {msg}", flush=True)
@@ -17,8 +20,10 @@ def convert_to_png(input_path):
     Resizes large images to reduce memory usage and avoid OOM on constrained instances.
     Returns (path, None) on success, or (None, error_message) on failure.
     """
-    file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
+    file_size = os.path.getsize(input_path)
+    file_size_mb = file_size / (1024 * 1024)
     _log(f"convert_to_png start: {input_path} ({file_size_mb:.2f} MB)")
+    skip_dim_check = file_size <= MAX_FILE_SIZE_SKIP_DIM_CHECK
 
     try:
         # Open the image (does not load full pixel data yet)
@@ -26,17 +31,18 @@ def convert_to_png(input_path):
             w, h = img.size
             _log(f"opened image: {w}x{h} px, format={img.format}")
 
-            if w > MAX_DIMENSION_REJECT or h > MAX_DIMENSION_REJECT:
-                _log(f"REJECT: dimensions {w}x{h} exceed max {MAX_DIMENSION_REJECT}px")
-                return None, f"Image too large ({w}×{h}px, max {MAX_DIMENSION_REJECT}px)"
+            if not skip_dim_check:
+                if w > MAX_DIMENSION_REJECT or h > MAX_DIMENSION_REJECT:
+                    _log(f"REJECT: dimensions {w}x{h} exceed max {MAX_DIMENSION_REJECT}px")
+                    return None, f"Image too large ({w}×{h}px, max {MAX_DIMENSION_REJECT}px)"
 
             # Apply EXIF rotation if present (fixes orientation issues)
             img = ImageOps.exif_transpose(img)
             w, h = img.size
             _log(f"after exif_transpose: {w}x{h} px")
 
-            # Resize if too large to reduce memory (Pillow loads full image into RAM)
-            if w > MAX_DIMENSION or h > MAX_DIMENSION:
+            # Resize if too large (skip when file is under size limit)
+            if not skip_dim_check and (w > MAX_DIMENSION or h > MAX_DIMENSION):
                 ratio = min(MAX_DIMENSION / w, MAX_DIMENSION / h)
                 new_size = (int(w * ratio), int(h * ratio))
                 _log(f"resizing {w}x{h} -> {new_size[0]}x{new_size[1]} (ratio={ratio:.3f})")

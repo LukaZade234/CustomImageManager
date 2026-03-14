@@ -1,6 +1,9 @@
-function _reloadPreservingScroll() {
+function _reloadPreservingScroll(feedback) {
     try {
         sessionStorage.setItem('scrollRestore', JSON.stringify({ x: window.scrollX, y: window.scrollY }));
+        if (feedback) {
+            sessionStorage.setItem('reloadFeedback', JSON.stringify(feedback));
+        }
     } catch (e) {}
     window.location.reload();
 }
@@ -123,6 +126,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             requestAnimationFrame(() => {
                 window.scrollTo(x || 0, y || 0);
             });
+        }
+    } catch (e) {}
+
+    // Restore toast and error messages after reload (from upload/delete/reorder)
+    try {
+        const feedbackRaw = sessionStorage.getItem('reloadFeedback');
+        if (feedbackRaw) {
+            sessionStorage.removeItem('reloadFeedback');
+            const feedback = JSON.parse(feedbackRaw);
+            if (feedback.toastMessage) {
+                showToast(feedback.toastMessage, feedback.toastType || 'info');
+            }
+            const statusDiv = document.getElementById('customImageStatus');
+            const errorsDiv = document.getElementById('customImageErrors');
+            if (feedback.statusText && statusDiv) {
+                statusDiv.textContent = feedback.statusText;
+                statusDiv.style.color = feedback.statusColor || '#666';
+                statusDiv.style.display = 'block';
+            }
+            if (feedback.errorsHtml && errorsDiv) {
+                errorsDiv.innerHTML = feedback.errorsHtml;
+                errorsDiv.style.display = 'block';
+            }
         }
     } catch (e) {}
 
@@ -733,7 +759,6 @@ function showSavedPage() {
 
 async function loadSavedCharacters() {
     try {
-        // Fetch from API instead of localStorage
         const res = await fetch('/api/saved');
         if (res.ok) {
             savedCharacters = await res.json();
@@ -741,10 +766,21 @@ async function loadSavedCharacters() {
             console.error('Failed to load saved characters');
             savedCharacters = [];
         }
+        // Sort by last updated (custom images add/remove/reorder) - most recent first
+        try {
+            const timeRes = await fetch('/api/last-updated', { cache: 'no-cache' });
+            if (timeRes.ok) {
+                const lastUpdatedMap = await timeRes.json();
+                savedCharacters.sort((a, b) => {
+                    const tsA = lastUpdatedMap[a.name] || 0;
+                    const tsB = lastUpdatedMap[b.name] || 0;
+                    return tsB - tsA;
+                });
+            }
+        } catch (e) { /* ignore */ }
         displaySavedCharacters();
     } catch (e) {
         console.error('Error loading saved characters:', e);
-        // Fallback to empty if API fails (e.g. static mode)
         savedCharacters = [];
         displaySavedCharacters();
     }
@@ -1226,8 +1262,7 @@ async function deleteCustomImage(url) {
         });
         
         if (res.ok) {
-            showToast('Image deleted', 'success');
-            _reloadPreservingScroll();
+            _reloadPreservingScroll({ toastMessage: 'Image deleted', toastType: 'success' });
         } else {
             const data = await res.json();
             showToast(data.error || 'Failed to delete image', 'error');
@@ -1239,7 +1274,9 @@ async function deleteCustomImage(url) {
 }
 
 let draggedItem = null;
+let draggedItems = [];  // When multi-select: all selected items in DOM order
 let selectedImages = new Set();
+let reorderDropTarget = null;  // Item before which we'll insert (or null = append to end)
 
 function toggleDeleteMode() {
     // If reordering is active, turn it off
@@ -1388,8 +1425,7 @@ async function deleteSelectedImages() {
         const data = await res.json();
         
         if (res.ok) {
-            showToast(data.message || 'Images deleted', 'success');
-            _reloadPreservingScroll();
+            _reloadPreservingScroll({ toastMessage: data.message || 'Images deleted', toastType: 'success' });
         } else {
             showToast(data.error || 'Failed to delete images', 'error');
             btn.innerHTML = originalText;
@@ -1534,12 +1570,23 @@ function toggleReorderMode() {
         document.getElementById('addCustomImageBtn').style.display = 'none';
         document.getElementById('deleteModeBtn').style.display = 'none';
         
-        // Make items draggable
+        // Reset selection
+        selectedImages.clear();
+        updateReorderSelectionUI();
+        
+        // Make items draggable and selectable
         items.forEach(item => {
             item.setAttribute('draggable', 'true');
-            item.classList.add('draggable');
+            item.classList.add('draggable', 'reorder-mode');
+            item.addEventListener('click', handleReorderSelect);
             addDragListeners(item);
+            const img = item.querySelector('img');
+            if (img) img.onclick = null;
         });
+        
+        // Gallery-level drop zone (capture) for reliable drops and drop-on-empty
+        gallery.addEventListener('dragover', galleryReorderDragover, true);
+        gallery.addEventListener('drop', galleryReorderDrop, true);
         
     } else {
         // Save
@@ -1564,17 +1611,53 @@ function toggleReorderMode() {
         document.getElementById('addCustomImageBtn').style.display = 'inline-flex';
         document.getElementById('deleteModeBtn').style.display = 'inline-flex';
         
-        // Remove draggable
+        // Remove gallery drop zone
+        gallery.removeEventListener('dragover', galleryReorderDragover, true);
+        gallery.removeEventListener('drop', galleryReorderDrop, true);
+        
+        // Remove draggable and selection
         items.forEach(item => {
             item.setAttribute('draggable', 'false');
-            item.classList.remove('draggable');
-            item.classList.remove('dragging'); // Ensure dragging class is removed
+            item.classList.remove('draggable', 'reorder-mode', 'selected', 'dragging', 'reorder-drop-before');
+            item.removeEventListener('click', handleReorderSelect);
             removeDragListeners(item);
         });
         
+        // Clear drop indicator
+        reorderDropTarget = null;
+        gallery.querySelectorAll('.reorder-drop-indicator').forEach(el => el.remove());
+        
         // Clear global drag state just in case
         draggedItem = null;
+        draggedItems = [];
+        selectedImages.clear();
         document.getElementById('customImagesSection').classList.remove('drag-over');
+    }
+}
+
+function handleReorderSelect(e) {
+    e.stopPropagation();
+    const item = this;
+    const img = item.querySelector('img');
+    if (!img) return;
+    const url = img.src;
+    if (selectedImages.has(url)) {
+        selectedImages.delete(url);
+        item.classList.remove('selected');
+    } else {
+        selectedImages.add(url);
+        item.classList.add('selected');
+    }
+    updateReorderSelectionUI();
+}
+
+function updateReorderSelectionUI() {
+    if (!isReordering) return;
+    const btn = document.getElementById('reorderBtn');
+    if (selectedImages.size > 0) {
+        btn.innerHTML = `Save Order (${selectedImages.size} selected)`;
+    } else {
+        btn.innerHTML = 'Save Order';
     }
 }
 
@@ -1598,36 +1681,35 @@ function removeDragListeners(item) {
 
 function handleDragStart(e) {
     draggedItem = this;
-    this.classList.add('dragging');
+    const img = this.querySelector('img');
+    const gallery = document.getElementById('customImagesGallery');
+    const items = [...gallery.querySelectorAll('.gallery-item-wrapper')];
+    if (img && selectedImages.has(img.src)) {
+        draggedItems = items.filter(w => {
+            const i = w.querySelector('img');
+            return i && selectedImages.has(i.src);
+        });
+    } else {
+        draggedItems = [this];
+    }
+    draggedItems.forEach(el => el.classList.add('dragging'));
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'reorder');  // Required for Firefox/some browsers
 }
 
 function handleDragEnd(e) {
-    this.classList.remove('dragging');
+    draggedItems.forEach(el => el.classList.remove('dragging'));
     draggedItem = null;
-    // Ensure all clean
-    document.querySelectorAll('.gallery-item-wrapper').forEach(el => el.classList.remove('dragging'));
-    // Ensure container unhighlight
+    draggedItems = [];
+    reorderDropTarget = null;
+    document.querySelectorAll('.gallery-item-wrapper').forEach(el => el.classList.remove('dragging', 'reorder-drop-before'));
+    document.getElementById('customImagesGallery')?.querySelectorAll('.reorder-drop-indicator').forEach(el => el.remove());
     document.getElementById('customImagesSection').classList.remove('drag-over');
 }
 
 function handleDragOver(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    
-    if (this === draggedItem) return;
-    
-    const gallery = document.getElementById('customImagesGallery');
-    const items = [...gallery.querySelectorAll('.gallery-item-wrapper')];
-    const draggedIdx = items.indexOf(draggedItem);
-    const targetIdx = items.indexOf(this);
-    
-    // Swap in DOM
-    if (draggedIdx < targetIdx) {
-        this.after(draggedItem);
-    } else {
-        this.before(draggedItem);
-    }
 }
 
 function handleDragEnter(e) {
@@ -1635,17 +1717,78 @@ function handleDragEnter(e) {
 }
 
 function handleDragLeave(e) {
-    // Optional styling cleanup
+    // Cleanup handled by gallery handler
+}
+
+function galleryReorderDragover(e) {
+    if (!isReordering || draggedItems.length === 0) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    const gallery = document.getElementById('customImagesGallery');
+    const targetItem = e.target.closest('.gallery-item-wrapper');
+    
+    if (targetItem && draggedItems.includes(targetItem)) {
+        reorderDropTarget = null;
+    } else {
+        reorderDropTarget = targetItem;
+    }
+    updateReorderDropIndicator();
+}
+
+function galleryReorderDrop(e) {
+    if (!isReordering || draggedItems.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const gallery = document.getElementById('customImagesGallery');
+    const targetItem = e.target.closest('.gallery-item-wrapper');
+    
+    let insertBefore = null;
+    if (targetItem && !draggedItems.includes(targetItem)) {
+        insertBefore = targetItem;
+    }
+    
+    const toMove = [...draggedItems];
+    toMove.forEach(el => el.remove());
+    
+    if (insertBefore) {
+        if (toMove.length === 1) {
+            insertBefore.before(toMove[0]);
+        } else {
+            const frag = document.createDocumentFragment();
+            toMove.forEach(el => frag.appendChild(el));
+            insertBefore.before(frag);
+        }
+    } else {
+        toMove.forEach(el => gallery.appendChild(el));
+    }
+    
+    draggedItems.forEach(el => el.classList.remove('dragging'));
+    reorderDropTarget = null;
+    updateReorderDropIndicator();
+}
+
+function updateReorderDropIndicator() {
+    const gallery = document.getElementById('customImagesGallery');
+    gallery.querySelectorAll('.reorder-drop-indicator').forEach(el => el.remove());
+    gallery.querySelectorAll('.reorder-drop-before').forEach(el => el.classList.remove('reorder-drop-before'));
+    
+    if (reorderDropTarget) {
+        reorderDropTarget.classList.add('reorder-drop-before');
+        const indicator = document.createElement('div');
+        indicator.className = 'reorder-drop-indicator';
+        reorderDropTarget.before(indicator);
+    }
 }
 
 function handleDrop(e) {
+    // Drop is handled by galleryReorderDrop (capture on gallery)
+    e.preventDefault();
     e.stopPropagation();
-    if (draggedItem) {
-        draggedItem.classList.remove('dragging');
-    }
-    // Ensure container unhighlight
-    document.getElementById('customImagesSection').classList.remove('drag-over');
-    return false;
+    draggedItems.forEach(el => el.classList.remove('dragging'));
+    reorderDropTarget = null;
+    updateReorderDropIndicator();
 }
 
 async function saveReorder() {
@@ -1670,8 +1813,7 @@ async function saveReorder() {
         });
         
         if (res.ok) {
-            showToast('Order saved!', 'success');
-            _reloadPreservingScroll();
+            _reloadPreservingScroll({ toastMessage: 'Order saved!', toastType: 'success' });
         } else {
             showToast('Failed to save order', 'error');
             loadCustomImages(currentCharacter.name, true);
@@ -1961,18 +2103,17 @@ async function uploadCustomImages(files) {
         const data = await res.json();
 
         if (res.ok) {
-            statusDiv.textContent = data.message;
-            statusDiv.style.color = 'green';
+            const feedback = { toastMessage: '', toastType: 'success', statusText: data.message, statusColor: 'green' };
             if (data.errors && data.errors.length > 0 && errorsDiv) {
                 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                errorsDiv.innerHTML = '<strong>Some images failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
+                feedback.errorsHtml = '<strong>Some images failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
                     data.errors.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
-                errorsDiv.style.display = 'block';
-                showToast(`${data.links.length} uploaded, ${data.errors.length} failed`, 'error');
+                feedback.toastMessage = `${data.links.length} uploaded, ${data.errors.length} failed`;
+                feedback.toastType = 'error';
             } else {
-                showToast(`${fileCount} image(s) uploaded`, 'success');
+                feedback.toastMessage = `${fileCount} image(s) uploaded`;
             }
-            _reloadPreservingScroll();
+            _reloadPreservingScroll(feedback);
         } else {
             statusDiv.textContent = data.error || 'Upload failed';
             statusDiv.style.color = 'red';

@@ -48,7 +48,12 @@ def update_last_modified(char_name):
 @app.route('/api/last-updated', methods=['GET'])
 def get_last_updated():
     if os.path.exists(LAST_UPDATED_FILE):
-        return send_from_directory('.', LAST_UPDATED_FILE)
+        try:
+            with open(LAST_UPDATED_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return jsonify(data)
+        except Exception as e:
+            print(f"Error reading last_updated: {e}")
     return jsonify({})
 
 @app.route('/')
@@ -183,6 +188,8 @@ def save_character():
     
     # Add character to saved list
     saved.append(data)
+    
+    update_last_modified(char_name)
     
     # Save to file
     try:
@@ -584,6 +591,8 @@ def reorder_custom_images():
             
             with open(json_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=4, ensure_ascii=False)
+            
+            update_last_modified(char_name)
                 
             # GitHub Sync
             github_token = os.environ.get('GITHUB_TOKEN')
@@ -634,6 +643,8 @@ def delete_custom_image():
                 # Save locally
                 with open(json_file, 'w', encoding='utf-8') as f:
                     json.dump(custom_data, f, indent=4, ensure_ascii=False)
+                
+                update_last_modified(char_name)
                     
                 # Sync GitHub
                 github_token = os.environ.get('GITHUB_TOKEN')
@@ -699,6 +710,8 @@ def delete_custom_images():
             # Save locally
             with open(json_file, 'w', encoding='utf-8') as f:
                 json.dump(custom_data, f, indent=4, ensure_ascii=False)
+            
+            update_last_modified(char_name)
                 
             # Sync GitHub
             github_token = os.environ.get('GITHUB_TOKEN')
