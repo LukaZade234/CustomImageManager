@@ -114,22 +114,29 @@ def upload():
     # Save temporarily
     temp_path = os.path.join('.', 'temp_upload_' + file.filename)
     file.save(temp_path)
+    file_size = os.path.getsize(temp_path)
+    file_size_mb = file_size / (1024 * 1024)
+    print(f"[UPLOAD] saved temp: {temp_path} ({file_size_mb:.2f} MB)", flush=True)
 
-    if os.path.getsize(temp_path) > MAX_FILE_SIZE:
+    if file_size > MAX_FILE_SIZE:
+        print(f"[UPLOAD] REJECT: file too large ({file_size_mb:.2f} MB > {MAX_FILE_SIZE // (1024*1024)} MB)", flush=True)
         if os.path.exists(temp_path):
             os.remove(temp_path)
         return jsonify({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)'}), 400
 
+    print(f"[UPLOAD] file size OK, proceeding to ImgChest", flush=True)
     try:
         result = upload_to_imgchest(temp_path)
         if result:
             post_link, direct_link = result
+            print(f"[UPLOAD] single-file upload SUCCESS: {file.filename}", flush=True)
             return jsonify({
                 'success': True,
                 'post_link': post_link,
                 'direct_link': direct_link
             })
         else:
+            print(f"[UPLOAD] single-file upload FAILED: {file.filename}", flush=True)
             return jsonify({'error': 'Upload failed'}), 500
     finally:
         # Clean up temp file
@@ -419,8 +426,12 @@ def add_custom_image():
         # Save temporarily
         temp_path = os.path.join('.', 'temp_custom_' + file.filename)
         file.save(temp_path)
+        file_size = os.path.getsize(temp_path)
+        file_size_mb = file_size / (1024 * 1024)
+        print(f"[UPLOAD] saved temp: {temp_path} ({file_size_mb:.2f} MB)", flush=True)
 
-        if os.path.getsize(temp_path) > MAX_FILE_SIZE:
+        if file_size > MAX_FILE_SIZE:
+            print(f"[UPLOAD] REJECT: {file.filename} too large ({file_size_mb:.2f} MB > {MAX_FILE_SIZE // (1024*1024)} MB)", flush=True)
             errors.append(f"{file.filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)")
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -432,40 +443,51 @@ def add_custom_image():
         # Convert to PNG if not already PNG or GIF
         filename_lower = file.filename.lower()
         if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
+            print(f"[UPLOAD] converting {file.filename} to PNG", flush=True)
             converted_path = convert_to_png(temp_path)
             if converted_path:
                 final_path = converted_path
                 conversion_created_new_file = True
+                print(f"[UPLOAD] conversion OK, using {final_path}", flush=True)
             else:
+                print(f"[UPLOAD] conversion FAILED for {file.filename}", flush=True)
                 errors.append(f"{file.filename}: Failed to convert to PNG (image may be too large or corrupted).")
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 continue
+        else:
+            print(f"[UPLOAD] skipping conversion (already {filename_lower[-4:]}), using as-is", flush=True)
         
         try:
-            # Upload to ImgChest
+            print(f"[UPLOAD] uploading to ImgChest: {final_path}", flush=True)
             result = upload_to_imgchest(final_path)
             
             if result:
                 post_link, direct_link = result
                 uploaded_links.append(direct_link)
+                print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {file.filename}", flush=True)
             else:
                 errors.append(f"Failed to upload {file.filename}")
+                print(f"[UPLOAD] file {processed}/{file_count} FAILED (ImgChest): {file.filename}", flush=True)
         except Exception as e:
             errors.append(f"Error uploading {file.filename}: {str(e)}")
+            print(f"[UPLOAD] file {processed}/{file_count} EXCEPTION: {file.filename}: {type(e).__name__}: {e}", flush=True)
         finally:
             # Clean up files
             if os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
-                except:
-                    pass
+                    print(f"[UPLOAD] cleaned temp: {temp_path}", flush=True)
+                except Exception as cleanup_e:
+                    print(f"[UPLOAD] cleanup warning: could not remove {temp_path}: {cleanup_e}", flush=True)
             if conversion_created_new_file and os.path.exists(final_path):
                 try:
                     os.remove(final_path)
-                except:
-                    pass
+                    print(f"[UPLOAD] cleaned converted: {final_path}", flush=True)
+                except Exception as cleanup_e:
+                    print(f"[UPLOAD] cleanup warning: could not remove {final_path}: {cleanup_e}", flush=True)
     
+    print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
     if not uploaded_links:
         return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
         
@@ -486,6 +508,7 @@ def add_custom_image():
         
     # Add links
     data[char_name].extend(uploaded_links)
+    print(f"[UPLOAD] updating custom_images.json for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
     
     # Save locally
     with open(json_file, 'w', encoding='utf-8') as f:
