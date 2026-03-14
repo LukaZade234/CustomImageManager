@@ -90,7 +90,15 @@ async function loadCharacterData() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadCharacterData();
+    // Set up hash routing first so navigation works even if other init fails
+    window.addEventListener('hashchange', handleRoute);
+    handleRoute();
+
+    try {
+        await loadCharacterData();
+    } catch (e) {
+        console.error('loadCharacterData failed:', e);
+    }
 
     const searchInput = document.getElementById('charSearch');
     const suggestionsBox = document.getElementById('suggestions');
@@ -108,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const currentSortLabel = document.getElementById('currentSortLabel');
     
     // Toggle Dropdown
-    sortTrigger.addEventListener('click', (e) => {
+    if (sortTrigger) sortTrigger.addEventListener('click', (e) => {
         e.stopPropagation();
         const isActive = sortContainer.classList.contains('active');
         
@@ -140,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // Handle Option Click
-    sortOptions.querySelectorAll('.dropdown-option').forEach(option => {
+    if (sortOptions) sortOptions.querySelectorAll('.dropdown-option').forEach(option => {
         option.addEventListener('click', (e) => {
             e.stopPropagation();
             const value = option.dataset.value;
@@ -163,8 +171,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     // Close on click outside
-    document.addEventListener('click', (e) => {
-        if (!sortContainer.contains(e.target)) {
+    if (sortContainer) document.addEventListener('click', (e) => {
+        if (sortContainer && !sortContainer.contains(e.target)) {
             sortContainer.classList.remove('active');
             sortOptions.classList.remove('show');
             // Remove expanded on outside click
@@ -316,8 +324,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Close suggestions on click outside
+    const searchContainer = document.querySelector('.search-container');
     document.addEventListener('click', (e) => {
-        if (!document.querySelector('.search-container').contains(e.target)) {
+        if (searchContainer && !searchContainer.contains(e.target) && suggestionsBox) {
             suggestionsBox.style.display = 'none';
         }
     });
@@ -417,10 +426,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Setup Series Autocomplete
     setupSeriesAutocomplete(document.getElementById('addCharSeries'), document.getElementById('addSeriesSuggestions'));
     setupSeriesAutocomplete(document.getElementById('editCharSeries'), document.getElementById('editSeriesSuggestions'));
-
-    // Handle hash routing
-    window.addEventListener('hashchange', handleRoute);
-    handleRoute();
 
     // Dark Mode Logic
     console.log('Initializing Dark Mode Logic');
@@ -1816,10 +1821,6 @@ function selectCharacter(char) {
     
     selectedDiv.style.display = 'flex';
     document.getElementById('customImagesSection').style.display = 'block';
-    
-    document.getElementById('customImageStatus').textContent = '';
-    const errEl = document.getElementById('customImageErrors');
-    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 }
 
 function updateAddImageLabel(input) {
