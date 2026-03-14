@@ -403,155 +403,162 @@ def remove_saved(name):
 
 @app.route('/api/custom-image', methods=['POST'])
 def add_custom_image():
-    if 'character_name' not in request.form:
-        return jsonify({'error': 'Character name is required'}), 400
+    try:
+        if 'character_name' not in request.form:
+            return jsonify({'error': 'Character name is required'}), 400
+            
+        char_name = request.form['character_name']
         
-    char_name = request.form['character_name']
-    
-    # Handle multiple files
-    files = request.files.getlist('files')
-    # If no 'files' list, check for single 'file'
-    if not files and 'file' in request.files:
-        files = [request.files['file']]
-        
-    if not files or (len(files) == 1 and files[0].filename == ''):
-        return jsonify({'error': 'No files selected'}), 400
+        # Handle multiple files
+        files = request.files.getlist('files')
+        # If no 'files' list, check for single 'file'
+        if not files and 'file' in request.files:
+            files = [request.files['file']]
+            
+        if not files or (len(files) == 1 and files[0].filename == ''):
+            return jsonify({'error': 'No files selected'}), 400
 
-    file_count = len([f for f in files if f.filename])
-    print(f"[UPLOAD] Starting custom-image upload: {char_name}, {file_count} file(s)", flush=True)
+        file_count = len([f for f in files if f.filename])
+        print(f"[UPLOAD] Starting custom-image upload: {char_name}, {file_count} file(s)", flush=True)
 
-    uploaded_links = []
-    errors = []
-    processed = 0
+        uploaded_links = []
+        errors = []
+        processed = 0
 
-    for file in files:
-        if file.filename == '':
-            continue
+        for file in files:
+            if file.filename == '':
+                continue
 
-        processed += 1
-        print(f"[UPLOAD] Processing file {processed}/{file_count}: {file.filename}", flush=True)
+            processed += 1
+            print(f"[UPLOAD] Processing file {processed}/{file_count}: {file.filename}", flush=True)
 
-        # Save temporarily
-        temp_path = os.path.join('.', 'temp_custom_' + file.filename)
-        file.save(temp_path)
-        file_size = os.path.getsize(temp_path)
-        file_size_mb = file_size / (1024 * 1024)
-        print(f"[UPLOAD] saved temp: {temp_path} ({file_size_mb:.2f} MB)", flush=True)
+            # Save temporarily
+            temp_path = os.path.join('.', 'temp_custom_' + file.filename)
+            file.save(temp_path)
+            file_size = os.path.getsize(temp_path)
+            file_size_mb = file_size / (1024 * 1024)
+            print(f"[UPLOAD] saved temp: {temp_path} ({file_size_mb:.2f} MB)", flush=True)
 
-        if file_size > MAX_FILE_SIZE:
-            print(f"[UPLOAD] REJECT: {file.filename} too large ({file_size_mb:.2f} MB > {MAX_FILE_SIZE // (1024*1024)} MB)", flush=True)
-            errors.append(f"{file.filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)")
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-            continue
-
-        conversion_created_new_file = False
-        final_path = temp_path
-        
-        # Convert to PNG if not already PNG or GIF
-        filename_lower = file.filename.lower()
-        if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
-            print(f"[UPLOAD] converting {file.filename} to PNG", flush=True)
-            converted_path, convert_error = convert_to_png(temp_path)
-            if converted_path:
-                final_path = converted_path
-                conversion_created_new_file = True
-                print(f"[UPLOAD] conversion OK, using {final_path}", flush=True)
-            else:
-                err_msg = f"{file.filename}: {convert_error}" if convert_error else f"{file.filename}: Failed to convert to PNG"
-                print(f"[UPLOAD] conversion FAILED for {file.filename}: {convert_error}", flush=True)
-                errors.append(err_msg)
+            if file_size > MAX_FILE_SIZE:
+                print(f"[UPLOAD] REJECT: {file.filename} too large ({file_size_mb:.2f} MB > {MAX_FILE_SIZE // (1024*1024)} MB)", flush=True)
+                errors.append(f"{file.filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)")
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 continue
-        else:
-            print(f"[UPLOAD] skipping conversion (already {filename_lower[-4:]}), using as-is", flush=True)
-        
-        try:
-            print(f"[UPLOAD] uploading to ImgChest: {final_path}", flush=True)
-            result = upload_to_imgchest(final_path)
+
+            conversion_created_new_file = False
+            final_path = temp_path
             
-            if result:
-                post_link, direct_link = result
-                uploaded_links.append(direct_link)
-                print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {file.filename}", flush=True)
+            # Convert to PNG if not already PNG or GIF
+            filename_lower = file.filename.lower()
+            if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
+                print(f"[UPLOAD] converting {file.filename} to PNG", flush=True)
+                converted_path, convert_error = convert_to_png(temp_path)
+                if converted_path:
+                    final_path = converted_path
+                    conversion_created_new_file = True
+                    print(f"[UPLOAD] conversion OK, using {final_path}", flush=True)
+                else:
+                    err_msg = f"{file.filename}: {convert_error}" if convert_error else f"{file.filename}: Failed to convert to PNG"
+                    print(f"[UPLOAD] conversion FAILED for {file.filename}: {convert_error}", flush=True)
+                    errors.append(err_msg)
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                    continue
             else:
-                errors.append(f"Failed to upload {file.filename}")
-                print(f"[UPLOAD] file {processed}/{file_count} FAILED (ImgChest): {file.filename}", flush=True)
-        except Exception as e:
-            errors.append(f"Error uploading {file.filename}: {str(e)}")
-            print(f"[UPLOAD] file {processed}/{file_count} EXCEPTION: {file.filename}: {type(e).__name__}: {e}", flush=True)
-        finally:
-            # Clean up files
-            if os.path.exists(temp_path):
-                try:
-                    os.remove(temp_path)
-                    print(f"[UPLOAD] cleaned temp: {temp_path}", flush=True)
-                except Exception as cleanup_e:
-                    print(f"[UPLOAD] cleanup warning: could not remove {temp_path}: {cleanup_e}", flush=True)
-            if conversion_created_new_file and os.path.exists(final_path):
-                try:
-                    os.remove(final_path)
-                    print(f"[UPLOAD] cleaned converted: {final_path}", flush=True)
-                except Exception as cleanup_e:
-                    print(f"[UPLOAD] cleanup warning: could not remove {final_path}: {cleanup_e}", flush=True)
-    
-    print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
-    if not uploaded_links:
-        return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
-        
-    # Update custom_images.json
-    json_file = 'custom_images.json'
-    data = {}
-    
-    if os.path.exists(json_file):
-        try:
-            with open(json_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except:
-            pass
-    
-    # Initialize list if not exists
-    if char_name not in data:
-        data[char_name] = []
-        
-    # Add links
-    data[char_name].extend(uploaded_links)
-    print(f"[UPLOAD] updating custom_images.json for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
-    
-    # Save locally
-    with open(json_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-        
-    # Update Timestamp
-    update_last_modified(char_name)
-        
-    # GitHub Sync
-    github_token = os.environ.get('GITHUB_TOKEN')
-    github_repo = os.environ.get('GITHUB_REPO')
-    
-    sync_msg = ""
-    if github_token and github_repo:
-        try:
-            json_content = json.dumps(data, ensure_ascii=False, indent=4)
-            update_github_file(
-                github_repo, 
-                json_file, 
-                json_content, 
-                f"Add {len(uploaded_links)} custom images for: {char_name}", 
-                github_token
-            )
-            sync_msg = " & Synced to GitHub"
-        except Exception as gh_e:
-            print(f"GitHub Sync Error: {gh_e}")
-            sync_msg = " (GitHub Sync Failed)"
+                print(f"[UPLOAD] skipping conversion (already {filename_lower[-4:]}), using as-is", flush=True)
             
-    return jsonify({
-        'success': True, 
-        'message': f'{len(uploaded_links)} images added{sync_msg}',
-        'links': uploaded_links,
-        'errors': errors
-    })
+            try:
+                print(f"[UPLOAD] uploading to ImgChest: {final_path}", flush=True)
+                result = upload_to_imgchest(final_path)
+                
+                if result:
+                    post_link, direct_link = result
+                    uploaded_links.append(direct_link)
+                    print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {file.filename}", flush=True)
+                else:
+                    errors.append(f"Failed to upload {file.filename}")
+                    print(f"[UPLOAD] file {processed}/{file_count} FAILED (ImgChest): {file.filename}", flush=True)
+            except Exception as e:
+                errors.append(f"Error uploading {file.filename}: {str(e)}")
+                print(f"[UPLOAD] file {processed}/{file_count} EXCEPTION: {file.filename}: {type(e).__name__}: {e}", flush=True)
+            finally:
+                # Clean up files
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                        print(f"[UPLOAD] cleaned temp: {temp_path}", flush=True)
+                    except Exception as cleanup_e:
+                        print(f"[UPLOAD] cleanup warning: could not remove {temp_path}: {cleanup_e}", flush=True)
+                if conversion_created_new_file and os.path.exists(final_path):
+                    try:
+                        os.remove(final_path)
+                        print(f"[UPLOAD] cleaned converted: {final_path}", flush=True)
+                    except Exception as cleanup_e:
+                        print(f"[UPLOAD] cleanup warning: could not remove {final_path}: {cleanup_e}", flush=True)
+
+        print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
+        if not uploaded_links:
+            return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
+            
+        # Update custom_images.json
+        json_file = 'custom_images.json'
+        data = {}
+        
+        if os.path.exists(json_file):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except:
+                pass
+        
+        # Initialize list if not exists
+        if char_name not in data:
+            data[char_name] = []
+            
+        # Add links
+        data[char_name].extend(uploaded_links)
+        print(f"[UPLOAD] updating custom_images.json for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
+        
+        # Save locally
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+            
+        # Update Timestamp
+        update_last_modified(char_name)
+            
+        # GitHub Sync
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO')
+        
+        sync_msg = ""
+        if github_token and github_repo:
+            try:
+                json_content = json.dumps(data, ensure_ascii=False, indent=4)
+                update_github_file(
+                    github_repo, 
+                    json_file, 
+                    json_content, 
+                    f"Add {len(uploaded_links)} custom images for: {char_name}", 
+                    github_token
+                )
+                sync_msg = " & Synced to GitHub"
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
+                sync_msg = " (GitHub Sync Failed)"
+            
+        return jsonify({
+            'success': True, 
+            'message': f'{len(uploaded_links)} images added{sync_msg}',
+            'links': uploaded_links,
+            'errors': errors
+        })
+    except Exception as e:
+        print(f"[UPLOAD] add_custom_image EXCEPTION: {type(e).__name__}: {e}", flush=True)
+        return jsonify({
+            'error': str(e),
+            'details': [f'Server error: {type(e).__name__}']
+        }), 500
 
 @app.route('/api/custom-image/<path:char_name>', methods=['GET'])
 def get_custom_images(char_name):

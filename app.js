@@ -2100,7 +2100,20 @@ async function uploadCustomImages(files) {
             method: 'POST',
             body: formData
         });
-        const data = await res.json();
+        let data = {};
+        try {
+            data = await res.json();
+        } catch (parseErr) {
+            console.error('Response was not JSON:', parseErr);
+            statusDiv.textContent = `Upload failed (${res.status} ${res.statusText || 'server error'})`;
+            statusDiv.style.color = 'red';
+            if (errorsDiv) {
+                errorsDiv.innerHTML = '<strong>Server returned an invalid response.</strong> The server may be overloaded or experiencing issues. Try again later.';
+                errorsDiv.style.display = 'block';
+            }
+            showToast(`Upload failed: ${res.status}`, 'error');
+            return;
+        }
 
         if (res.ok) {
             const feedback = { toastMessage: '', toastType: 'success', statusText: data.message, statusColor: 'green' };
@@ -2115,22 +2128,31 @@ async function uploadCustomImages(files) {
             }
             _reloadPreservingScroll(feedback);
         } else {
-            statusDiv.textContent = data.error || 'Upload failed';
+            const errMsg = data.error || data.message || 'Upload failed';
+            statusDiv.textContent = errMsg;
             statusDiv.style.color = 'red';
-            if (data.details && data.details.length > 0 && errorsDiv) {
+            const details = data.details || data.errors || [];
+            if (details.length > 0 && errorsDiv) {
                 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
                 errorsDiv.innerHTML = '<strong>Failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
-                    data.details.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+                    details.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+                errorsDiv.style.display = 'block';
+            } else if (errorsDiv) {
+                errorsDiv.innerHTML = '<strong>' + errMsg + '</strong>';
                 errorsDiv.style.display = 'block';
             }
-            showToast('Upload failed', 'error');
+            showToast(errMsg, 'error');
         }
     } catch (err) {
         console.error(err);
-        statusDiv.textContent = 'Error uploading images';
+        const msg = err.message || 'Error uploading images';
+        statusDiv.textContent = msg;
         statusDiv.style.color = 'red';
-        if (errorsDiv) errorsDiv.style.display = 'none';
-        showToast('Error uploading images', 'error');
+        if (errorsDiv) {
+            errorsDiv.innerHTML = '<strong>Network or connection error.</strong> ' + (err.message || 'Please check your connection and try again.');
+            errorsDiv.style.display = 'block';
+        }
+        showToast(msg, 'error');
     }
 }
 
