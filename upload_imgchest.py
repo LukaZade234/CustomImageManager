@@ -444,14 +444,15 @@ def add_custom_image():
         filename_lower = file.filename.lower()
         if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
             print(f"[UPLOAD] converting {file.filename} to PNG", flush=True)
-            converted_path = convert_to_png(temp_path)
+            converted_path, convert_error = convert_to_png(temp_path)
             if converted_path:
                 final_path = converted_path
                 conversion_created_new_file = True
                 print(f"[UPLOAD] conversion OK, using {final_path}", flush=True)
             else:
-                print(f"[UPLOAD] conversion FAILED for {file.filename}", flush=True)
-                errors.append(f"{file.filename}: Failed to convert to PNG (image may be too large or corrupted).")
+                err_msg = f"{file.filename}: {convert_error}" if convert_error else f"{file.filename}: Failed to convert to PNG"
+                print(f"[UPLOAD] conversion FAILED for {file.filename}: {convert_error}", flush=True)
+                errors.append(err_msg)
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
                 continue

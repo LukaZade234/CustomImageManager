@@ -1775,7 +1775,9 @@ function selectCharacter(char) {
     document.getElementById('charNameDisplay').innerText = char.name;
     document.getElementById('charSeriesDisplay').innerText = `Series: ${char.series || '—'}`;
     document.getElementById('charRankDisplay').innerText = `Rank: ${char.rank || '—'}`;
-    document.getElementById('customImageStatus').textContent = ''; // Clear status
+    document.getElementById('customImageStatus').textContent = '';
+    const errEl = document.getElementById('customImageErrors');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
     loadCustomImages(char.name); // Load custom images gallery
     
     // Display character image if available
@@ -1815,8 +1817,9 @@ function selectCharacter(char) {
     selectedDiv.style.display = 'flex';
     document.getElementById('customImagesSection').style.display = 'block';
     
-    document.getElementById('customImageStatus').textContent = ''; 
-    // Removed duplicate loadCustomImages(char.name) call
+    document.getElementById('customImageStatus').textContent = '';
+    const errEl = document.getElementById('customImageErrors');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 }
 
 function updateAddImageLabel(input) {
@@ -1904,34 +1907,49 @@ async function uploadCustomImages(files) {
     formData.append('character_name', currentCharacter.name);
     
     const statusDiv = document.getElementById('customImageStatus');
+    const errorsDiv = document.getElementById('customImageErrors');
     const fileCount = files.length;
     statusDiv.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}... (This may take a moment)`;
     statusDiv.style.color = '#666';
-    
+    if (errorsDiv) { errorsDiv.style.display = 'none'; errorsDiv.textContent = ''; }
+
     try {
         const res = await fetch('/api/custom-image', {
             method: 'POST',
             body: formData
         });
         const data = await res.json();
-        
+
         if (res.ok) {
-            statusDiv.textContent = `${data.message}`;
+            statusDiv.textContent = data.message;
             statusDiv.style.color = 'green';
             loadCustomImages(currentCharacter.name); // Refresh gallery
-            showToast(`${fileCount} image(s) uploaded`, 'success');
+
+            if (data.errors && data.errors.length > 0 && errorsDiv) {
+                const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                errorsDiv.innerHTML = '<strong>Some images failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
+                    data.errors.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+                errorsDiv.style.display = 'block';
+                showToast(`${data.links.length} uploaded, ${data.errors.length} failed`, 'error');
+            } else {
+                showToast(`${fileCount} image(s) uploaded`, 'success');
+            }
         } else {
             statusDiv.textContent = data.error || 'Upload failed';
             statusDiv.style.color = 'red';
-            showToast('Upload failed', 'error');
-            if (data.details) {
-                console.error('Upload errors:', data.details);
+            if (data.details && data.details.length > 0 && errorsDiv) {
+                const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                errorsDiv.innerHTML = '<strong>Failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
+                    data.details.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+                errorsDiv.style.display = 'block';
             }
+            showToast('Upload failed', 'error');
         }
     } catch (err) {
         console.error(err);
         statusDiv.textContent = 'Error uploading images';
         statusDiv.style.color = 'red';
+        if (errorsDiv) errorsDiv.style.display = 'none';
         showToast('Error uploading images', 'error');
     }
 }

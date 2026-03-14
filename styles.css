@@ -166,6 +166,11 @@ body.dark-mode #selectedCharacter p,
 body.dark-mode #customImageStatus {
     color: #adb5bd !important;
 }
+body.dark-mode .upload-errors-alert {
+    background: #3d3520 !important;
+    border-color: #b8860b !important;
+    color: #ffd43b !important;
+}
 
 /* Stats Cards */
 body.dark-mode .stat-card {

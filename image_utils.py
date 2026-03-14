@@ -15,7 +15,7 @@ def convert_to_png(input_path):
     """
     Converts an image at input_path to PNG format.
     Resizes large images to reduce memory usage and avoid OOM on constrained instances.
-    Returns the path to the new PNG file, or None if conversion failed.
+    Returns (path, None) on success, or (None, error_message) on failure.
     """
     file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
     _log(f"convert_to_png start: {input_path} ({file_size_mb:.2f} MB)")
@@ -28,7 +28,7 @@ def convert_to_png(input_path):
 
             if w > MAX_DIMENSION_REJECT or h > MAX_DIMENSION_REJECT:
                 _log(f"REJECT: dimensions {w}x{h} exceed max {MAX_DIMENSION_REJECT}px")
-                return None
+                return None, f"Image too large ({w}×{h}px, max {MAX_DIMENSION_REJECT}px)"
 
             # Apply EXIF rotation if present (fixes orientation issues)
             img = ImageOps.exif_transpose(img)
@@ -56,8 +56,8 @@ def convert_to_png(input_path):
 
             out_size_mb = os.path.getsize(output_path) / (1024 * 1024)
             _log(f"convert_to_png done: {output_path} ({out_size_mb:.2f} MB)")
-            return output_path
+            return output_path, None
 
     except Exception as e:
         _log(f"convert_to_png FAILED: {input_path}: {type(e).__name__}: {e}")
-        return None
+        return None, f"Conversion failed: {str(e)}"
