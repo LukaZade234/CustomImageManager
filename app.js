@@ -2081,78 +2081,70 @@ function showAddCharStatus(msg, type) {
 async function uploadCustomImages(files) {
     if (!currentCharacter) return;
     
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-        formData.append('files', files[i]);
-    }
-    
-    formData.append('character_name', currentCharacter.name);
-    
     const statusDiv = document.getElementById('customImageStatus');
     const errorsDiv = document.getElementById('customImageErrors');
     const fileCount = files.length;
-    statusDiv.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}... (This may take a moment)`;
+    statusDiv.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}... (one at a time to avoid timeouts)`;
     statusDiv.style.color = '#666';
     if (errorsDiv) { errorsDiv.style.display = 'none'; errorsDiv.textContent = ''; }
 
-    try {
-        const res = await fetch('/api/custom-image', {
-            method: 'POST',
-            body: formData
-        });
-        let data = {};
-        try {
-            data = await res.json();
-        } catch (parseErr) {
-            console.error('Response was not JSON:', parseErr);
-            statusDiv.textContent = `Upload failed (${res.status} ${res.statusText || 'server error'})`;
-            statusDiv.style.color = 'red';
-            if (errorsDiv) {
-                errorsDiv.innerHTML = '<strong>Server returned an invalid response.</strong> The server may be overloaded or experiencing issues. Try again later.';
-                errorsDiv.style.display = 'block';
-            }
-            showToast(`Upload failed: ${res.status}`, 'error');
-            return;
-        }
+    const uploadedLinks = [];
+    const errors = [];
+    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-        if (res.ok) {
-            const feedback = { toastMessage: '', toastType: 'success', statusText: data.message, statusColor: 'green' };
-            if (data.errors && data.errors.length > 0 && errorsDiv) {
-                const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                feedback.errorsHtml = '<strong>Some images failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
-                    data.errors.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
-                feedback.toastMessage = `${data.links.length} uploaded, ${data.errors.length} failed`;
-                feedback.toastType = 'error';
+    // Upload one file at a time to avoid 504 timeout on hosted (gateway times out on long requests)
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file || !file.name) continue;
+        statusDiv.textContent = `Uploading ${i + 1}/${fileCount}: ${file.name}`;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('character_name', currentCharacter.name);
+            const res = await fetch('/api/custom-image', { method: 'POST', body: formData });
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (parseErr) {
+                errors.push(`${file.name}: Server error (${res.status})`);
+                continue;
+            }
+            if (res.ok && data.links && data.links.length > 0) {
+                uploadedLinks.push(...data.links);
+                if (data.errors && data.errors.length > 0) {
+                    errors.push(...data.errors);
+                }
             } else {
-                feedback.toastMessage = `${fileCount} image(s) uploaded`;
+                errors.push(data.error ? `${file.name}: ${data.error}` : `${file.name}: Upload failed`);
             }
-            _reloadPreservingScroll(feedback);
-        } else {
-            const errMsg = data.error || data.message || 'Upload failed';
-            statusDiv.textContent = errMsg;
-            statusDiv.style.color = 'red';
-            const details = data.details || data.errors || [];
-            if (details.length > 0 && errorsDiv) {
-                const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                errorsDiv.innerHTML = '<strong>Failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
-                    details.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
-                errorsDiv.style.display = 'block';
-            } else if (errorsDiv) {
-                errorsDiv.innerHTML = '<strong>' + errMsg + '</strong>';
-                errorsDiv.style.display = 'block';
-            }
-            showToast(errMsg, 'error');
+        } catch (err) {
+            console.error(err);
+            errors.push(`${file.name}: ${err.message || 'Network error'}`);
         }
-    } catch (err) {
-        console.error(err);
-        const msg = err.message || 'Error uploading images';
-        statusDiv.textContent = msg;
+    }
+
+    if (uploadedLinks.length > 0) {
+        const feedback = { toastMessage: '', toastType: 'success', statusText: '', statusColor: 'green' };
+        if (errors.length > 0) {
+            feedback.statusText = `${uploadedLinks.length} added, ${errors.length} failed`;
+            feedback.errorsHtml = '<strong>Some images failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
+                errors.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
+            feedback.toastMessage = `${uploadedLinks.length} uploaded, ${errors.length} failed`;
+            feedback.toastType = 'error';
+        } else {
+            feedback.statusText = `${uploadedLinks.length} image(s) added`;
+            feedback.toastMessage = `${uploadedLinks.length} image(s) uploaded`;
+        }
+        _reloadPreservingScroll(feedback);
+    } else {
+        statusDiv.textContent = errors.length > 0 ? 'All uploads failed' : 'No files uploaded';
         statusDiv.style.color = 'red';
-        if (errorsDiv) {
-            errorsDiv.innerHTML = '<strong>Network or connection error.</strong> ' + (err.message || 'Please check your connection and try again.');
+        if (errorsDiv && errors.length > 0) {
+            errorsDiv.innerHTML = '<strong>Failed:</strong><ul style="margin: 8px 0 0 20px; padding: 0;">' +
+                errors.map(e => `<li>${esc(e)}</li>`).join('') + '</ul>';
             errorsDiv.style.display = 'block';
         }
-        showToast(msg, 'error');
+        showToast(errors.length > 0 ? errors[0] : 'Upload failed', 'error');
     }
 }
 
