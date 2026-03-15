@@ -421,14 +421,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files.length) {
-            uploadCustomImages(files);
+            // Snapshot FileList - DataTransfer can be cleared after drop event ends
+            uploadCustomImages(Array.from(files));
         }
     }
 
     document.getElementById('customImageInput').addEventListener('change', async (e) => {
         if (!e.target.files.length) return;
-        uploadCustomImages(e.target.files);
+        // Snapshot FileList before clearing - some browsers clear/modify it when input is reset,
+        // causing the upload loop to see fewer files and reload after the first image
+        const filesSnapshot = Array.from(e.target.files);
         e.target.value = ''; // Reset input
+        uploadCustomImages(filesSnapshot);
     });
 
     // Customs Page Event Listeners
@@ -2080,10 +2084,12 @@ function showAddCharStatus(msg, type) {
 
 async function uploadCustomImages(files) {
     if (!currentCharacter) return;
-    
+    // Snapshot to array - FileList is live and can be cleared when input is reset (browser-dependent)
+    const filesArray = Array.from(files || []);
+
     const statusDiv = document.getElementById('customImageStatus');
     const errorsDiv = document.getElementById('customImageErrors');
-    const fileCount = files.length;
+    const fileCount = filesArray.length;
     statusDiv.textContent = `Uploading ${fileCount} image${fileCount > 1 ? 's' : ''}... (one at a time to avoid timeouts)`;
     statusDiv.style.color = '#666';
     if (errorsDiv) { errorsDiv.style.display = 'none'; errorsDiv.textContent = ''; }
@@ -2093,8 +2099,8 @@ async function uploadCustomImages(files) {
     const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
     // Upload one file at a time to avoid 504 timeout on hosted (gateway times out on long requests)
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+    for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i];
         if (!file || !file.name) continue;
         statusDiv.textContent = `Uploading ${i + 1}/${fileCount}: ${file.name}`;
         try {
