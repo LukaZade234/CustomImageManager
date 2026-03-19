@@ -533,7 +533,7 @@ This guide assumes the **current progress** as the base and walks through implem
 | **1** Security          | Done        | 1.1 ImgChest key in env, 1.2 GitHub sync removed                                                                                |
 | **2** Data migration    | Mostly done | 2.2 import script, 2.4 characters API, 2.5 frontend uses API. 2.1 normalized schema deferred, 2.3 custom_images format deferred |
 | **3** API hardening     | Done        | 3.1 CORS, 3.3 SECRET_KEY, 3.4 input validation, 3.5 ImgChest errors. 3.2 rate limiting skipped                                  |
-| **4** Frontend rewrite  | Done       | 4.1–4.4 React SPA in frontend/                                                                                                   |
+| **4** Frontend rewrite  | Done        | 4.1–4.4 React SPA in frontend/                                                                                                  |
 | **5** Discord OAuth     | Pending     | 5.1–5.4                                                                                                                         |
 | **6** Droplet migration | Pending     | When leaving App Platform                                                                                                       |
 | **7** Celery + Redis    | Pending     | After Phase 6                                                                                                                   |
