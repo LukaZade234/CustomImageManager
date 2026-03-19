@@ -11,17 +11,46 @@ if sys.platform.startswith('win'):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from flask import Flask, request, jsonify, send_from_directory, abort
+from flask_cors import CORS
 
 # Import utility functions
-from github_utils import update_github_file
-from imgchest_utils import upload_to_imgchest
-from image_utils import convert_to_png
+from imgchest_utils import upload_to_imgchest, ImgChestError
+from image_utils import convert_to_png, validate_image_file
 import db
 
 # Max file size (30MB) - reject larger files to avoid memory issues
 MAX_FILE_SIZE = 30 * 1024 * 1024
 
+# Allowed image extensions
+ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+
+# Character name validation
+MAX_CHAR_NAME_LENGTH = 200
+MAX_SERIES_LENGTH = 300
+MAX_RANK_LENGTH = 50
+
+
+def _validate_character_name(name):
+    """Returns (True, None) or (False, error_message)."""
+    if not name or not name.strip():
+        return False, "Name cannot be empty"
+    s = name.strip()
+    if len(s) > MAX_CHAR_NAME_LENGTH:
+        return False, f"Name too long (max {MAX_CHAR_NAME_LENGTH} characters)"
+    if '..' in s or '/' in s or '\\' in s:
+        return False, "Name contains invalid characters"
+    if any(ord(c) < 32 and c not in '\t\n\r' for c in s):
+        return False, "Name contains invalid control characters"
+    return True, None
+
+
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+
+# CORS: set CORS_ORIGINS env (comma-separated) to restrict, e.g. "https://your-app.ondigitalocean.app,http://localhost:5000"
+_origins = os.environ.get('CORS_ORIGINS', '*')
+cors_origins = [o.strip() for o in _origins.split(',')] if _origins != '*' else '*'
+CORS(app, origins=cors_origins)
 
 
 @app.route('/api/last-updated', methods=['GET'])
@@ -57,8 +86,8 @@ def serve_custom_images_json():
         print(f"Error serving custom_images: {e}")
     return jsonify({})
 
-# Serve static assets (CSS, JS, JSON, CSV)
-STATIC_FILES = {'styles.css', 'character_image_mapping.json', 'CharName.csv', 'app.js'}
+# Serve static assets (CSS, JS)
+STATIC_FILES = {'styles.css', 'app.js'}
 @app.route('/<filename>')
 def get_static(filename):
     if filename in STATIC_FILES and os.path.exists(filename):
@@ -66,14 +95,18 @@ def get_static(filename):
     abort(404)
 
 @app.route('/characters')
+@app.route('/api/characters')
 def get_characters():
-    characters = []
-    mapping = {}
     try:
+        chars = db.get_characters()
+        if chars is not None:
+            return jsonify(chars)
+        # Fallback: not yet migrated
+        characters = []
+        mapping = {}
         if os.path.exists('character_image_mapping.json'):
             with open('character_image_mapping.json', 'r', encoding='utf-8') as f:
                 mapping = json.load(f)
-        
         if os.path.exists('CharName.csv'):
             with open('CharName.csv', 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -86,10 +119,10 @@ def get_characters():
                         'rank': row['rank'],
                         'image': image_filename
                     })
+        return jsonify(characters)
     except Exception as e:
-        print(f"Error reading files: {e}")
+        print(f"Error reading characters: {e}")
         return jsonify({'error': str(e)}), 500
-    return jsonify(characters)
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -115,6 +148,12 @@ def upload():
             os.remove(temp_path)
         return jsonify({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)'}), 400
 
+    ok, err = validate_image_file(temp_path)
+    if not ok:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': err}), 400
+
     print(f"[UPLOAD] file size OK, proceeding to ImgChest", flush=True)
     try:
         result = upload_to_imgchest(temp_path)
@@ -129,6 +168,9 @@ def upload():
         else:
             print(f"[UPLOAD] single-file upload FAILED: {file.filename}", flush=True)
             return jsonify({'error': 'Upload failed'}), 500
+    except ImgChestError as e:
+        print(f"[UPLOAD] ImgChest error: {e}", flush=True)
+        return jsonify({'error': str(e)}), 503
     finally:
         # Clean up temp file
         if os.path.exists(temp_path):
@@ -149,6 +191,9 @@ def save_character():
         return jsonify({'error': 'Invalid character data'}), 400
 
     char_name = data['name']
+    ok, err = _validate_character_name(char_name)
+    if not ok:
+        return jsonify({'error': err}), 400
     try:
         saved = db.get_saved_characters()
         if any(char.get('name') == char_name for char in saved):
@@ -156,20 +201,6 @@ def save_character():
         saved.append(data)
         db.set_saved_characters(saved)
         db.update_last_modified(char_name)
-
-        # GitHub Sync
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO')
-        if github_token and github_repo:
-            try:
-                json_content = json.dumps(saved, ensure_ascii=False, indent=2)
-                update_github_file(
-                    github_repo, 'saved_characters.json', json_content,
-                    f"Save character: {char_name}", github_token
-                )
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-
         return jsonify({'success': True, 'message': 'Character saved'})
     except Exception as e:
         print(f"Error saving character: {e}")
@@ -180,11 +211,9 @@ def save_character():
 
 @app.route('/api/add-character', methods=['POST'])
 def add_character():
-    """Append a new character to CharName.csv (Local + GitHub Sync)."""
-    # Switch to request.form for multipart/form-data support
+    """Add a new character."""
     name = request.form.get('name', '').strip()
     if not name:
-        # Fallback to JSON if not form data (for backward compatibility if needed)
         json_data = request.get_json(silent=True)
         if json_data:
             name = str(json_data.get('name', '')).strip()
@@ -196,122 +225,41 @@ def add_character():
         series = request.form.get('series', '').strip()
         rank = request.form.get('rank', '').strip()
 
-    # Kakera is removed from UI, default to 0 for CSV compatibility
-    kakera = '0'
-    
-    # --- 1. Update Local Files (Ephemeral on Cloud) ---
-    csv_path = 'CharName.csv'
-    if not os.path.exists(csv_path):
-        return jsonify({'error': 'CharName.csv not found'}), 500
-    
+    ok, err = _validate_character_name(name)
+    if not ok:
+        return jsonify({'error': err}), 400
+    if len(series) > MAX_SERIES_LENGTH:
+        return jsonify({'error': f'Series too long (max {MAX_SERIES_LENGTH} characters)'}), 400
+    if len(rank) > MAX_RANK_LENGTH:
+        return jsonify({'error': f'Rank too long (max {MAX_RANK_LENGTH} characters)'}), 400
+
+    image_url = ""
+
+    if 'image' in request.files:
+        file = request.files['image']
+        if file.filename != '':
+            temp_path = os.path.join('.', 'temp_add_' + file.filename)
+            file.save(temp_path)
+            try:
+                result = upload_to_imgchest(temp_path)
+                if result:
+                    _, image_url = result
+            except ImgChestError as e:
+                print(f"Image upload failed: {e}")
+                return jsonify({'error': str(e)}), 503
+            except Exception as e:
+                print(f"Image upload failed: {e}")
+            finally:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+
     try:
-        # Read existing to check duplicates
-        rows = []
-        with open(csv_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            for row in reader:
-                rows.append(row)
-        
-        if any(r.get('name') == name for r in rows):
+        if db.get_characters() is None:
+            return jsonify({'error': 'Characters not migrated to DB yet. Run import_characters_to_db.py first.'}), 500
+        if not db.add_character(name, series, rank, image_url):
             return jsonify({'error': f'Character "{name}" already exists'}), 400
-        
-        # Rank Logic: Only assign if provided, otherwise leave blank
-        # Previously auto-assigned max_rank + 1
-        final_rank = rank if rank else ""
-        
-        new_row = {
-            'rank': final_rank,
-            'name': name,
-            'series': series,
-            'kakera': kakera
-        }
-        rows.append(new_row)
-        
-        # Write CSV
-        with open(csv_path, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-        
-        # Handle Main Image Upload
-        image_url = ""
-        if 'image' in request.files:
-            file = request.files['image']
-            if file.filename != '':
-                # Save temporarily
-                temp_path = os.path.join('.', 'temp_add_' + file.filename)
-                file.save(temp_path)
-                try:
-                    result = upload_to_imgchest(temp_path)
-                    if result:
-                        _, image_url = result
-                except Exception as e:
-                    print(f"Image upload failed: {e}")
-                finally:
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-
-        # Update Mapping JSON
-        mapping_path = 'character_image_mapping.json'
-        mapping = {}
-        if os.path.exists(mapping_path):
-            try:
-                with open(mapping_path, 'r', encoding='utf-8') as f:
-                    mapping = json.load(f)
-            except:
-                pass
-        
-        if name not in mapping:
-            mapping[name] = {"filename": image_url}
-            with open(mapping_path, 'w', encoding='utf-8') as f:
-                json.dump(mapping, f, ensure_ascii=False, indent=4)
-
-        # --- 2. GitHub Sync (If Configured) ---
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO') # e.g. "username/repo"
-        
-        sync_msg = ""
-        if github_token and github_repo:
-            try:
-                # Re-construct CSV content
-                from io import StringIO
-                output = StringIO()
-                writer = csv.DictWriter(output, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(rows)
-                csv_content = output.getvalue()
-                
-                # Re-construct JSON content
-                json_content = json.dumps(mapping, ensure_ascii=False, indent=4)
-                
-                # Commit CSV
-                ok_csv = update_github_file(
-                    github_repo, 
-                    'CharName.csv', 
-                    csv_content, 
-                    f"Add character: {name} (CSV)", 
-                    github_token
-                )
-                
-                # Commit JSON
-                ok_json = update_github_file(
-                    github_repo, 
-                    'character_image_mapping.json', 
-                    json_content, 
-                    f"Add character: {name} (Mapping)", 
-                    github_token
-                )
-                
-                if ok_csv and ok_json:
-                    sync_msg = " & Synced to GitHub!"
-                else:
-                    sync_msg = " (GitHub Sync Failed)"
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-                sync_msg = " (GitHub Sync Error)"
-
-        return jsonify({'success': True, 'message': f'Added "{name}"{sync_msg}'})
+        db.update_last_modified(name)
+        return jsonify({'success': True, 'message': f'Added "{name}"'})
     except Exception as e:
         print(f'Error adding character: {e}')
         return jsonify({'error': str(e)}), 500
@@ -324,19 +272,6 @@ def remove_saved(name):
         if len(new_saved) == len(saved):
             return jsonify({'error': 'Character not found in saved list'}), 404
         db.set_saved_characters(new_saved)
-
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO')
-        if github_token and github_repo:
-            try:
-                json_content = json.dumps(new_saved, ensure_ascii=False, indent=2)
-                update_github_file(
-                    github_repo, 'saved_characters.json', json_content,
-                    f"Unsave character: {name}", github_token
-                )
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-
         return jsonify({'success': True, 'message': 'Character removed'})
     except Exception as e:
         print(f"Error removing character: {e}")
@@ -347,8 +282,11 @@ def add_custom_image():
     try:
         if 'character_name' not in request.form:
             return jsonify({'error': 'Character name is required'}), 400
-            
-        char_name = request.form['character_name']
+
+        char_name = request.form['character_name'].strip()
+        ok, err = _validate_character_name(char_name)
+        if not ok:
+            return jsonify({'error': err}), 400
         
         # Handle multiple files
         files = request.files.getlist('files')
@@ -387,6 +325,13 @@ def add_custom_image():
                     os.remove(temp_path)
                 continue
 
+            ok, val_err = validate_image_file(temp_path)
+            if not ok:
+                errors.append(f"{file.filename}: {val_err}")
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                continue
+
             conversion_created_new_file = False
             final_path = temp_path
             
@@ -420,6 +365,9 @@ def add_custom_image():
                 else:
                     errors.append(f"Failed to upload {file.filename}")
                     print(f"[UPLOAD] file {processed}/{file_count} FAILED (ImgChest): {file.filename}", flush=True)
+            except ImgChestError as e:
+                errors.append(str(e))
+                print(f"[UPLOAD] file {processed}/{file_count} ImgChest error: {e}", flush=True)
             except Exception as e:
                 errors.append(f"Error uploading {file.filename}: {str(e)}")
                 print(f"[UPLOAD] file {processed}/{file_count} EXCEPTION: {file.filename}: {type(e).__name__}: {e}", flush=True)
@@ -450,24 +398,9 @@ def add_custom_image():
         db.update_last_modified(char_name)
         print(f"[UPLOAD] updating custom_images for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
 
-        sync_msg = ""
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO')
-        if github_token and github_repo:
-            try:
-                json_content = json.dumps(data, ensure_ascii=False, indent=4)
-                update_github_file(
-                    github_repo, 'custom_images.json', json_content,
-                    f"Add {len(uploaded_links)} custom images for: {char_name}", github_token
-                )
-                sync_msg = " & Synced to GitHub"
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-                sync_msg = " (GitHub Sync Failed)"
-            
         return jsonify({
-            'success': True, 
-            'message': f'{len(uploaded_links)} images added{sync_msg}',
+            'success': True,
+            'message': f'{len(uploaded_links)} images added',
             'links': uploaded_links,
             'errors': errors
         })
@@ -501,19 +434,6 @@ def reorder_custom_images():
             data[char_name] = new_order
             db.set_custom_images(data)
             db.update_last_modified(char_name)
-
-            github_token = os.environ.get('GITHUB_TOKEN')
-            github_repo = os.environ.get('GITHUB_REPO')
-            if github_token and github_repo:
-                try:
-                    json_content = json.dumps(data, ensure_ascii=False, indent=4)
-                    update_github_file(
-                        github_repo, 'custom_images.json', json_content,
-                        f"Reorder images for: {char_name}", github_token
-                    )
-                except Exception as gh_e:
-                    print(f"GitHub Sync Error: {gh_e}")
-
             return jsonify({'message': 'Order updated successfully'})
         else:
             return jsonify({'error': 'Character not found'}), 404
@@ -539,23 +459,7 @@ def delete_custom_image():
         custom_data[char_name].remove(image_url)
         db.set_custom_images(custom_data)
         db.update_last_modified(char_name)
-
-        sync_msg = ""
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO')
-        if github_token and github_repo:
-            try:
-                json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
-                update_github_file(
-                    github_repo, 'custom_images.json', json_content,
-                    f"Delete custom image for: {char_name}", github_token
-                )
-                sync_msg = " & Synced to GitHub"
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-                sync_msg = " (GitHub Sync Failed)"
-
-        return jsonify({'success': True, 'message': f'Image deleted{sync_msg}'})
+        return jsonify({'success': True, 'message': 'Image deleted'})
     except Exception as e:
         print(f"Error deleting image: {e}")
         return jsonify({'error': str(e)}), 500
@@ -582,24 +486,7 @@ def delete_custom_images():
 
         db.set_custom_images(custom_data)
         db.update_last_modified(char_name)
-
-        sync_msg = ""
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO')
-        if github_token and github_repo:
-            try:
-                json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
-                update_github_file(
-                    github_repo, 'custom_images.json', json_content,
-                    f"Delete {original_len - len(custom_data[char_name])} custom images for: {char_name}",
-                    github_token
-                )
-                sync_msg = " & Synced to GitHub"
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-                sync_msg = " (GitHub Sync Failed)"
-
-        return jsonify({'success': True, 'message': f'Images deleted{sync_msg}'})
+        return jsonify({'success': True, 'message': 'Images deleted'})
     except Exception as e:
         print(f"Error deleting images: {e}")
         return jsonify({'error': str(e)}), 500
@@ -610,103 +497,58 @@ def edit_character():
     required = ['original_name', 'new_name', 'series', 'rank']
     if not data or not all(k in data for k in required):
         return jsonify({'error': 'Missing required fields'}), 400
-        
+
     orig_name = data['original_name']
     new_name = data['new_name'].strip()
     series = data['series'].strip()
     rank = data['rank'].strip()
-    
+
     if not new_name:
         return jsonify({'error': 'Name cannot be empty'}), 400
-        
-    # 1. Update CSV
-    csv_path = 'CharName.csv'
-    if not os.path.exists(csv_path):
-        return jsonify({'error': 'CharName.csv not found'}), 500
-        
-    rows = []
-    updated = False
-    
+
+    ok, err = _validate_character_name(new_name)
+    if not ok:
+        return jsonify({'error': err}), 400
+    if len(series) > MAX_SERIES_LENGTH:
+        return jsonify({'error': f'Series too long (max {MAX_SERIES_LENGTH} characters)'}), 400
+    if len(rank) > MAX_RANK_LENGTH:
+        return jsonify({'error': f'Rank too long (max {MAX_RANK_LENGTH} characters)'}), 400
+
     try:
-        with open(csv_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            for row in reader:
-                if row['name'] == orig_name:
-                    row['name'] = new_name
-                    row['series'] = series
-                    row['rank'] = rank
-                    updated = True
-                rows.append(row)
-        
-        if not updated:
-            return jsonify({'error': 'Character not found in CSV'}), 404
-            
-        # Write CSV
-        with open(csv_path, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-            
+        if db.get_characters() is None:
+            return jsonify({'error': 'Characters not migrated to DB yet. Run import_characters_to_db.py first.'}), 500
+        if not db.update_character(orig_name, new_name, series, rank):
+            return jsonify({'error': 'Character not found'}), 404
     except Exception as e:
-        return jsonify({'error': f"CSV Error: {e}"}), 500
+        return jsonify({'error': str(e)}), 500
 
-    # 2. Rename keys in JSON files if name changed
-    rename_json_error = None
-    files_to_update = {} # path -> content
-    
     if new_name != orig_name:
-        # Mapping JSON
-        mapping_path = 'character_image_mapping.json'
-        if os.path.exists(mapping_path):
-            try:
-                with open(mapping_path, 'r', encoding='utf-8') as f:
-                    mapping = json.load(f)
-                if orig_name in mapping:
-                    mapping[new_name] = mapping.pop(orig_name)
-                    with open(mapping_path, 'w', encoding='utf-8') as f:
-                        json.dump(mapping, f, indent=4, ensure_ascii=False)
-                    files_to_update[mapping_path] = json.dumps(mapping, ensure_ascii=False, indent=4)
-            except Exception as e:
-                rename_json_error = str(e)
-
-        # Custom Images (DB or JSON)
         try:
             custom_data = db.get_custom_images()
             if orig_name in custom_data:
                 custom_data[new_name] = custom_data.pop(orig_name)
                 db.set_custom_images(custom_data)
-                files_to_update['custom_images.json'] = json.dumps(custom_data, ensure_ascii=False, indent=4)
         except Exception as e:
-            rename_json_error = str(e)
-                
-    # 3. GitHub Sync
-    github_token = os.environ.get('GITHUB_TOKEN')
-    github_repo = os.environ.get('GITHUB_REPO')
-    sync_msg = ""
-    
-    if github_token and github_repo:
+            print(f"Error renaming custom_images: {e}")
         try:
-            # Sync CSV
-            from io import StringIO
-            output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-            csv_content = output.getvalue()
-            
-            update_github_file(github_repo, csv_path, csv_content, f"Edit character: {orig_name} -> {new_name}", github_token)
-            
-            # Sync JSONs
-            for path, content in files_to_update.items():
-                update_github_file(github_repo, path, content, f"Rename key: {orig_name} -> {new_name}", github_token)
-                
-            sync_msg = " & Synced to GitHub"
-        except Exception as gh_e:
-            print(f"GitHub Sync Error: {gh_e}")
-            sync_msg = " (GitHub Sync Failed)"
+            saved = db.get_saved_characters()
+            for s in saved:
+                if s.get('name') == orig_name:
+                    s['name'] = new_name
+                    db.set_saved_characters(saved)
+                    break
+        except Exception as e:
+            print(f"Error renaming in saved_characters: {e}")
+        try:
+            last_upd = db.get_last_updated()
+            if orig_name in last_upd:
+                last_upd[new_name] = last_upd.pop(orig_name)
+                db.set_last_updated(last_upd)
+        except Exception as e:
+            print(f"Error renaming in last_updated: {e}")
 
-    return jsonify({'success': True, 'message': f'Character updated{sync_msg}', 'new_name': new_name})
+    db.update_last_modified(new_name)
+    return jsonify({'success': True, 'message': 'Character updated', 'new_name': new_name})
 
 
 @app.route('/api/set-main-image', methods=['POST'])
@@ -715,70 +557,60 @@ def set_main_image():
         return jsonify({'error': 'No file provided'}), 400
     if 'character_name' not in request.form:
         return jsonify({'error': 'Character name is required'}), 400
-        
+
     file = request.files['file']
-    char_name = request.form['character_name']
-    
+    char_name = request.form['character_name'].strip()
+
+    ok, err = _validate_character_name(char_name)
+    if not ok:
+        return jsonify({'error': err}), 400
+
     if file.filename == '':
         return jsonify({'error': 'No file selected'}), 400
 
-    # Save temporarily
     temp_path = os.path.join('.', 'temp_main_' + file.filename)
     file.save(temp_path)
-    
+
+    if os.path.getsize(temp_path) > MAX_FILE_SIZE:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)'}), 400
+
+    ok, val_err = validate_image_file(temp_path)
+    if not ok:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        return jsonify({'error': val_err}), 400
+
     try:
-        # Upload to ImgChest
         result = upload_to_imgchest(temp_path)
-        
         if not result:
             return jsonify({'error': 'Failed to upload to ImgChest'}), 500
-            
+
         post_link, direct_link = result
-        
-        # Update character_image_mapping.json
+
+        if db.get_characters() is not None:
+            if db.set_main_image(char_name, direct_link):
+                db.update_last_modified(char_name)
+                return jsonify({'success': True, 'message': 'Main image updated', 'image_url': direct_link})
+            return jsonify({'error': 'Character not found'}), 404
+
+        # Fallback: not yet migrated, update JSON file
         json_file = 'character_image_mapping.json'
         mapping = {}
-        
         if os.path.exists(json_file):
             try:
                 with open(json_file, 'r', encoding='utf-8') as f:
                     mapping = json.load(f)
-            except:
+            except Exception:
                 pass
-        
-        # Update mapping
         mapping[char_name] = {"filename": direct_link}
-        
-        # Save locally
         with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(mapping, f, indent=4, ensure_ascii=False)
-            
-        # GitHub Sync
-        github_token = os.environ.get('GITHUB_TOKEN')
-        github_repo = os.environ.get('GITHUB_REPO')
-        
-        sync_msg = ""
-        if github_token and github_repo:
-            try:
-                json_content = json.dumps(mapping, ensure_ascii=False, indent=4)
-                update_github_file(
-                    github_repo, 
-                    json_file, 
-                    json_content, 
-                    f"Set main image for: {char_name}", 
-                    github_token
-                )
-                sync_msg = " & Synced to GitHub"
-            except Exception as gh_e:
-                print(f"GitHub Sync Error: {gh_e}")
-                sync_msg = " (GitHub Sync Failed)"
-                
-        return jsonify({
-            'success': True, 
-            'message': f'Main image updated{sync_msg}',
-            'image_url': direct_link
-        })
-        
+        return jsonify({'success': True, 'message': 'Main image updated', 'image_url': direct_link})
+    except ImgChestError as e:
+        print(f"Error setting main image (ImgChest): {e}")
+        return jsonify({'error': str(e)}), 503
     except Exception as e:
         print(f"Error setting main image: {e}")
         return jsonify({'error': str(e)}), 500

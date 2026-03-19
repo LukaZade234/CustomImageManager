@@ -13,6 +13,7 @@ _db_lock = threading.Lock()
 CUSTOM_IMAGES_FILE = 'custom_images.json'
 SAVED_CHARACTERS_FILE = 'saved_characters.json'
 LAST_UPDATED_FILE = 'last_updated.json'
+CHARACTERS_FILE = 'characters.json'
 
 
 def _get_db():
@@ -55,6 +56,7 @@ def _get_json(key, default):
         'custom_images': CUSTOM_IMAGES_FILE,
         'saved_characters': SAVED_CHARACTERS_FILE,
         'last_updated': LAST_UPDATED_FILE,
+        'characters': CHARACTERS_FILE,
     }
     path = files.get(key)
     if not path or not os.path.exists(path):
@@ -72,6 +74,7 @@ def _set_json(key, value):
         'custom_images': CUSTOM_IMAGES_FILE,
         'saved_characters': SAVED_CHARACTERS_FILE,
         'last_updated': LAST_UPDATED_FILE,
+        'characters': CHARACTERS_FILE,
     }
     path = files.get(key)
     if path:
@@ -153,3 +156,65 @@ def update_last_modified(char_name):
     data = get_last_updated()
     data[char_name] = time.time()
     set_last_updated(data)
+
+
+# --- Characters (name, series, rank, main_image_url) ---
+
+def get_characters():
+    """Get list of characters as [{name, series, rank, image}, ...] for API."""
+    db_type, conn = _get_db()
+    raw = _get_pg(conn, 'characters', None) if db_type == 'postgres' else _get_json('characters', None)
+    if raw is None:
+        return None  # Not yet migrated
+    chars = raw if isinstance(raw, list) else []
+    return [{'name': c['name'], 'series': c.get('series', ''), 'rank': c.get('rank', ''), 'image': c.get('main_image_url', '')} for c in chars]
+
+
+def _get_characters_raw():
+    """Get raw character list (internal)."""
+    db_type, conn = _get_db()
+    raw = _get_pg(conn, 'characters', []) if db_type == 'postgres' else _get_json('characters', [])
+    return raw if isinstance(raw, list) else []
+
+
+def _set_characters_raw(chars):
+    """Save raw character list (internal)."""
+    db_type, conn = _get_db()
+    if db_type == 'postgres':
+        _set_pg(conn, 'characters', chars)
+    else:
+        _set_json('characters', chars)
+
+
+def add_character(name, series, rank, main_image_url=''):
+    """Add a character. Returns False if name already exists."""
+    chars = _get_characters_raw()
+    if any(c.get('name') == name for c in chars):
+        return False
+    chars.append({'name': name, 'series': series, 'rank': rank, 'main_image_url': main_image_url})
+    _set_characters_raw(chars)
+    return True
+
+
+def update_character(orig_name, new_name, series, rank):
+    """Update character. Returns False if orig_name not found."""
+    chars = _get_characters_raw()
+    for c in chars:
+        if c.get('name') == orig_name:
+            c['name'] = new_name
+            c['series'] = series
+            c['rank'] = rank
+            _set_characters_raw(chars)
+            return True
+    return False
+
+
+def set_main_image(char_name, image_url):
+    """Set main image for character. Returns False if not found."""
+    chars = _get_characters_raw()
+    for c in chars:
+        if c.get('name') == char_name:
+            c['main_image_url'] = image_url
+            _set_characters_raw(chars)
+            return True
+    return False

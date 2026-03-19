@@ -523,21 +523,21 @@ This guide assumes the **current progress** as the base and walks through implem
 
 ### First actionable step
 
-**Phase 1 done (1.1, 1.2).** Next: **Phase 2 (Data Model Migration)** or **Phase 3 (API Hardening)**.
+**Phase 1–3 done.** Next: **Phase 4 (Frontend Rewrite)** — React/Vue SPA to replace 2.3k-line app.js.
 
 ---
 
 ### Current State (Baseline)
 
 
-| Component        | Current                                                                                             | File(s)                                                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **DB**           | **Done:** [db.py](db.py) — PostgreSQL (when DATABASE_URL) + JSON fallback for `custom_images`, `saved_characters`, `last_updated` | [db.py](db.py)                                                               |
-| **Characters**   | CharName.csv + character_image_mapping.json (files)                                                 | [upload_imgchest.py](upload_imgchest.py), [app.js](app.js)                   |
-| **ImgChest key** | ~~Hardcoded~~ **Done:** Now in env (`IMGCHEST_API_KEY`)                                                | [imgchest_utils.py](imgchest_utils.py)                                       |
-| **GitHub sync**  | ~~Broken~~ **Done:** Import present. Set GITHUB_TOKEN + GITHUB_REPO for persistence.                 | [upload_imgchest.py](upload_imgchest.py), [github_utils.py](github_utils.py) |
-| **Frontend**     | Vanilla JS (~2.3k lines), loads CSV + JSON directly                                                 | [app.js](app.js), [upload.html](upload.html)                                 |
-| **Deployment**   | DigitalOcean App Platform + managed PostgreSQL                                                      | [.do/app.yaml](.do/app.yaml)                                                 |
+| Component        | Current                                                                                                                                         | File(s)                                                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **DB**           | **Done:** [db.py](db.py) — PostgreSQL (when DATABASE_URL) + JSON fallback for `custom_images`, `saved_characters`, `last_updated`, `characters` | [db.py](db.py)                                                                                                       |
+| **Characters**   | ~~CharName.csv + character_image_mapping.json~~ **Done:** In DB (kv_store). API at `GET /api/characters`.                                       | [upload_imgchest.py](upload_imgchest.py), [app.js](app.js), [import_characters_to_db.py](import_characters_to_db.py) |
+| **ImgChest key** | ~~Hardcoded~~ **Done:** Now in env (`IMGCHEST_API_KEY`)                                                                                         | [imgchest_utils.py](imgchest_utils.py)                                                                               |
+| **GitHub sync**  | ~~Broken~~ **Removed:** All data in DB. No GitHub sync. `github_utils.py` unused.                                                               | —                                                                                                                    |
+| **Frontend**     | Vanilla JS (~2.3k lines), loads from `GET /api/characters`                                                                                      | [app.js](app.js), [upload.html](upload.html)                                                                         |
+| **Deployment**   | DigitalOcean App Platform + managed PostgreSQL (Neon)                                                                                           | [.do/app.yaml](.do/app.yaml)                                                                                         |
 
 
 ---
@@ -551,59 +551,64 @@ This guide assumes the **current progress** as the base and walks through implem
 
 **Step 1.2 — Fix or remove GitHub sync** *(done)*
 
-- **Option B (keep):** Import present. Set GITHUB_TOKEN and GITHUB_REPO in App Platform for persistence. Remove when Phase 2 (DB) is complete.
+- **Removed:** All data in DB. GitHub sync no longer used.
 
 ---
 
 ### Phase 2: Data Model Migration (Medium Risk)
 
-**Step 2.1 — Add proper DB schema**
+**Step 2.1 — Add proper DB schema** *(partial — kv_store used)*
 
 - **What:** Extend [db.py](db.py) to support the ideal schema. Add new tables (or migrations) for `characters`, `custom_images`, `users`, `saved_characters`, `last_updated` per the Data Model section.
-- **Current:** `kv_store` with JSONB blobs. New: normalized tables with FKs.
+- **Current:** `kv_store` with JSONB blobs for all data. Works; normalized tables with FKs would be ideal but deferred.
 - **Implementation:** Add `_init_schema(conn)` that creates `characters`, `custom_images`, `users`, `saved_characters` if not exist. Keep `kv_store` temporarily for backward compatibility during migration.
 
-**Step 2.2 — One-time import script**
+**Step 2.2 — One-time import script** *(done)*
 
-- **What:** Create `import_characters_to_db.py` that reads CharName.csv + character_image_mapping.json and inserts into `characters` table.
-- **Run:** Once, with `DATABASE_URL` set. Backup existing DB first.
-- **Output:** `characters` table populated. CSV/JSON no longer needed for character list.
+- ~~**What:** Create `import_characters_to_db.py` that reads CharName.csv + character_image_mapping.json and inserts into `characters` table.~~
+- **Done:** [import_characters_to_db.py](import_characters_to_db.py) imports into kv_store `characters` key.
 
-**Step 2.3 — Migrate custom_images format**
+**Step 2.3 — Migrate custom_images format** *(deferred)*
 
-- **What:** Current `custom_images` is `{char_name: [url1, url2, ...]}`. New format: rows in `custom_images` table with `character_id`, `url`, `position`.
-- **Implementation:** Add migration in db.py or a script that reads existing kv_store `custom_images`, resolves character IDs, and inserts into `custom_images` table.
-- **Keep:** `get_custom_images` / `set_custom_images` can temporarily support both formats, or switch to new functions that use the table.
+- **What:** Current `custom_images` is `{char_name: [url1, url2, ...]}` in kv_store. Ideal: rows in `custom_images` table with `character_id`, `url`, `position`.
+- **Current:** Using kv_store format. Works. Normalized table migration deferred.
 
-**Step 2.4 — Add characters API and switch backend**
+**Step 2.4 — Add characters API and switch backend** *(done)*
 
-- **What:** In [upload_imgchest.py](upload_imgchest.py), add `GET /api/characters` that returns characters from DB. Replace all CSV/JSON reads for characters with DB calls.
-- **Endpoints to update:** `get_characters`, `add_character`, `edit_character`, `set_main_image`. Remove file writes; write to DB only.
-- **Remove:** All GitHub sync code. Delete or stop using CharName.csv and character_image_mapping.json at runtime.
+- ~~**What:** In [upload_imgchest.py](upload_imgchest.py), add `GET /api/characters` that returns characters from DB. Replace all CSV/JSON reads for characters with DB calls.~~
+- **Done:** `GET /api/characters`, `add_character`, `edit_character`, `set_main_image` all use DB. GitHub sync removed. File fallback only when not migrated.
 
-**Step 2.5 — Update frontend to use /api/characters**
+**Step 2.5 — Update frontend to use /api/characters** *(done)*
 
-- **What:** In [app.js](app.js), replace `loadCharacterData()` so it fetches from `GET /api/characters` instead of CharName.csv + character_image_mapping.json.
-- **Remove:** Direct fetches to CharName.csv and character_image_mapping.json. Use single API for character list and images.
+- ~~**What:** In [app.js](app.js), replace `loadCharacterData()` so it fetches from `GET /api/characters` instead of CharName.csv + character_image_mapping.json.~~
+- **Done:** `loadCharacterData()` fetches from `/api/characters`.
 
 ---
 
 ### Phase 3: API Hardening and Structure (Low–Medium Risk)
 
-**Step 3.1 — Add CORS allowlist**
+**Step 3.1 — Add CORS allowlist** *(done)*
 
-- **What:** Install `flask-cors` or add manual CORS headers. Allow only your production (and dev) origin.
-- **Code:** `CORS(app, origins=["https://your-domain.com", "http://localhost:5000"])` or equivalent.
+- ~~**What:** Install `flask-cors` or add manual CORS headers. Allow only your production (and dev) origin.~~
+- **Done:** `flask-cors` added. Set `CORS_ORIGINS` env (comma-separated) to restrict; default allows all.
 
-**Step 3.2 — Add rate limiting**
+**Step 3.2 — Add rate limiting** *(skipped)*
 
-- **What:** Install `Flask-Limiter`, use Redis or in-memory backend. Limit `/upload`, `/api/custom-image`, `/api/add-character` more strictly than read endpoints.
-- **Example:** 10 uploads/minute per IP for upload endpoints.
+- **What:** Install `Flask-Limiter`, use Redis or in-memory backend. Limit upload endpoints.
+- **Skipped:** Trusted user base; can add later if needed.
 
-**Step 3.3 — Ensure all secrets in env**
+**Step 3.3 — Ensure all secrets in env** *(done)*
 
-- **What:** Verify `DATABASE_URL`, `IMGCHEST_API_KEY` are in [.do/app.yaml](.do/app.yaml) or platform secrets. Add `SECRET_KEY` for sessions (needed for Phase 4).
-- **Check:** No secrets in code or committed config.
+- ~~**What:** Verify `DATABASE_URL`, `IMGCHEST_API_KEY` are in platform secrets. Add `SECRET_KEY` for sessions.~~
+- **Done:** `SECRET_KEY` from env (default dev key). Documented in DEPLOY.md.
+
+**Step 3.4 — Input validation** *(done)*
+
+- **Done:** Character name validation (length, no path traversal). Image validation via Pillow before upload.
+
+**Step 3.5 — ImgChest error handling** *(done)*
+
+- **Done:** `ImgChestError` exception; 503 with clear message on rate limit, server error, network failure.
 
 ---
 

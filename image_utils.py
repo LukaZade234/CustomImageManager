@@ -14,6 +14,16 @@ MAX_FILE_SIZE_SKIP_DIM_CHECK = 30 * 1024 * 1024  # 30MB
 def _log(msg):
     print(f"[IMG] {msg}", flush=True)
 
+
+def validate_image_file(file_path):
+    """Returns (True, None) if valid image, else (False, error_message)."""
+    try:
+        with Image.open(file_path) as img:
+            img.verify()
+        return True, None
+    except Exception as e:
+        return False, f"Invalid image file: {str(e)}"
+
 def convert_to_png(input_path):
     """
     Converts an image at input_path to PNG format.

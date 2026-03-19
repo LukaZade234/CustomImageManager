@@ -1,6 +1,12 @@
 import requests
 import os
 
+
+class ImgChestError(Exception):
+    """Raised when ImgChest API fails (rate limit, service down, etc)."""
+    pass
+
+
 API_KEY = os.environ.get("IMGCHEST_API_KEY", "")
 
 def _log(msg):
@@ -44,7 +50,7 @@ def upload_to_imgchest(file_path):
                 
                 if 'data' not in data:
                     _log(f"unexpected response (no 'data' key): {list(data.keys()) if isinstance(data, dict) else type(data)}")
-                    return None
+                    raise ImgChestError("Image hosting returned invalid response")
                 
                 img_data = data['data']
 
@@ -61,10 +67,21 @@ def upload_to_imgchest(file_path):
 
                 _log(f"upload SUCCESS: direct_link={direct_link[:80]}{'...' if len(direct_link) > 80 else ''}")
                 return post_link, direct_link
+            elif response.status_code == 429:
+                _log(f"upload FAILED: rate limited (429)")
+                raise ImgChestError("Image hosting rate limit reached. Please try again in a few minutes.")
+            elif response.status_code >= 500:
+                _log(f"upload FAILED: server error {response.status_code}, body={response.text[:200]}")
+                raise ImgChestError("Image hosting is temporarily unavailable. Please try again later.")
             else:
                 _log(f"upload FAILED: status={response.status_code}, body={response.text[:200]}")
-                return None
+                raise ImgChestError("Image upload failed. Please try again later.")
 
+    except ImgChestError:
+        raise
+    except requests.RequestException as e:
+        _log(f"upload REQUEST EXCEPTION: {type(e).__name__}: {e}")
+        raise ImgChestError("Could not reach image hosting. Please check your connection and try again.")
     except Exception as e:
         _log(f"upload EXCEPTION: {type(e).__name__}: {e}")
-        return None
+        raise ImgChestError("Image upload failed. Please try again later.")
