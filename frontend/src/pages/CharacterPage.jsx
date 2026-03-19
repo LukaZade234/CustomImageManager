@@ -21,7 +21,6 @@ export default function CharacterPage() {
   const isSaved = savedCharacters.some((s) => s.name === name)
 
   const [editMode, setEditMode] = useState(false)
-  const [mainImageEditMode, setMainImageEditMode] = useState(false)
   const [editName, setEditName] = useState('')
   const [editSeries, setEditSeries] = useState('')
   const [editRank, setEditRank] = useState('')
@@ -229,7 +228,7 @@ export default function CharacterPage() {
             <p id="charSeriesDisplay">{char.series || '—'}</p>
             <p id="charRankDisplay">Rank: {char.rank || '—'}</p>
             <div className="bottom-controls" style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button type="button" className="action-btn" onClick={() => setEditMode(true)} title="Edit character">
+              <button type="button" className="action-btn" onClick={() => setEditMode(true)} title="Edit name, series, rank, and main image">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px' }}>
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -270,14 +269,14 @@ export default function CharacterPage() {
       </div>
       <div id="charImageContainer" className="char-image-section">
         <div
-          className={`image-wrapper ${mainImageEditMode ? 'edit-mode' : ''} ${dragOver ? 'drag-over-main' : ''}`}
-          onClick={() => mainImageEditMode && mainInputRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); mainImageEditMode && setDragOver(true) }}
+          className={`image-wrapper ${editMode ? 'edit-mode' : ''} ${dragOver ? 'drag-over-main' : ''}`}
+          onClick={() => editMode && mainInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); editMode && setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={mainImageEditMode ? handleMainImageDrop : undefined}
-          role={mainImageEditMode ? 'button' : undefined}
-          tabIndex={mainImageEditMode ? 0 : undefined}
-          onKeyDown={(e) => mainImageEditMode && e.key === 'Enter' && mainInputRef.current?.click()}
+          onDrop={editMode ? handleMainImageDrop : undefined}
+          role={editMode ? 'button' : undefined}
+          tabIndex={editMode ? 0 : undefined}
+          onKeyDown={(e) => editMode && e.key === 'Enter' && mainInputRef.current?.click()}
         >
           <input ref={mainInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleMainImageChange} />
           {mainImage ? (
@@ -285,13 +284,8 @@ export default function CharacterPage() {
           ) : (
             <div style={{ width: 200, height: 200, background: '#e9ecef', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6c757d' }}>No image</div>
           )}
-          {mainImageEditMode && <div className="image-overlay"><span>Click or Drop to Change</span></div>}
+          {editMode && <div className="image-overlay"><span>Click or Drop to Change</span></div>}
         </div>
-        {!mainImageEditMode ? (
-          <button type="button" className="action-btn" onClick={() => setMainImageEditMode(true)} style={{ marginTop: '10px' }}>Change Image</button>
-        ) : (
-          <button type="button" className="action-btn secondary" onClick={() => setMainImageEditMode(false)} style={{ marginTop: '10px' }}>Done</button>
-        )}
         <button
           type="button"
           className={`save-button ${isSaved ? 'saved' : ''}`}

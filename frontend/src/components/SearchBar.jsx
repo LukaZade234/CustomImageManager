@@ -40,7 +40,7 @@ export default function SearchBar() {
           className="char-search-input"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search characters..."
+          placeholder={mode === 'name' ? 'Search by name...' : 'Search by series...'}
           autoComplete="off"
         />
         <div className="search-toggle-wrapper search-toggle-visible">

@@ -576,9 +576,11 @@ input:checked + .slider:before {
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 .char-main-image-full {
-    max-height: none;
+    max-width: 280px;
+    max-height: 280px;
     width: auto;
     height: auto;
+    object-fit: contain;
 }
 #selectedCharacter h3,
 .character-page h3 {
@@ -908,8 +910,7 @@ input:checked + .slider:before {
     background-color: #f1f8ff;
 }
 
-.preview-thumb,
-.custom-image-full {
+.preview-thumb {
     max-width: 100%;
     width: auto;
     height: auto;
@@ -921,7 +922,20 @@ input:checked + .slider:before {
     transition: transform 0.2s;
     cursor: pointer;
 }
-.custom-image-full:hover {
+/* Character page custom gallery - smaller thumbnails */
+#customImagesGallery .custom-image-full {
+    max-width: 140px;
+    max-height: 140px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+#customImagesGallery .custom-image-full:hover {
     transform: scale(1.02);
 }
 .gallery-item-wrapper {
