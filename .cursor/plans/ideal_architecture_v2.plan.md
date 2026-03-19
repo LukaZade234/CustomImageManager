@@ -523,7 +523,7 @@ This guide assumes the **current progress** as the base and walks through implem
 
 ### First actionable step
 
-**Pick one thing from Phase 1 and do it.** The honest next step is not to plan more—it is to execute. Recommended: **Step 1.1 (move ImgChest API key to env)**. It takes ~5 minutes, reduces risk immediately, and unblocks nothing. Do it today.
+**Phase 1 done (1.1, 1.2).** Next: **Phase 2 (Data Model Migration)** or **Phase 3 (API Hardening)**.
 
 ---
 
@@ -532,10 +532,10 @@ This guide assumes the **current progress** as the base and walks through implem
 
 | Component        | Current                                                                                             | File(s)                                                                      |
 | ---------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **DB**           | PostgreSQL (kv_store JSONB) + JSON fallback for `custom_images`, `saved_characters`, `last_updated` | [db.py](db.py)                                                               |
+| **DB**           | **Done:** [db.py](db.py) — PostgreSQL (when DATABASE_URL) + JSON fallback for `custom_images`, `saved_characters`, `last_updated` | [db.py](db.py)                                                               |
 | **Characters**   | CharName.csv + character_image_mapping.json (files)                                                 | [upload_imgchest.py](upload_imgchest.py), [app.js](app.js)                   |
-| **ImgChest key** | Hardcoded in imgchest_utils.py                                                                      | [imgchest_utils.py](imgchest_utils.py)                                       |
-| **GitHub sync**  | Used in add/edit/set-main-image; `update_github_file` called but **not imported** (broken)          | [upload_imgchest.py](upload_imgchest.py), [github_utils.py](github_utils.py) |
+| **ImgChest key** | ~~Hardcoded~~ **Done:** Now in env (`IMGCHEST_API_KEY`)                                                | [imgchest_utils.py](imgchest_utils.py)                                       |
+| **GitHub sync**  | ~~Broken~~ **Done:** Import present. Set GITHUB_TOKEN + GITHUB_REPO for persistence.                 | [upload_imgchest.py](upload_imgchest.py), [github_utils.py](github_utils.py) |
 | **Frontend**     | Vanilla JS (~2.3k lines), loads CSV + JSON directly                                                 | [app.js](app.js), [upload.html](upload.html)                                 |
 | **Deployment**   | DigitalOcean App Platform + managed PostgreSQL                                                      | [.do/app.yaml](.do/app.yaml)                                                 |
 
@@ -544,17 +544,14 @@ This guide assumes the **current progress** as the base and walks through implem
 
 ### Phase 1: Security and Quick Fixes (Low Risk)
 
-**Step 1.1 — Move ImgChest API key to environment**
+**Step 1.1 — Move ImgChest API key to environment** *(done)*
 
-- **What:** In [imgchest_utils.py](imgchest_utils.py), replace `API_KEY = "..."` with `API_KEY = os.environ.get("IMGCHEST_API_KEY", "")`.
+- ~~**What:** In [imgchest_utils.py](imgchest_utils.py), replace `API_KEY = "..."` with `API_KEY = os.environ.get("IMGCHEST_API_KEY", "")`.~~
 - **Why:** Secrets must not be in code. Env vars allow different keys per environment.
-- **Check:** Add `IMGCHEST_API_KEY` to [.do/app.yaml](.do/app.yaml) envs (as SECRET). For local dev, use `.env` or `export IMGCHEST_API_KEY=...`.
 
-**Step 1.2 — Fix or remove GitHub sync**
+**Step 1.2 — Fix or remove GitHub sync** *(done)*
 
-- **Option A (remove):** Delete all GitHub sync blocks from [upload_imgchest.py](upload_imgchest.py) (add_character, edit_character, set_main_image). Master data will move to DB in Phase 2.
-- **Option B (fix):** Add `from github_utils import update_github_file` at top of upload_imgchest.py. Only if you need GitHub backup before Phase 2.
-- **Recommendation:** Remove (Option A). The plan is to consolidate data in DB; GitHub sync adds complexity and is being phased out.
+- **Option B (keep):** Import present. Set GITHUB_TOKEN and GITHUB_REPO in App Platform for persistence. Remove when Phase 2 (DB) is complete.
 
 ---
 

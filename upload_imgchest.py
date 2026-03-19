@@ -16,44 +16,20 @@ from flask import Flask, request, jsonify, send_from_directory, abort
 from github_utils import update_github_file
 from imgchest_utils import upload_to_imgchest
 from image_utils import convert_to_png
-
-import time
+import db
 
 # Max file size (30MB) - reject larger files to avoid memory issues
 MAX_FILE_SIZE = 30 * 1024 * 1024
 
 app = Flask(__name__)
 
-# --- Helper for Last Modified Tracking ---
-LAST_UPDATED_FILE = 'last_updated.json'
-
-def update_last_modified(char_name):
-    """Updates the last modified timestamp for a character."""
-    timestamps = {}
-    if os.path.exists(LAST_UPDATED_FILE):
-        try:
-            with open(LAST_UPDATED_FILE, 'r', encoding='utf-8') as f:
-                timestamps = json.load(f)
-        except:
-            pass
-            
-    timestamps[char_name] = time.time()
-    
-    try:
-        with open(LAST_UPDATED_FILE, 'w', encoding='utf-8') as f:
-            json.dump(timestamps, f, indent=4)
-    except Exception as e:
-        print(f"Error updating timestamp: {e}")
 
 @app.route('/api/last-updated', methods=['GET'])
 def get_last_updated():
-    if os.path.exists(LAST_UPDATED_FILE):
-        try:
-            with open(LAST_UPDATED_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            return jsonify(data)
-        except Exception as e:
-            print(f"Error reading last_updated: {e}")
+    try:
+        return jsonify(db.get_last_updated())
+    except Exception as e:
+        print(f"Error reading last_updated: {e}")
     return jsonify({})
 
 @app.route('/')
@@ -72,8 +48,17 @@ def get_image(filename):
 def get_character_image(filename):
     return send_from_directory('character_images', filename)
 
+# Serve custom_images from database (or JSON fallback)
+@app.route('/custom_images.json')
+def serve_custom_images_json():
+    try:
+        return jsonify(db.get_custom_images())
+    except Exception as e:
+        print(f"Error serving custom_images: {e}")
+    return jsonify({})
+
 # Serve static assets (CSS, JS, JSON, CSV)
-STATIC_FILES = {'styles.css', 'character_image_mapping.json', 'CharName.csv', 'app.js', 'custom_images.json'}
+STATIC_FILES = {'styles.css', 'character_image_mapping.json', 'CharName.csv', 'app.js'}
 @app.route('/<filename>')
 def get_static(filename):
     if filename in STATIC_FILES and os.path.exists(filename):
@@ -151,68 +136,40 @@ def upload():
 
 @app.route('/api/saved', methods=['GET'])
 def get_saved():
-    saved_file = 'saved_characters.json'
-    if not os.path.exists(saved_file):
-        return jsonify([])
-        
     try:
-        with open(saved_file, 'r', encoding='utf-8') as f:
-            saved = json.load(f)
-        return jsonify(saved)
+        return jsonify(db.get_saved_characters())
     except Exception as e:
         print(f"Error reading saved characters: {e}")
-        return jsonify([])
+    return jsonify([])
 
 @app.route('/api/saved', methods=['POST'])
 def save_character():
-    saved_file = 'saved_characters.json'
     data = request.get_json()
-    
     if not data or 'name' not in data:
         return jsonify({'error': 'Invalid character data'}), 400
-    
-    # Load existing saved characters
-    saved = []
-    if os.path.exists(saved_file):
-        try:
-            with open(saved_file, 'r', encoding='utf-8') as f:
-                saved = json.load(f)
-        except Exception as e:
-            print(f"Error reading saved characters: {e}")
-            saved = []
-    
-    # Check if character already exists
+
     char_name = data['name']
-    if any(char.get('name') == char_name for char in saved):
-        return jsonify({'error': 'Character already saved'}), 400
-    
-    # Add character to saved list
-    saved.append(data)
-    
-    update_last_modified(char_name)
-    
-    # Save to file
     try:
-        with open(saved_file, 'w', encoding='utf-8') as f:
-            json.dump(saved, f, indent=2, ensure_ascii=False)
-            
+        saved = db.get_saved_characters()
+        if any(char.get('name') == char_name for char in saved):
+            return jsonify({'error': 'Character already saved'}), 400
+        saved.append(data)
+        db.set_saved_characters(saved)
+        db.update_last_modified(char_name)
+
         # GitHub Sync
         github_token = os.environ.get('GITHUB_TOKEN')
         github_repo = os.environ.get('GITHUB_REPO')
-        
         if github_token and github_repo:
             try:
                 json_content = json.dumps(saved, ensure_ascii=False, indent=2)
                 update_github_file(
-                    github_repo, 
-                    saved_file, 
-                    json_content, 
-                    f"Save character: {char_name}", 
-                    github_token
+                    github_repo, 'saved_characters.json', json_content,
+                    f"Save character: {char_name}", github_token
                 )
             except Exception as gh_e:
                 print(f"GitHub Sync Error: {gh_e}")
-                
+
         return jsonify({'success': True, 'message': 'Character saved'})
     except Exception as e:
         print(f"Error saving character: {e}")
@@ -361,41 +318,25 @@ def add_character():
 
 @app.route('/api/saved/<path:name>', methods=['DELETE'])
 def remove_saved(name):
-    saved_file = 'saved_characters.json'
-    
-    if not os.path.exists(saved_file):
-        return jsonify({'error': 'No saved characters found'}), 404
-    
     try:
-        with open(saved_file, 'r', encoding='utf-8') as f:
-            saved = json.load(f)
-        
-        # Remove character by name
+        saved = db.get_saved_characters()
         new_saved = [char for char in saved if char.get('name') != name]
-        
         if len(new_saved) == len(saved):
-             return jsonify({'error': 'Character not found in saved list'}), 404
-             
-        with open(saved_file, 'w', encoding='utf-8') as f:
-            json.dump(new_saved, f, indent=2, ensure_ascii=False)
-            
-        # GitHub Sync
+            return jsonify({'error': 'Character not found in saved list'}), 404
+        db.set_saved_characters(new_saved)
+
         github_token = os.environ.get('GITHUB_TOKEN')
         github_repo = os.environ.get('GITHUB_REPO')
-        
         if github_token and github_repo:
             try:
                 json_content = json.dumps(new_saved, ensure_ascii=False, indent=2)
                 update_github_file(
-                    github_repo, 
-                    saved_file, 
-                    json_content, 
-                    f"Unsave character: {name}", 
-                    github_token
+                    github_repo, 'saved_characters.json', json_content,
+                    f"Unsave character: {name}", github_token
                 )
             except Exception as gh_e:
                 print(f"GitHub Sync Error: {gh_e}")
-        
+
         return jsonify({'success': True, 'message': 'Character removed'})
     except Exception as e:
         print(f"Error removing character: {e}")
@@ -500,47 +441,24 @@ def add_custom_image():
         print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
         if not uploaded_links:
             return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
-            
-        # Update custom_images.json
-        json_file = 'custom_images.json'
-        data = {}
-        
-        if os.path.exists(json_file):
-            try:
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-            except:
-                pass
-        
-        # Initialize list if not exists
+
+        data = db.get_custom_images()
         if char_name not in data:
             data[char_name] = []
-            
-        # Add links
         data[char_name].extend(uploaded_links)
-        print(f"[UPLOAD] updating custom_images.json for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
-        
-        # Save locally
-        with open(json_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
-            
-        # Update Timestamp
-        update_last_modified(char_name)
-            
-        # GitHub Sync
+        db.set_custom_images(data)
+        db.update_last_modified(char_name)
+        print(f"[UPLOAD] updating custom_images for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
+
+        sync_msg = ""
         github_token = os.environ.get('GITHUB_TOKEN')
         github_repo = os.environ.get('GITHUB_REPO')
-        
-        sync_msg = ""
         if github_token and github_repo:
             try:
                 json_content = json.dumps(data, ensure_ascii=False, indent=4)
                 update_github_file(
-                    github_repo, 
-                    json_file, 
-                    json_content, 
-                    f"Add {len(uploaded_links)} custom images for: {char_name}", 
-                    github_token
+                    github_repo, 'custom_images.json', json_content,
+                    f"Add {len(uploaded_links)} custom images for: {char_name}", github_token
                 )
                 sync_msg = " & Synced to GitHub"
             except Exception as gh_e:
@@ -562,62 +480,40 @@ def add_custom_image():
 
 @app.route('/api/custom-image/<path:char_name>', methods=['GET'])
 def get_custom_images(char_name):
-    json_file = 'custom_images.json'
-    if not os.path.exists(json_file):
-        return jsonify([])
-        
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        # Return list of images or empty list
+        data = db.get_custom_images()
         return jsonify(data.get(char_name, []))
     except Exception as e:
         print(f"Error reading custom images: {e}")
-        return jsonify([])
+    return jsonify([])
 
 @app.route('/api/reorder-custom-images', methods=['POST'])
 def reorder_custom_images():
     try:
-        data = request.json
-        char_name = data.get('character_name')
-        new_order = data.get('new_order')
-        
+        req_data = request.json
+        char_name = req_data.get('character_name')
+        new_order = req_data.get('new_order')
         if not char_name or not new_order:
             return jsonify({'error': 'Missing required fields'}), 400
-            
-        json_file = 'custom_images.json'
-        if not os.path.exists(json_file):
-            return jsonify({'error': 'No custom images found'}), 404
-            
-        with open(json_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
+
+        data = db.get_custom_images()
         if char_name in data:
             data[char_name] = new_order
-            
-            with open(json_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=4, ensure_ascii=False)
-            
-            update_last_modified(char_name)
-                
-            # GitHub Sync
+            db.set_custom_images(data)
+            db.update_last_modified(char_name)
+
             github_token = os.environ.get('GITHUB_TOKEN')
             github_repo = os.environ.get('GITHUB_REPO')
-            
             if github_token and github_repo:
                 try:
                     json_content = json.dumps(data, ensure_ascii=False, indent=4)
                     update_github_file(
-                        github_repo, 
-                        json_file, 
-                        json_content, 
-                        f"Reorder images for: {char_name}", 
-                        github_token
+                        github_repo, 'custom_images.json', json_content,
+                        f"Reorder images for: {char_name}", github_token
                     )
                 except Exception as gh_e:
                     print(f"GitHub Sync Error: {gh_e}")
-                    
+
             return jsonify({'message': 'Order updated successfully'})
         else:
             return jsonify({'error': 'Character not found'}), 404
@@ -631,54 +527,35 @@ def delete_custom_image():
     data = request.get_json()
     if not data or 'character_name' not in data or 'image_url' not in data:
         return jsonify({'error': 'Missing data'}), 400
-        
     char_name = data['character_name']
     image_url = data['image_url']
-    json_file = 'custom_images.json'
-    
-    if not os.path.exists(json_file):
-        return jsonify({'error': 'File not found'}), 404
-        
+
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
-            custom_data = json.load(f)
-            
-        if char_name in custom_data:
-            if image_url in custom_data[char_name]:
-                custom_data[char_name].remove(image_url)
-                
-                # Save locally
-                with open(json_file, 'w', encoding='utf-8') as f:
-                    json.dump(custom_data, f, indent=4, ensure_ascii=False)
-                
-                update_last_modified(char_name)
-                    
-                # Sync GitHub
-                github_token = os.environ.get('GITHUB_TOKEN')
-                github_repo = os.environ.get('GITHUB_REPO')
-                sync_msg = ""
-                
-                if github_token and github_repo:
-                    try:
-                        json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
-                        update_github_file(
-                            github_repo, 
-                            json_file, 
-                            json_content, 
-                            f"Delete custom image for: {char_name}", 
-                            github_token
-                        )
-                        sync_msg = " & Synced to GitHub"
-                    except Exception as gh_e:
-                        print(f"GitHub Sync Error: {gh_e}")
-                        sync_msg = " (GitHub Sync Failed)"
-                
-                return jsonify({'success': True, 'message': f'Image deleted{sync_msg}'})
-            else:
-                return jsonify({'error': 'Image not found'}), 404
-        else:
+        custom_data = db.get_custom_images()
+        if char_name not in custom_data:
             return jsonify({'error': 'Character not found'}), 404
-            
+        if image_url not in custom_data[char_name]:
+            return jsonify({'error': 'Image not found'}), 404
+        custom_data[char_name].remove(image_url)
+        db.set_custom_images(custom_data)
+        db.update_last_modified(char_name)
+
+        sync_msg = ""
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO')
+        if github_token and github_repo:
+            try:
+                json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
+                update_github_file(
+                    github_repo, 'custom_images.json', json_content,
+                    f"Delete custom image for: {char_name}", github_token
+                )
+                sync_msg = " & Synced to GitHub"
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
+                sync_msg = " (GitHub Sync Failed)"
+
+        return jsonify({'success': True, 'message': f'Image deleted{sync_msg}'})
     except Exception as e:
         print(f"Error deleting image: {e}")
         return jsonify({'error': str(e)}), 500
@@ -688,62 +565,41 @@ def delete_custom_images():
     data = request.get_json()
     if not data or 'character_name' not in data or 'image_urls' not in data:
         return jsonify({'error': 'Missing data'}), 400
-        
     char_name = data['character_name']
     image_urls = data['image_urls']
-    
     if not isinstance(image_urls, list):
         return jsonify({'error': 'image_urls must be a list'}), 400
-        
-    json_file = 'custom_images.json'
-    
-    if not os.path.exists(json_file):
-        return jsonify({'error': 'File not found'}), 404
-        
+
     try:
-        with open(json_file, 'r', encoding='utf-8') as f:
-            custom_data = json.load(f)
-            
-        if char_name in custom_data:
-            current_list = custom_data[char_name]
-            original_len = len(current_list)
-            
-            # Remove images
-            custom_data[char_name] = [url for url in current_list if url not in image_urls]
-            
-            if len(custom_data[char_name]) == original_len:
-                 return jsonify({'message': 'No images were deleted (none matched)'})
-            
-            # Save locally
-            with open(json_file, 'w', encoding='utf-8') as f:
-                json.dump(custom_data, f, indent=4, ensure_ascii=False)
-            
-            update_last_modified(char_name)
-                
-            # Sync GitHub
-            github_token = os.environ.get('GITHUB_TOKEN')
-            github_repo = os.environ.get('GITHUB_REPO')
-            sync_msg = ""
-            
-            if github_token and github_repo:
-                try:
-                    json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
-                    update_github_file(
-                        github_repo, 
-                        json_file, 
-                        json_content, 
-                        f"Delete {original_len - len(custom_data[char_name])} custom images for: {char_name}", 
-                        github_token
-                    )
-                    sync_msg = " & Synced to GitHub"
-                except Exception as gh_e:
-                    print(f"GitHub Sync Error: {gh_e}")
-                    sync_msg = " (GitHub Sync Failed)"
-            
-            return jsonify({'success': True, 'message': f'Images deleted{sync_msg}'})
-        else:
+        custom_data = db.get_custom_images()
+        if char_name not in custom_data:
             return jsonify({'error': 'Character not found'}), 404
-            
+        current_list = custom_data[char_name]
+        original_len = len(current_list)
+        custom_data[char_name] = [url for url in current_list if url not in image_urls]
+        if len(custom_data[char_name]) == original_len:
+            return jsonify({'message': 'No images were deleted (none matched)'})
+
+        db.set_custom_images(custom_data)
+        db.update_last_modified(char_name)
+
+        sync_msg = ""
+        github_token = os.environ.get('GITHUB_TOKEN')
+        github_repo = os.environ.get('GITHUB_REPO')
+        if github_token and github_repo:
+            try:
+                json_content = json.dumps(custom_data, ensure_ascii=False, indent=4)
+                update_github_file(
+                    github_repo, 'custom_images.json', json_content,
+                    f"Delete {original_len - len(custom_data[char_name])} custom images for: {char_name}",
+                    github_token
+                )
+                sync_msg = " & Synced to GitHub"
+            except Exception as gh_e:
+                print(f"GitHub Sync Error: {gh_e}")
+                sync_msg = " (GitHub Sync Failed)"
+
+        return jsonify({'success': True, 'message': f'Images deleted{sync_msg}'})
     except Exception as e:
         print(f"Error deleting images: {e}")
         return jsonify({'error': str(e)}), 500
@@ -814,19 +670,15 @@ def edit_character():
             except Exception as e:
                 rename_json_error = str(e)
 
-        # Custom Images JSON
-        custom_path = 'custom_images.json'
-        if os.path.exists(custom_path):
-            try:
-                with open(custom_path, 'r', encoding='utf-8') as f:
-                    custom_data = json.load(f)
-                if orig_name in custom_data:
-                    custom_data[new_name] = custom_data.pop(orig_name)
-                    with open(custom_path, 'w', encoding='utf-8') as f:
-                        json.dump(custom_data, f, indent=4, ensure_ascii=False)
-                    files_to_update[custom_path] = json.dumps(custom_data, ensure_ascii=False, indent=4)
-            except Exception as e:
-                rename_json_error = str(e)
+        # Custom Images (DB or JSON)
+        try:
+            custom_data = db.get_custom_images()
+            if orig_name in custom_data:
+                custom_data[new_name] = custom_data.pop(orig_name)
+                db.set_custom_images(custom_data)
+                files_to_update['custom_images.json'] = json.dumps(custom_data, ensure_ascii=False, indent=4)
+        except Exception as e:
+            rename_json_error = str(e)
                 
     # 3. GitHub Sync
     github_token = os.environ.get('GITHUB_TOKEN')
