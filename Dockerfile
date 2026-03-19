@@ -4,7 +4,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
-RUN npm run build
+RUN npm run build && ls -la dist/
 
 # Python app
 FROM python:3.11-slim
@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 # Copy built frontend
 COPY --from=frontend /app/frontend/dist ./frontend/dist
+RUN ls -la frontend/dist/ && test -f frontend/dist/index.html
 
 ENV PORT=8080
 EXPOSE 8080

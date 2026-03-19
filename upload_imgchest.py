@@ -61,9 +61,21 @@ def get_last_updated():
         print(f"Error reading last_updated: {e}")
     return jsonify({})
 
-# React SPA: serve from frontend/dist/
-SPA_DIR = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+# React SPA: try multiple paths (Dockerfile uses /app, platform may use /workspace)
+_BASE = os.path.dirname(os.path.abspath(__file__))
+_SPA_CANDIDATES = [
+    os.path.join(_BASE, 'frontend', 'dist'),
+    '/app/frontend/dist',
+    '/workspace/frontend/dist',
+]
+SPA_DIR = next((d for d in _SPA_CANDIDATES if os.path.exists(os.path.join(d, 'index.html'))), _SPA_CANDIDATES[0])
 SPA_INDEX = os.path.join(SPA_DIR, 'index.html')
+
+# Log at import so it appears in startup logs
+print(f"[SPA] Looking for index at {SPA_INDEX}, exists={os.path.exists(SPA_INDEX)}", flush=True)
+if not os.path.exists(SPA_INDEX):
+    _parent = os.path.dirname(SPA_INDEX)
+    print(f"[SPA] Parent dir exists={os.path.exists(_parent)}, contents={os.listdir(_parent) if os.path.exists(_parent) else 'N/A'}", flush=True)
 
 
 @app.route('/')
@@ -75,7 +87,8 @@ def index(name=None):
     if os.path.exists(SPA_INDEX):
         return send_from_directory(SPA_DIR, 'index.html')
     return (
-        '<html><body><h1>Frontend not built</h1><p>Run: <code>cd frontend && npm install && npm run build</code></p></body></html>',
+        f'<html><body><h1>Frontend not built</h1><p>Checked: {SPA_INDEX}</p>'
+        '<p>Run: <code>cd frontend && npm install && npm run build</code></p></body></html>',
         503,
         {'Content-Type': 'text/html'}
     )
