@@ -67,6 +67,13 @@ export const useStore = create((set, get) => ({
   setCurrentCharacter: (char) => set({ currentCharacter: char }),
   clearCurrentCharacter: () => set({ currentCharacter: null }),
 
+  searchQuery: '',
+  setSearchQuery: (q) => set({ searchQuery: q || '' }),
+  searchMode: 'name',
+  searchSort: 'rank',
+  setSearchMode: (m) => set({ searchMode: m }),
+  setSearchSort: (s) => set({ searchSort: s }),
+
   toasts: [],
   addToast: (msg, type = 'info') => {
     const id = Date.now()

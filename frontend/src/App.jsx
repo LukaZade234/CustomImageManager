@@ -7,6 +7,7 @@ import SavedPage from './pages/SavedPage'
 import AddPage from './pages/AddPage'
 import CustomsPage from './pages/CustomsPage'
 import CharacterPage from './pages/CharacterPage'
+import SearchResultsPage from './pages/SearchResultsPage'
 import Toast from './components/Toast'
 import './App.css'
 
@@ -16,6 +17,7 @@ function App() {
   const loadCustomImages = useStore((s) => s.loadCustomImages)
   const setDarkMode = useStore((s) => s.setDarkMode)
   const darkMode = useStore((s) => s.darkMode)
+  const searchQuery = useStore((s) => s.searchQuery)
 
   useEffect(() => {
     loadCharacters()
@@ -32,13 +34,17 @@ function App() {
       <Navbar />
       <Toast />
       <main className="container">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/saved" element={<SavedPage />} />
-          <Route path="/add" element={<AddPage />} />
-          <Route path="/customs" element={<CustomsPage />} />
-          <Route path="/character/:name" element={<CharacterPage />} />
-        </Routes>
+        {searchQuery.trim() ? (
+          <SearchResultsPage />
+        ) : (
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/saved" element={<SavedPage />} />
+            <Route path="/add" element={<AddPage />} />
+            <Route path="/customs" element={<CustomsPage />} />
+            <Route path="/character/:name" element={<CharacterPage />} />
+          </Routes>
+        )}
       </main>
     </>
   )

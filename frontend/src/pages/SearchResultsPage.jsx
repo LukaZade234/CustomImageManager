@@ -1,0 +1,66 @@
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useStore } from '../store/useStore'
+import { getImageUrl } from '../api'
+
+export default function SearchResultsPage() {
+  const searchQuery = useStore((s) => s.searchQuery)
+  const setSearchQuery = useStore((s) => s.setSearchQuery)
+  const mode = useStore((s) => s.searchMode)
+  const sort = useStore((s) => s.searchSort)
+  const characters = useStore((s) => s.characters)
+  const navigate = useNavigate()
+
+  const matches = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.trim().toLowerCase()
+    const filtered = characters.filter((c) => {
+      const field = mode === 'name' ? c.name : (c.series || '')
+      return field.toLowerCase().includes(q)
+    })
+    const sorted = [...filtered].sort((a, b) => {
+      if (sort === 'rank') return (parseInt(a.rank) || 9999) - (parseInt(b.rank) || 9999)
+      if (sort === 'name') return (a.name || '').localeCompare(b.name || '')
+      if (sort === 'series') return (a.series || '').localeCompare(b.series || '')
+      return 0
+    })
+    return sorted
+  }, [searchQuery, mode, sort, characters])
+
+  const handleSelect = (char) => {
+    setSearchQuery('')
+    navigate(`/character/${encodeURIComponent(char.name)}`)
+  }
+
+  if (!searchQuery.trim()) return null
+
+  return (
+    <div id="searchPage" className="search-results-page">
+      <h2>Search Results</h2>
+      <p className="search-results-count">
+        {matches.length === 0
+          ? 'No characters found'
+          : `${matches.length} ${matches.length === 1 ? 'character' : 'characters'} found`}
+      </p>
+      <div className="search-results-list">
+        {matches.map((c) => (
+          <div
+            key={c.name}
+            className="search-result-item"
+            onClick={() => handleSelect(c)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSelect(c)}
+            role="button"
+            tabIndex={0}
+          >
+            <img src={getImageUrl(c.image)} alt="" className="search-result-img" />
+            <div className="search-result-info">
+              <h3>{c.name}</h3>
+              {c.series && <p>{c.series}</p>}
+              {c.rank && <p>Rank: {c.rank}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

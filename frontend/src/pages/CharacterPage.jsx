@@ -21,6 +21,7 @@ export default function CharacterPage() {
   const isSaved = savedCharacters.some((s) => s.name === name)
 
   const [editMode, setEditMode] = useState(false)
+  const [mainImageEditMode, setMainImageEditMode] = useState(false)
   const [editName, setEditName] = useState('')
   const [editSeries, setEditSeries] = useState('')
   const [editRank, setEditRank] = useState('')
@@ -173,7 +174,8 @@ export default function CharacterPage() {
 
   const generateAiCommand = () => {
     const urls = selectedUrls.length ? selectedUrls : customs
-    const cmd = `$ai ${urls.join(' ')}`
+    const charName = editMode ? editName : char.name
+    const cmd = `$ai ${charName} ${urls.map((u) => '$' + u).join(' ')}`
     navigator.clipboard.writeText(cmd).then(() => addToast('Command copied to clipboard', 'success')).catch(() => addToast('Failed to copy', 'error'))
   }
 
@@ -219,6 +221,7 @@ export default function CharacterPage() {
 
   return (
     <div id="selectedCharacter" className="character-page">
+      <div className="character-top-section">
       <div id="charInfo" className="char-info-section">
         {!editMode ? (
           <div id="charDisplayMode">
@@ -267,23 +270,28 @@ export default function CharacterPage() {
       </div>
       <div id="charImageContainer" className="char-image-section">
         <div
-          className={`image-wrapper edit-mode ${dragOver ? 'drag-over-main' : ''}`}
-          onClick={() => mainInputRef.current?.click()}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          className={`image-wrapper ${mainImageEditMode ? 'edit-mode' : ''} ${dragOver ? 'drag-over-main' : ''}`}
+          onClick={() => mainImageEditMode && mainInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); mainImageEditMode && setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={handleMainImageDrop}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && mainInputRef.current?.click()}
+          onDrop={mainImageEditMode ? handleMainImageDrop : undefined}
+          role={mainImageEditMode ? 'button' : undefined}
+          tabIndex={mainImageEditMode ? 0 : undefined}
+          onKeyDown={(e) => mainImageEditMode && e.key === 'Enter' && mainInputRef.current?.click()}
         >
           <input ref={mainInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleMainImageChange} />
           {mainImage ? (
-            <img id="charImageDisplay" src={getImageUrl(mainImage)} alt={char.name} />
+            <img id="charImageDisplay" src={getImageUrl(mainImage)} alt={char.name} className="char-main-image-full" />
           ) : (
             <div style={{ width: 200, height: 200, background: '#e9ecef', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6c757d' }}>No image</div>
           )}
-          <div className="image-overlay"><span>Click or Drop to Change</span></div>
+          {mainImageEditMode && <div className="image-overlay"><span>Click or Drop to Change</span></div>}
         </div>
+        {!mainImageEditMode ? (
+          <button type="button" className="action-btn" onClick={() => setMainImageEditMode(true)} style={{ marginTop: '10px' }}>Change Image</button>
+        ) : (
+          <button type="button" className="action-btn secondary" onClick={() => setMainImageEditMode(false)} style={{ marginTop: '10px' }}>Done</button>
+        )}
         <button
           type="button"
           className={`save-button ${isSaved ? 'saved' : ''}`}
@@ -295,6 +303,7 @@ export default function CharacterPage() {
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
           </svg>
         </button>
+      </div>
       </div>
 
       <div
@@ -381,7 +390,7 @@ export default function CharacterPage() {
               role={reorderMode ? 'button' : undefined}
               tabIndex={reorderMode ? 0 : undefined}
             >
-              <img src={getImageUrl(url)} alt="" className="preview-thumb" onClick={() => !aiMode && !deleteMode && !reorderMode && openModal(idx + 1)} />
+              <img src={getImageUrl(url)} alt="" className="custom-image-full" onClick={() => !aiMode && !deleteMode && !reorderMode && openModal(idx + 1)} />
             </div>
           ))}
         </div>
