@@ -922,13 +922,24 @@ input:checked + .slider:before {
     transition: transform 0.2s;
     cursor: pointer;
 }
-/* Character page custom gallery - thumbnails preserve aspect ratio */
+/* Character page custom gallery — flex-start avoids row stretch + letterboxing on landscape */
+#customImagesGallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-start;
+}
+#customImagesGallery .gallery-item-wrapper {
+    display: inline-flex;
+    align-items: flex-start;
+    align-self: flex-start;
+}
 #customImagesGallery .custom-image-full {
-    max-width: 220px;
-    max-height: 220px;
+    max-width: 340px;
+    max-height: 260px;
     width: auto;
     height: auto;
-    object-fit: contain;
+    display: block;
     border-radius: 8px;
     border: 1px solid #dee2e6;
     background-color: #f8f9fa;

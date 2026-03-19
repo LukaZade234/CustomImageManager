@@ -371,7 +371,7 @@ export default function CharacterPage() {
         <p style={{ textAlign: 'center', color: '#6c757d', margin: '10px 0', fontSize: '0.9em', border: '1px dashed #ccc', padding: '10px', borderRadius: '5px' }}>
           Drag &amp; Drop images here or click &quot;Add Image&quot;
         </p>
-        <div id="customImagesGallery" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+        <div id="customImagesGallery">
           {customs.map((url, idx) => (
             <div
               key={url}
