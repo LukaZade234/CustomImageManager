@@ -1,18 +1,69 @@
 # Deploying to DigitalOcean App Platform
 
-1. Push this repo to GitHub, GitLab, or Bitbucket
-2. Go to [cloud.digitalocean.com/apps](https://cloud.digitalocean.com/apps) → **Create App** → select repo and branch
-3. Set **IMGCHEST_API_KEY** in Settings → App-Level Environment Variables (required for uploads). Optional: **SECRET_KEY** (for future auth), **CORS_ORIGINS** (comma-separated allowed origins; default: allow all).
-4. Optional: Set **DATABASE_URL** for PostgreSQL. Without it, data uses JSON files (ephemeral on redeploy). If adding a DB later:
-   - Run `python migrate_to_db.py` to import custom_images, saved_characters, last_updated
-   - Run `python import_characters_to_db.py` to import CharName.csv + character_image_mapping.json into characters
-5. Launch the app
+## Step 1: Push to GitHub
+
+```bash
+git add .
+git commit -m "Deploy"
+git push origin main
+```
+
+(Use your actual branch name if different.)
+
+## Step 2: Create the App
+
+1. Go to [cloud.digitalocean.com/apps](https://cloud.digitalocean.com/apps)
+2. Click **Create App**
+3. Choose **GitHub** (or GitLab/Bitbucket) and authorize if needed
+4. Select this repository and branch
+5. DigitalOcean will detect the app from `.do/app.yaml`
+
+## Step 3: Configure Environment Variables
+
+In the app’s **Settings** → **App-Level Environment Variables**, add:
+
+| Variable | Type | Required | Notes |
+|----------|------|----------|-------|
+| **IMGCHEST_API_KEY** | Secret | Yes | From [imgchest.com](https://imgchest.com) → Account → API |
+| **DATABASE_URL** | Secret | For persistence | Neon PostgreSQL connection string |
+| **SECRET_KEY** | Secret | No | For future auth; optional |
+| **CORS_ORIGINS** | Plain | No | Comma-separated origins; default allows all |
+
+## Step 4: Frontend
+
+The app uses the React SPA. The Dockerfile builds it during deploy. No extra config needed.
+
+## Step 5: Database Setup (if using DATABASE_URL)
+
+After the first deploy with `DATABASE_URL` set:
+
+1. Open the app’s **Console** (or run a one-off job)
+2. Run:
+   ```bash
+   python migrate_to_db.py
+   python import_characters_to_db.py
+   ```
+3. Or run locally with `DATABASE_URL` set, then redeploy
+
+## Step 6: Launch
+
+Click **Create Resources** or **Deploy** and wait for the build to finish.
 
 ## Running Locally
 
+**Production build:**
 ```bash
-export IMGCHEST_API_KEY=your_key
-python upload_imgchest.py --web
+cd frontend && npm install && npm run build
+cd .. && IMGCHEST_API_KEY=your_key python upload_imgchest.py --web
 ```
-
 Open http://localhost:5000
+
+**Dev (hot reload):**
+```bash
+# Terminal 1: Flask API
+IMGCHEST_API_KEY=your_key python upload_imgchest.py --web
+
+# Terminal 2: React dev server (proxies API to :5000)
+cd frontend && npm install && npm run dev
+```
+Open http://localhost:3000

@@ -7,10 +7,11 @@ name: imgmanager
 
 services:
   - name: web
-    run_command: gunicorn --worker-tmp-dir /dev/shm --timeout 120 --bind 0.0.0.0:$PORT app:app
-    environment_slug: python
+    # React SPA: Dockerfile builds frontend + runs Flask
+    dockerfile_path: Dockerfile
     http_port: 8080
     envs:
       - key: IMGCHEST_API_KEY
         scope: RUN_TIME
         type: SECRET
+      # Add DATABASE_URL here if using PostgreSQL (type: SECRET)

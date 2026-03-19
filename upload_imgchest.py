@@ -61,13 +61,24 @@ def get_last_updated():
         print(f"Error reading last_updated: {e}")
     return jsonify({})
 
+# React SPA: serve from frontend/dist/
+SPA_DIR = os.path.join(os.path.dirname(__file__), 'frontend', 'dist')
+SPA_INDEX = os.path.join(SPA_DIR, 'index.html')
+
+
 @app.route('/')
 @app.route('/saved')
 @app.route('/add')
 @app.route('/customs')
 @app.route('/character/<path:name>')
 def index(name=None):
-    return send_from_directory('.', 'upload.html')
+    if os.path.exists(SPA_INDEX):
+        return send_from_directory(SPA_DIR, 'index.html')
+    return (
+        '<html><body><h1>Frontend not built</h1><p>Run: <code>cd frontend && npm install && npm run build</code></p></body></html>',
+        503,
+        {'Content-Type': 'text/html'}
+    )
 
 @app.route('/images/<filename>')
 def get_image(filename):
@@ -86,12 +97,12 @@ def serve_custom_images_json():
         print(f"Error serving custom_images: {e}")
     return jsonify({})
 
-# Serve static assets (CSS, JS)
-STATIC_FILES = {'styles.css', 'app.js'}
-@app.route('/<filename>')
-def get_static(filename):
-    if filename in STATIC_FILES and os.path.exists(filename):
-        return send_from_directory('.', filename)
+# Serve SPA static assets (JS, CSS from frontend/dist/assets/)
+@app.route('/assets/<path:filename>')
+def get_spa_assets(filename):
+    assets_dir = os.path.join(SPA_DIR, 'assets')
+    if os.path.exists(assets_dir):
+        return send_from_directory(assets_dir, filename)
     abort(404)
 
 @app.route('/characters')
@@ -388,7 +399,8 @@ def add_custom_image():
 
         print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
         if not uploaded_links:
-            return jsonify({'error': 'No files were successfully uploaded', 'details': errors}), 500
+            main_error = errors[0] if errors else 'No files were successfully uploaded'
+            return jsonify({'error': main_error, 'details': errors}), 500
 
         data = db.get_custom_images()
         if char_name not in data:

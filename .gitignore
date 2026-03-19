@@ -21,6 +21,8 @@ coverage.xml
 
 # Generated / build artifacts
 character_mapping.js
+frontend/node_modules
+frontend/dist
 
 # User-specific data (not project code)
 add_to_csv.txt

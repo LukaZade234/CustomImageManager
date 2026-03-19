@@ -523,7 +523,21 @@ This guide assumes the **current progress** as the base and walks through implem
 
 ### First actionable step
 
-**Phase 1–3 done.** Next: **Phase 4 (Frontend Rewrite)** — React/Vue SPA to replace 2.3k-line app.js.
+**Phase 1–4 done.** Next: **Phase 5 (Discord OAuth)** — per-user data, or keep as-is for shared use.
+
+### Completed vs pending
+
+
+| Phase                   | Status      | Steps                                                                                                                           |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **1** Security          | Done        | 1.1 ImgChest key in env, 1.2 GitHub sync removed                                                                                |
+| **2** Data migration    | Mostly done | 2.2 import script, 2.4 characters API, 2.5 frontend uses API. 2.1 normalized schema deferred, 2.3 custom_images format deferred |
+| **3** API hardening     | Done        | 3.1 CORS, 3.3 SECRET_KEY, 3.4 input validation, 3.5 ImgChest errors. 3.2 rate limiting skipped                                  |
+| **4** Frontend rewrite  | Done       | 4.1–4.4 React SPA in frontend/                                                                                                   |
+| **5** Discord OAuth     | Pending     | 5.1–5.4                                                                                                                         |
+| **6** Droplet migration | Pending     | When leaving App Platform                                                                                                       |
+| **7** Celery + Redis    | Pending     | After Phase 6                                                                                                                   |
+
 
 ---
 
@@ -612,25 +626,25 @@ This guide assumes the **current progress** as the base and walks through implem
 
 ---
 
-### Phase 4: Frontend Rewrite (High Effort, Required)
+### Phase 4: Frontend Rewrite (High Effort, Required) — **NEXT**
 
 The 2.3k-line vanilla JS is unmaintainable. Deferring this phase tends to mean it never gets done. Do it after the API is stable (Phase 2–3).
 
-**Step 4.1 — Create React or Vue project**
+**Step 4.1 — Create React or Vue project** *(done)*
 
-- **What:** `npm create vite@latest frontend -- --template react` (or vue). Set up routing, state (Zustand/Pinia).
+- **Done:** Vite + React project in `frontend/`. Routing (React Router), state (Zustand).
 
-**Step 4.2 — Implement pages**
+**Step 4.2 — Implement pages** *(done)*
 
-- **What:** Search, character detail, saved list, custom images, upload (with job polling). Each as components. Call existing Flask API.
+- **Done:** Home, Saved, Add, Customs, Character detail. Search bar, custom images (add/delete), main image upload, edit character.
 
-**Step 4.3 — Build and serve from Flask/Nginx**
+**Step 4.3 — Build and serve from Flask/Nginx** *(done)*
 
-- **What:** `npm run build`. Serve `dist/` from Nginx or Flask `send_from_directory`. Update routes so SPA handles `/`, `/saved`, `/character/:name`, etc.
+- **Done:** Flask serves `frontend/dist/` when present. SPA routes `/`, `/saved`, `/add`, `/customs`, `/character/:name`. Dockerfile builds frontend for deploy.
 
-**Step 4.4 — Retire app.js**
+**Step 4.4 — Retire app.js** *(optional)*
 
-- **What:** Remove upload.html dependency on app.js. New SPA is the only frontend.
+- **Current:** Both SPA and legacy (upload.html + app.js) supported. Flask serves SPA when `frontend/dist/` exists, else legacy. Can remove legacy after SPA is verified.
 
 ---
 

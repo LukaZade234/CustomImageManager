@@ -15,7 +15,7 @@ def _log(msg):
 def upload_to_imgchest(file_path):
     if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
         _log("ERROR: API_KEY not set")
-        return None
+        raise ImgChestError("Image hosting API key not configured. Set IMGCHEST_API_KEY environment variable.")
 
     if not os.path.exists(file_path):
         _log(f"ERROR: File not found: {file_path}")
