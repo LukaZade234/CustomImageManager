@@ -922,10 +922,10 @@ input:checked + .slider:before {
     transition: transform 0.2s;
     cursor: pointer;
 }
-/* Character page custom gallery - smaller thumbnails */
+/* Character page custom gallery - thumbnails preserve aspect ratio */
 #customImagesGallery .custom-image-full {
-    max-width: 140px;
-    max-height: 140px;
+    max-width: 220px;
+    max-height: 220px;
     width: auto;
     height: auto;
     object-fit: contain;
