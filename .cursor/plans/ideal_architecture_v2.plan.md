@@ -14,17 +14,17 @@ isProject: false
 ## Budget Allocation
 
 
-| Component | Choice                                 | Monthly Cost |
-| --------- | -------------------------------------- | ------------ |
-| Hosting   | Single DigitalOcean Droplet            | ~£4          |
-| Database  | SQLite or PostgreSQL (on same Droplet) | £0           |
-| Frontend  | React or Vue                           | £0           |
-| Auth      | Discord OAuth                          | £0           |
-| Job queue | Celery + Redis (on same Droplet)       | £0           |
-| CDN/DNS   | Cloudflare (free tier)                 | £0           |
-| Images    | ImgChest                               | £0           |
-| Domain    | Optional                               | £0–1         |
-| **Total** |                                        | **~£4–5**    |
+| Component | Choice                           | Monthly Cost |
+| --------- | -------------------------------- | ------------ |
+| Hosting   | Single DigitalOcean Droplet      | ~£4          |
+| Database  | PostgreSQL (on same Droplet)     | £0           |
+| Frontend  | React or Vue                     | £0           |
+| Auth      | Discord OAuth                    | £0           |
+| Job queue | Celery + Redis (on same Droplet) | £0           |
+| CDN/DNS   | Cloudflare (free tier)           | £0           |
+| Images    | ImgChest                         | £0           |
+| Domain    | Optional                         | £0–1         |
+| **Total** |                                  | **~£4–5**    |
 
 
 ---
@@ -43,15 +43,15 @@ isProject: false
 
 ---
 
-### Database: SQLite or PostgreSQL
+### Database: PostgreSQL
 
-**What it is:** SQLite is a file-based, serverless database. PostgreSQL is a full client-server RDBMS. Both store structured data (characters, images, users) in tables.
+**What it is:** A full client-server RDBMS. Stores structured data (characters, images, users) in tables.
 
 **Used for:** Single source of truth for characters, custom images, users, and saved bookmarks. Replaces the current mix of CSV, JSON, and DB.
 
-**Why picked:** SQLite requires zero setup—no separate process, no connection string beyond a file path. PostgreSQL offers better concurrency and features if the Droplet has enough RAM (1GB+). Both run on the same Droplet at no extra cost.
+**Why picked:** You are already on PostgreSQL via App Platform. Migrating to SQLite would be a step backwards—different tooling, weaker concurrency, no benefit. Commit to PostgreSQL and run it on the Droplet when you migrate.
 
-**Why optimal:** Managed PostgreSQL (Neon, DO Managed DB) adds £5–15/month. Self-hosted SQLite/PostgreSQL on the Droplet costs £0. For a Mudae image manager with moderate traffic, either is sufficient. SQLite is simpler; PostgreSQL is preferable if you expect multiple concurrent writers or future scaling.
+**Why optimal:** Managed PostgreSQL (Neon, DO Managed DB) adds £5–15/month. Self-hosted PostgreSQL on the Droplet costs £0. Same engine you use today; no migration to a different DB.
 
 ---
 
@@ -63,7 +63,7 @@ isProject: false
 
 **Why picked:** Both are mature, widely used, and have strong ecosystems. React has more jobs/tutorials; Vue is often cited as easier to learn. Either fits the budget (no licensing cost).
 
-**Why optimal:** Vanilla JS at 2.3k lines is hard to maintain. React/Vue provide clear structure, state management (Zustand/Pinia), and routing (React Router/Vue Router). A proper SPA improves long-term maintainability and developer experience without adding hosting cost.
+**Why optimal:** Vanilla JS at 2.3k lines is unmaintainable—leaving it as "optional" or deferred tends to mean it never gets done. React/Vue provide clear structure, state management (Zustand/Pinia), and routing. The frontend rewrite is a required phase, not optional.
 
 ---
 
@@ -79,15 +79,17 @@ isProject: false
 
 ---
 
-### Job Queue: Celery + Redis
+### Job Queue: Celery + Redis (or simpler alternative)
 
-**What it is:** Celery is a distributed task queue for Python. Redis is an in-memory store used as the message broker (and optionally result backend). Workers pull tasks from the queue and execute them asynchronously.
+**What it is:** Celery is a distributed task queue for Python. Redis is an in-memory store used as the message broker. Workers pull tasks from the queue and execute them asynchronously.
 
 **Used for:** Offloading image conversion (Pillow resize/convert) and ImgChest upload from the HTTP request. The API enqueues a task, returns a job ID, and the worker processes it in the background.
 
-**Why picked:** Celery is the standard Python solution for background jobs. Redis is lightweight (~10–50MB RAM) and doubles as a session store if needed. Both run on the same Droplet.
+**Why picked:** Celery is the standard Python solution for background jobs. Redis is lightweight (~10–50MB RAM). Both run on the same Droplet.
 
-**Why optimal:** Image conversion can take seconds. Doing it in the request leads to timeouts (504) and poor UX. Celery + Redis moves work off the request path. Running Redis on the Droplet adds no cost; managed queues (e.g. Redis Cloud) would add £5+/month.
+**Why optimal:** Image conversion can take seconds; doing it in the request can cause 504 timeouts. Celery + Redis moves work off the request path.
+
+**Simpler alternative:** For single-user or light traffic, Celery may be over-engineering. A `ThreadPoolExecutor` or even synchronous uploads (with increased Gunicorn timeout) can work and avoid running a separate worker process. Add Celery when you hit timeouts or scale; don't add it by default if you're the only user.
 
 ---
 
@@ -143,7 +145,7 @@ flowchart TB
         end
         
         subgraph data [Data]
-            DB[(SQLite/PostgreSQL)]
+            DB[(PostgreSQL)]
             Redis[(Redis)]
         end
     end
@@ -176,7 +178,7 @@ flowchart TB
 | **Flask**           | Python web app        | REST API: auth, characters, upload (enqueue), job status. No HTML                |
 | **SPA**             | React/Vue app         | Client-side UI. Loaded from Nginx; calls Flask API for data                      |
 | **Celery Worker**   | Background process    | Pulls tasks from Redis; converts images, uploads to ImgChest, updates DB         |
-| **DB**              | SQLite or PostgreSQL  | Persists characters, images, users. Single source of truth                       |
+| **DB**              | PostgreSQL            | Persists characters, images, users. Single source of truth                       |
 | **Redis**           | In-memory store       | Celery message broker; optional session/cache store                              |
 | **ImgChest**        | External API          | Image hosting. Receives uploads from Flask (direct) and Celery (async)           |
 
@@ -209,15 +211,15 @@ flowchart TB
 
 ---
 
-### SQLite or PostgreSQL (installed, not managed)
+### PostgreSQL (installed, not managed)
 
-**What it is:** Database engines that store application data. SQLite is embedded (single file); PostgreSQL runs as a service with client connections.
+**What it is:** A client-server RDBMS. Runs as a service on the Droplet with client connections.
 
 **Used for:** Persisting characters, custom images, users, and saved bookmarks. All reads and writes go through the DB—no CSV or JSON files at runtime.
 
-**Why picked:** Both are free, reliable, and run on the Droplet. SQLite needs no setup; PostgreSQL offers better concurrency for multiple writers.
+**Why picked:** Same engine you use on App Platform. No migration to a different DB. Good concurrency, familiar tooling.
 
-**Why optimal:** Managed databases add £5–15/month. Self-hosted on the same Droplet costs £0 and keeps data local, reducing latency. Adequate for this app’s scale.
+**Why optimal:** Managed PostgreSQL adds £5–15/month. Self-hosted on the Droplet costs £0 and keeps data local. (Same engine as App Platform; no DB migration.) app’s scale.
 
 ---
 
@@ -311,7 +313,7 @@ flowchart TB
 
 ---
 
-**Database choice:** SQLite (simplest) or PostgreSQL (if Droplet has enough RAM). Both run on same server at £0 extra.
+**Database:** PostgreSQL. Same as App Platform; no switch to SQLite.
 
 ---
 
@@ -322,7 +324,7 @@ flowchart TB
 | ------------- | -------------------------------------------------------------- |
 | **Frontend**  | React or Vue — components, React Router, state (Zustand/Pinia) |
 | **Backend**   | Flask or FastAPI — REST API only                               |
-| **DB**        | SQLite or PostgreSQL (on Droplet)                              |
+| **DB**        | PostgreSQL (on Droplet)                                        |
 | **Auth**      | Discord OAuth                                                  |
 | **Job queue** | Celery + Redis                                                 |
 | **Images**    | ImgChest only                                                  |
@@ -386,12 +388,15 @@ Frontend polls GET /api/jobs/{id} or uses WebSocket for status
 ## 7. Security — Item Descriptions
 
 
-| Item          | Implementation                                     |
-| ------------- | -------------------------------------------------- |
-| API keys      | `IMGCHEST_API_KEY`, `DISCORD_CLIENT_SECRET` in env |
-| Auth          | Discord OAuth; session cookies                     |
-| CORS          | Allowlist production domain                        |
-| Rate limiting | Flask-Limiter or Nginx                             |
+| Item             | Implementation                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| API keys         | `IMGCHEST_API_KEY`, `DISCORD_CLIENT_SECRET` in env                                 |
+| Auth             | Discord OAuth; session cookies                                                     |
+| CORS             | Allowlist production domain                                                        |
+| Rate limiting    | Flask-Limiter or Nginx                                                             |
+| Input validation | Sanitize character names, form fields; validate MIME type and extension on uploads |
+| File size        | Enforce 30MB server-side; reject oversized files with 400                          |
+| ImgChest failure | Catch API errors; return 503 with clear message; optional health check             |
 
 
 ### API keys in environment
@@ -442,13 +447,37 @@ Frontend polls GET /api/jobs/{id} or uses WebSocket for status
 
 ---
 
+### Input validation and upload security
+
+**What it is:** Validate and sanitize all user input (character names, form fields). Enforce file type and size on uploads. Reject non-image MIME types and dangerous extensions.
+
+**Used for:** Preventing path traversal, XSS, injection. Blocking executable uploads disguised as images. Enforcing the existing 30MB limit consistently (client and server).
+
+**Why needed:** An app handling user uploads is a target. Unvalidated input can corrupt data or enable attacks. File type enforcement (e.g. allow only image/jpeg, image/png, image/gif, image/webp) prevents abuse.
+
+**Why optimal:** Use `python-magic` or extension checks. Validate MIME type from file content, not just filename. Return 400 with clear error for invalid uploads.
+
+---
+
+### ImgChest failure handling
+
+**What it is:** Graceful degradation when ImgChest is down, rate-limited, or returns errors.
+
+**Used for:** Returning a clear error to the user instead of a generic 500. Optionally: retry with backoff, queue for later, or surface "ImgChest unavailable, try again later."
+
+**Why needed:** ImgChest is a single point of failure. If it goes down, uploads fail. Users need to know why, not see a cryptic error.
+
+**Why optimal:** Catch ImgChest API errors explicitly. Return `503 Service Unavailable` with a message. Consider a health check endpoint that pings ImgChest so you can monitor availability.
+
+---
+
 ## 8. Deployment Summary — Step Descriptions
 
 ### Step 1: DigitalOcean Droplet
 
 **What it is:** A fresh Ubuntu LTS VPS. You SSH in and install all software manually.
 
-**Used for:** Base machine for Nginx, Python, Redis, PostgreSQL/SQLite, Gunicorn, Celery.
+**Used for:** Base machine for Nginx, Python, Redis, PostgreSQL, Gunicorn, Celery.
 
 **Why Ubuntu LTS:** Long-term support, wide package availability, familiar to most developers. Nginx, Python, Redis, PostgreSQL are in default repos.
 
@@ -491,6 +520,12 @@ Frontend polls GET /api/jobs/{id} or uses WebSocket for status
 ## 9. Step-by-Step Implementation Guide
 
 This guide assumes the **current progress** as the base and walks through implementation phases. Each step is ordered by risk and dependency.
+
+### First actionable step
+
+**Pick one thing from Phase 1 and do it.** The honest next step is not to plan more—it is to execute. Recommended: **Step 1.1 (move ImgChest API key to env)**. It takes ~5 minutes, reduces risk immediately, and unblocks nothing. Do it today.
+
+---
 
 ### Current State (Baseline)
 
@@ -575,107 +610,114 @@ This guide assumes the **current progress** as the base and walks through implem
 
 ---
 
-### Phase 4: Discord OAuth (Medium Risk)
+### Phase 4: Frontend Rewrite (High Effort, Required)
 
-**Step 4.1 — Register Discord application**
+The 2.3k-line vanilla JS is unmaintainable. Deferring this phase tends to mean it never gets done. Do it after the API is stable (Phase 2–3).
 
-- **What:** Create app at Discord Developer Portal. Get `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`. Set redirect URI (e.g. `https://your-domain.com/auth/callback`).
-
-**Step 4.2 — Add auth routes**
-
-- **What:** Add `GET /auth/discord` (redirect to Discord) and `GET /auth/callback` (exchange code for token, fetch user, create session).
-- **Libraries:** `requests` or `authlib` for OAuth flow. Store user in `users` table on first login.
-
-**Step 4.3 — Protect user-specific endpoints**
-
-- **What:** Require login for `POST /api/saved`, `POST /api/custom-image`, `DELETE /api/saved/<name>`, etc. Use session or JWT to identify user.
-- **Update:** `saved_characters` and `custom_images` to include `user_id`. Filter by current user.
-
-**Step 4.4 — Add login/logout UI**
-
-- **What:** In [app.js](app.js) or future SPA, add "Login with Discord" button and logout. Show username when logged in.
-
----
-
-### Phase 5: Background Job Queue (Medium Risk)
-
-**Step 5.1 — Add Redis and Celery**
-
-- **What:** Install Redis on Droplet (or use Redis in same App Platform if available; otherwise plan for Droplet migration). Install `celery`, `redis` Python packages.
-- **Config:** `CELERY_BROKER_URL` or `REDIS_URL` in env.
-
-**Step 5.2 — Create Celery app and tasks**
-
-- **What:** New file `tasks.py` with Celery app and task `process_image_upload(file_path, character_name, ...)`. Task: convert with Pillow, upload to ImgChest, update DB.
-- **Share:** Use same db module and imgchest_utils from the Flask app.
-
-**Step 5.3 — Change upload flow to async**
-
-- **What:** In `POST /api/custom-image` and `POST /upload`, save file to temp, enqueue Celery task, return `job_id` immediately.
-- **Add:** `GET /api/jobs/<job_id>` that returns status (pending/processing/done/failed) and result (image URL) when done.
-
-**Step 5.4 — Run Celery worker**
-
-- **What:** `celery -A tasks worker --loglevel=info`. Run as systemd service on Droplet, or add as worker component in App Platform if supported.
-- **Note:** App Platform may not support Celery workers; Phase 7 (Droplet migration) may be required first.
-
----
-
-### Phase 6: Frontend Rewrite (High Effort)
-
-**Step 6.1 — Create React or Vue project**
+**Step 4.1 — Create React or Vue project**
 
 - **What:** `npm create vite@latest frontend -- --template react` (or vue). Set up routing, state (Zustand/Pinia).
 
-**Step 6.2 — Implement pages**
+**Step 4.2 — Implement pages**
 
 - **What:** Search, character detail, saved list, custom images, upload (with job polling). Each as components. Call existing Flask API.
 
-**Step 6.3 — Build and serve from Flask/Nginx**
+**Step 4.3 — Build and serve from Flask/Nginx**
 
 - **What:** `npm run build`. Serve `dist/` from Nginx or Flask `send_from_directory`. Update routes so SPA handles `/`, `/saved`, `/character/:name`, etc.
 
-**Step 6.4 — Retire app.js**
+**Step 4.4 — Retire app.js**
 
 - **What:** Remove upload.html dependency on app.js. New SPA is the only frontend.
 
 ---
 
-### Phase 7: Droplet Migration (If Leaving App Platform)
+### Phase 5: Discord OAuth (Medium Risk)
 
-**Step 7.1 — Provision Droplet**
+**Step 5.1 — Register Discord application**
 
-- **What:** Create Ubuntu Droplet, install Nginx, Python 3, Redis, PostgreSQL (or SQLite). Configure firewall.
+- **What:** Create app at Discord Developer Portal. Get `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET`. Set redirect URI (e.g. `https://your-domain.com/auth/callback`).
 
-**Step 7.2 — Deploy app**
+**Step 5.2 — Add auth routes**
 
-- **What:** Clone repo, install deps, set env vars. Run Gunicorn behind Nginx. Run Celery worker. Use systemd for both.
+- **What:** Add `GET /auth/discord` (redirect to Discord) and `GET /auth/callback` (exchange code for token, fetch user, create session).
+- **Libraries:** `requests` or `authlib` for OAuth flow. Store user in `users` table on first login.
 
-**Step 7.3 — Point Cloudflare to Droplet**
+**Step 5.3 — Protect user-specific endpoints**
+
+- **What:** Require login for `POST /api/saved`, `POST /api/custom-image`, `DELETE /api/saved/<name>`, etc. Use session or JWT to identify user.
+- **Update:** `saved_characters` and `custom_images` to include `user_id`. Filter by current user.
+
+**Step 5.4 — Add login/logout UI**
+
+- **What:** In the SPA (or app.js if not yet rewritten), add "Login with Discord" button and logout. Show username when logged in.
+
+---
+
+### Phase 6: Droplet Migration (Prerequisite for Celery)
+
+**Do this before Phase 7.** App Platform does not support Celery workers or Redis. To add Celery within budget, you need a Droplet first. This phase is a prerequisite, not "when you feel like it."
+
+**Step 6.1 — Provision Droplet**
+
+- **What:** Create Ubuntu Droplet, install Nginx, Python 3, Redis, PostgreSQL. Configure firewall.
+
+**Step 6.2 — Deploy app**
+
+- **What:** Clone repo, install deps, set env vars. Run Gunicorn behind Nginx. Use systemd. (Celery comes in Phase 7.)
+
+**Step 6.3 — Point Cloudflare to Droplet**
 
 - **What:** Update A record to Droplet IP. SSL via Cloudflare. Test.
 
-**Step 7.4 — Migrate data**
+**Step 6.4 — Migrate data**
 
 - **What:** Export from App Platform PostgreSQL, import into Droplet PostgreSQL. Or use `migrate_to_db.py` with new `DATABASE_URL`.
+
+---
+
+### Phase 7: Background Job Queue (Medium Risk, After Droplet)
+
+**Requires Phase 6 (Droplet).** Celery needs Redis; App Platform does not provide it. Run Redis and Celery on the Droplet.
+
+**Step 7.1 — Add Redis and Celery**
+
+- **What:** Redis is already on Droplet from Phase 6. Install `celery`, `redis` Python packages.
+- **Config:** `CELERY_BROKER_URL` or `REDIS_URL` in env.
+
+**Step 7.2 — Create Celery app and tasks**
+
+- **What:** New file `tasks.py` with Celery app and task `process_image_upload(file_path, character_name, ...)`. Task: convert with Pillow, upload to ImgChest, update DB.
+- **Share:** Use same db module and imgchest_utils from the Flask app.
+
+**Step 7.3 — Change upload flow to async**
+
+- **What:** In `POST /api/custom-image` and `POST /upload`, save file to temp, enqueue Celery task, return `job_id` immediately.
+- **Add:** `GET /api/jobs/<job_id>` that returns status (pending/processing/done/failed) and result (image URL) when done.
+
+**Step 7.4 — Run Celery worker**
+
+- **What:** `celery -A tasks worker --loglevel=info`. Run as systemd service on Droplet.
+
+**Simpler alternative:** If you are the only user or have light traffic, skip Celery. Use synchronous uploads with an increased Gunicorn timeout, or a `ThreadPoolExecutor`. Add Celery when you hit timeouts.
 
 ---
 
 ### Implementation Order Summary
 
 
-| Phase | Steps         | Dependencies                                                           |
-| ----- | ------------- | ---------------------------------------------------------------------- |
-| 1     | 1.1, 1.2      | None                                                                   |
-| 2     | 2.1 → 2.5     | Phase 1 done                                                           |
-| 3     | 3.1, 3.2, 3.3 | Phase 2 done                                                           |
-| 4     | 4.1 → 4.4     | Phase 3 done                                                           |
-| 5     | 5.1 → 5.4     | Phase 3; Droplet needed for Redis/Celery if App Platform lacks workers |
-| 6     | 6.1 → 6.4     | Phase 2 (API) done; can parallel with 4–5                              |
-| 7     | 7.1 → 7.4     | When moving off App Platform                                           |
+| Phase | Steps                         | Dependencies                                                        |
+| ----- | ----------------------------- | ------------------------------------------------------------------- |
+| 1     | 1.1, 1.2                      | None                                                                |
+| 2     | 2.1 → 2.5                     | Phase 1 done                                                        |
+| 3     | 3.1, 3.2, 3.3                 | Phase 2 done                                                        |
+| 4     | 4.1 → 4.4 (Frontend rewrite)  | Phase 2 (API) done                                                  |
+| 5     | 5.1 → 5.4 (Discord OAuth)     | Phase 3 done                                                        |
+| 6     | 6.1 → 6.4 (Droplet migration) | When leaving App Platform; **required before Phase 7**              |
+| 7     | 7.1 → 7.4 (Celery + Redis)    | **Phase 6 required** — App Platform does not support Celery workers |
 
 
-**Suggested path:** Complete Phase 1 and 2 first (security + data consolidation). Then Phase 3. Phase 4 (auth) and 5 (Celery) can follow. Phase 6 (frontend rewrite) is optional and can be deferred. Phase 7 applies when you switch to a Droplet for cost reasons.
+**Suggested path:** Phase 1 → 2 → 3 (security, data, API hardening). Then Phase 4 (frontend rewrite—required, not optional). Phase 5 (auth) can follow. Phase 6 (Droplet) when you leave App Platform for cost. Phase 7 (Celery) only after Phase 6; skip Celery if you have light traffic and can tolerate synchronous uploads.
 
 ---
 
