@@ -9,6 +9,17 @@ export const useStore = create((set, get) => ({
   currentCharacter: null,
   loading: false,
   error: null,
+  darkMode: typeof localStorage !== 'undefined' ? localStorage.getItem('darkMode') === 'true' : false,
+
+  setDarkMode: (v) => {
+    set({ darkMode: v })
+    if (typeof document !== 'undefined') document.body.classList.toggle('dark-mode', v)
+    if (typeof localStorage !== 'undefined') localStorage.setItem('darkMode', v ? 'true' : 'false')
+  },
+  toggleDarkMode: () => {
+    const v = !get().darkMode
+    get().setDarkMode(v)
+  },
 
   loadCharacters: async () => {
     set({ loading: true, error: null })
@@ -55,4 +66,12 @@ export const useStore = create((set, get) => ({
 
   setCurrentCharacter: (char) => set({ currentCharacter: char }),
   clearCurrentCharacter: () => set({ currentCharacter: null }),
+
+  toasts: [],
+  addToast: (msg, type = 'info') => {
+    const id = Date.now()
+    set((s) => ({ toasts: [...s.toasts, { id, msg, type }] }))
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 4000)
+  },
+  removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))

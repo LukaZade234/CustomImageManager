@@ -7,12 +7,15 @@ import SavedPage from './pages/SavedPage'
 import AddPage from './pages/AddPage'
 import CustomsPage from './pages/CustomsPage'
 import CharacterPage from './pages/CharacterPage'
+import Toast from './components/Toast'
 import './App.css'
 
 function App() {
   const loadCharacters = useStore((s) => s.loadCharacters)
   const loadSaved = useStore((s) => s.loadSaved)
   const loadCustomImages = useStore((s) => s.loadCustomImages)
+  const setDarkMode = useStore((s) => s.setDarkMode)
+  const darkMode = useStore((s) => s.darkMode)
 
   useEffect(() => {
     loadCharacters()
@@ -20,9 +23,14 @@ function App() {
     loadCustomImages()
   }, [loadCharacters, loadSaved, loadCustomImages])
 
+  useEffect(() => {
+    setDarkMode(darkMode)
+  }, [darkMode, setDarkMode])
+
   return (
     <>
       <Navbar />
+      <Toast />
       <main className="container">
         <Routes>
           <Route path="/" element={<HomePage />} />

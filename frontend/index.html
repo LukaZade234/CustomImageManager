@@ -6,6 +6,9 @@
     <title>ImgManager</title>
   </head>
   <body>
+    <script>
+      if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
