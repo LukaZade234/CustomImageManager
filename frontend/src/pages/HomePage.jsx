@@ -4,11 +4,13 @@ export default function HomePage() {
   const characters = useStore((s) => s.characters)
   const customImages = useStore((s) => s.customImages)
   const loading = useStore((s) => s.loading)
+  const error = useStore((s) => s.error)
 
   const totalImages = Object.values(customImages).reduce((sum, arr) => sum + (arr?.length || 0), 0)
   const charsWithCustoms = Object.keys(customImages).filter((k) => (customImages[k]?.length || 0) > 0).length
 
   if (loading) return <div className="loading">Loading...</div>
+  if (error) return <div className="loading" style={{ color: '#dc3545' }}>Failed to load: {error}</div>
 
   return (
     <div id="uploadSection" className="home-page">

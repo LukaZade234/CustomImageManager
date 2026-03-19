@@ -5,15 +5,67 @@ falls back to JSON files for local development and App Platform without a DB.
 import os
 import json
 import threading
+import time
 
 _db = None
 _db_lock = threading.Lock()
+_keepalive_thread = None
+
+# Base directory for JSON files (project root, CWD-independent)
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # JSON file paths (fallback when no DATABASE_URL)
-CUSTOM_IMAGES_FILE = 'custom_images.json'
-SAVED_CHARACTERS_FILE = 'saved_characters.json'
-LAST_UPDATED_FILE = 'last_updated.json'
-CHARACTERS_FILE = 'characters.json'
+CUSTOM_IMAGES_FILE = os.path.join(_BASE_DIR, 'custom_images.json')
+SAVED_CHARACTERS_FILE = os.path.join(_BASE_DIR, 'saved_characters.json')
+LAST_UPDATED_FILE = os.path.join(_BASE_DIR, 'last_updated.json')
+CHARACTERS_FILE = os.path.join(_BASE_DIR, 'characters.json')
+
+
+def _reset_db():
+    """Clear cached DB connection (e.g. after stale connection)."""
+    global _db
+    with _db_lock:
+        if _db is not None and _db[0] == 'postgres':
+            try:
+                _db[1].close()
+            except Exception:
+                pass
+        _db = None
+
+
+def _is_connection_error(exc):
+    """Check if exception indicates a stale/failed DB connection."""
+    ename = type(exc).__name__
+    return ename in ('OperationalError', 'InterfaceError', 'DatabaseError')
+
+
+# Keepalive interval (seconds) - ping DB before server closes idle connections (~5 min typical)
+_KEEPALIVE_INTERVAL = 4 * 60
+
+
+def _keepalive_loop():
+    """Background thread: ping DB periodically so connection never goes idle."""
+    global _db
+    while True:
+        time.sleep(_KEEPALIVE_INTERVAL)
+        with _db_lock:
+            if _db is None or _db[0] != 'postgres':
+                return
+            conn = _db[1]
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+        except Exception:
+            _reset_db()  # Next request will reconnect
+
+
+def _start_keepalive():
+    """Start background keepalive thread for PostgreSQL."""
+    global _keepalive_thread
+    if _keepalive_thread is not None and _keepalive_thread.is_alive():
+        return
+    _keepalive_thread = threading.Thread(target=_keepalive_loop, daemon=True)
+    _keepalive_thread.start()
 
 
 def _get_db():
@@ -28,10 +80,17 @@ def _get_db():
                 import psycopg2
                 if url.startswith('postgres://'):
                     url = 'postgresql://' + url[11:]
-                conn = psycopg2.connect(url)
+                conn = psycopg2.connect(
+                    url,
+                    keepalives=1,
+                    keepalives_idle=60,
+                    keepalives_interval=30,
+                    keepalives_count=5,
+                )
                 conn.autocommit = True
                 _db = ('postgres', conn)
                 _init_postgres(conn)
+                _start_keepalive()
                 return _db
             except Exception as e:
                 print(f"[DB] PostgreSQL init failed: {e}, falling back to JSON files", flush=True)
@@ -99,55 +158,79 @@ def _set_pg(conn, key, value):
         )
 
 
+def _with_retry(fn):
+    """Execute fn() and retry once on connection error (stale PostgreSQL)."""
+    for attempt in range(2):
+        try:
+            return fn()
+        except Exception as e:
+            if attempt == 0 and _is_connection_error(e):
+                _reset_db()
+                continue
+            raise
+
+
 def get_custom_images():
     """Get {char_name: [url1, url2, ...]}."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        return _get_pg(conn, 'custom_images', {})
-    return _get_json('custom_images', {})
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            return _get_pg(conn, 'custom_images', {})
+        return _get_json('custom_images', {})
+    return _with_retry(_do)
 
 
 def set_custom_images(data):
     """Save custom_images."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        _set_pg(conn, 'custom_images', data)
-    else:
-        _set_json('custom_images', data)
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            _set_pg(conn, 'custom_images', data)
+        else:
+            _set_json('custom_images', data)
+    _with_retry(_do)
 
 
 def get_saved_characters():
     """Get list of saved character objects."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        return _get_pg(conn, 'saved_characters', [])
-    return _get_json('saved_characters', [])
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            return _get_pg(conn, 'saved_characters', [])
+        return _get_json('saved_characters', [])
+    return _with_retry(_do)
 
 
 def set_saved_characters(data):
     """Save saved_characters."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        _set_pg(conn, 'saved_characters', data)
-    else:
-        _set_json('saved_characters', data)
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            _set_pg(conn, 'saved_characters', data)
+        else:
+            _set_json('saved_characters', data)
+    _with_retry(_do)
 
 
 def get_last_updated():
     """Get {char_name: timestamp, ...}."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        return _get_pg(conn, 'last_updated', {})
-    return _get_json('last_updated', {})
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            return _get_pg(conn, 'last_updated', {})
+        return _get_json('last_updated', {})
+    return _with_retry(_do)
 
 
 def set_last_updated(data):
     """Save last_updated."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        _set_pg(conn, 'last_updated', data)
-    else:
-        _set_json('last_updated', data)
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            _set_pg(conn, 'last_updated', data)
+        else:
+            _set_json('last_updated', data)
+    _with_retry(_do)
 
 
 def update_last_modified(char_name):
@@ -162,28 +245,34 @@ def update_last_modified(char_name):
 
 def get_characters():
     """Get list of characters as [{name, series, rank, image}, ...] for API."""
-    db_type, conn = _get_db()
-    raw = _get_pg(conn, 'characters', None) if db_type == 'postgres' else _get_json('characters', None)
-    if raw is None:
-        return None  # Not yet migrated
-    chars = raw if isinstance(raw, list) else []
-    return [{'name': c['name'], 'series': c.get('series', ''), 'rank': c.get('rank', ''), 'image': c.get('main_image_url', '')} for c in chars]
+    def _do():
+        db_type, conn = _get_db()
+        raw = _get_pg(conn, 'characters', None) if db_type == 'postgres' else _get_json('characters', None)
+        if raw is None:
+            return None  # Not yet migrated
+        chars = raw if isinstance(raw, list) else []
+        return [{'name': c['name'], 'series': c.get('series', ''), 'rank': c.get('rank', ''), 'image': c.get('main_image_url', '')} for c in chars]
+    return _with_retry(_do)
 
 
 def _get_characters_raw():
     """Get raw character list (internal)."""
-    db_type, conn = _get_db()
-    raw = _get_pg(conn, 'characters', []) if db_type == 'postgres' else _get_json('characters', [])
-    return raw if isinstance(raw, list) else []
+    def _do():
+        db_type, conn = _get_db()
+        raw = _get_pg(conn, 'characters', []) if db_type == 'postgres' else _get_json('characters', [])
+        return raw if isinstance(raw, list) else []
+    return _with_retry(_do)
 
 
 def _set_characters_raw(chars):
     """Save raw character list (internal)."""
-    db_type, conn = _get_db()
-    if db_type == 'postgres':
-        _set_pg(conn, 'characters', chars)
-    else:
-        _set_json('characters', chars)
+    def _do():
+        db_type, conn = _get_db()
+        if db_type == 'postgres':
+            _set_pg(conn, 'characters', chars)
+        else:
+            _set_json('characters', chars)
+    _with_retry(_do)
 
 
 def add_character(name, series, rank, main_image_url=''):

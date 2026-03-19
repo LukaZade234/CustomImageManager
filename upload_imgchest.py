@@ -114,14 +114,17 @@ def get_characters():
         chars = db.get_characters()
         if chars is not None:
             return jsonify(chars)
-        # Fallback: not yet migrated
+        # Fallback: not yet migrated (use project root for paths)
+        _base = os.path.dirname(os.path.abspath(__file__))
         characters = []
         mapping = {}
-        if os.path.exists('character_image_mapping.json'):
-            with open('character_image_mapping.json', 'r', encoding='utf-8') as f:
+        mapping_path = os.path.join(_base, 'character_image_mapping.json')
+        csv_path = os.path.join(_base, 'CharName.csv')
+        if os.path.exists(mapping_path):
+            with open(mapping_path, 'r', encoding='utf-8') as f:
                 mapping = json.load(f)
-        if os.path.exists('CharName.csv'):
-            with open('CharName.csv', 'r', encoding='utf-8') as f:
+        if os.path.exists(csv_path):
+            with open(csv_path, 'r', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     char_name = row['name']
