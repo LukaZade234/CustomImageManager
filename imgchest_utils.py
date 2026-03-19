@@ -1,7 +1,7 @@
 import requests
 import os
 
-API_KEY = "QG2Em4u8ux4HtIYGUC04s2whSzhNFNqDwRqJD2dF1034102b"
+API_KEY = os.environ.get("IMGCHEST_API_KEY", "")
 
 def _log(msg):
     print(f"[IMGCHEST] {msg}", flush=True)

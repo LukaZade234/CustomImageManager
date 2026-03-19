@@ -10,3 +10,7 @@ services:
     run_command: gunicorn --worker-tmp-dir /dev/shm --timeout 120 --bind 0.0.0.0:$PORT app:app
     environment_slug: python
     http_port: 8080
+    envs:
+      - key: IMGCHEST_API_KEY
+        scope: RUN_TIME
+        type: SECRET

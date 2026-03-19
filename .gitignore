@@ -18,3 +18,10 @@ coverage.xml
 *.cover
 *.log
 .git
+
+# Generated / build artifacts
+character_mapping.js
+
+# User-specific data (not project code)
+add_to_csv.txt
+pending_characters.json
