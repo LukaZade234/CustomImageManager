@@ -61,24 +61,10 @@ def get_last_updated():
         print(f"Error reading last_updated: {e}")
     return jsonify({})
 
-# React SPA: App Platform runs from /workspace but Dockerfile puts build in /app
+# React SPA: served from frontend/dist/ (built by GitHub Action, committed to repo)
 _BASE = os.path.dirname(os.path.abspath(__file__))
-_SPA_CANDIDATES = [
-    '/app/frontend/dist',   # Dockerfile COPY target - check first
-    os.path.join(_BASE, 'frontend', 'dist'),
-    '/workspace/frontend/dist',
-]
-SPA_DIR = next((d for d in _SPA_CANDIDATES if os.path.exists(os.path.join(d, 'index.html'))), _SPA_CANDIDATES[0])
+SPA_DIR = os.path.join(_BASE, 'frontend', 'dist')
 SPA_INDEX = os.path.join(SPA_DIR, 'index.html')
-
-# Log at startup
-for d in _SPA_CANDIDATES:
-    idx = os.path.join(d, 'index.html')
-    print(f"[SPA] {idx} exists={os.path.exists(idx)}", flush=True)
-if not os.path.exists(SPA_INDEX):
-    for check in ['/app', '/workspace', _BASE]:
-        if os.path.exists(check):
-            print(f"[SPA] {check} contents: {os.listdir(check)[:20]}", flush=True)
 
 
 @app.route('/')
@@ -90,8 +76,8 @@ def index(name=None):
     if os.path.exists(SPA_INDEX):
         return send_from_directory(SPA_DIR, 'index.html')
     return (
-        f'<html><body><h1>Frontend not built</h1><p>Checked: {SPA_INDEX}</p>'
-        '<p>Run: <code>cd frontend && npm install && npm run build</code></p></body></html>',
+        '<html><body><h1>Frontend not built</h1><p>Run the GitHub Action or: '
+        '<code>cd frontend && npm install && npm run build</code></p></body></html>',
         503,
         {'Content-Type': 'text/html'}
     )

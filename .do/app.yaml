@@ -7,8 +7,9 @@ name: imgmanager
 
 services:
   - name: web
-    # React SPA: Dockerfile builds frontend + runs Flask
-    dockerfile_path: Dockerfile
+    # Uses buildpack; frontend/dist is built by GitHub Action and committed
+    run_command: gunicorn --worker-tmp-dir /dev/shm --timeout 120 --bind 0.0.0.0:${PORT:-8080} app:app
+    environment_slug: python
     http_port: 8080
     envs:
       - key: IMGCHEST_API_KEY
