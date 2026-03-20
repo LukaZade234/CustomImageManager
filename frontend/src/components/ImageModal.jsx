@@ -68,6 +68,7 @@ export default function ImageModal({ images, currentIndex, onClose, onPrev, onNe
 
   const img = images[currentIndex]
   const src = typeof img === 'string' ? img : img?.url
+  if (!src) return null
 
   return (
     <div

@@ -7,7 +7,9 @@
   </head>
   <body>
     <script>
-      if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+      try {
+        if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+      } catch (_) { /* private mode / blocked storage */ }
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
