@@ -894,14 +894,17 @@ input:checked + .slider:before {
     font-size: 0.9em;
 }
 
-/* Custom Images Section */
+/* Custom Images Section — full width of character card (not content-sized) */
 #customImagesSection {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     background: white;
     padding: 30px;
     border-radius: 15px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    max-width: 1200px;
-    margin: 20px auto;
+    margin: 20px 0 0 0;
+    align-self: stretch;
     transition: border-color 0.3s, background-color 0.3s;
     border: 2px dashed transparent;
 }
@@ -960,6 +963,7 @@ body.dark-mode .custom-upload-progress {
 }
 /* Character page custom gallery — fixed height so wide images scale wider; tops line up */
 #customImagesGallery {
+    width: 100%;
     display: flex;
     flex-wrap: wrap;
     gap: 15px;

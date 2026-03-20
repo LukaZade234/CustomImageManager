@@ -396,7 +396,17 @@ export default function CharacterPage() {
                 <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>Cancel</button>
               </>
             )}
-            {!aiMode && !deleteMode && (
+            {reorderMode && !aiMode && !deleteMode && (
+              <>
+                <button type="button" className="action-btn secondary" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
+                  Cancel
+                </button>
+                <button type="button" className="action-btn primary" onClick={() => setReorderMode(false)} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                  Done
+                </button>
+              </>
+            )}
+            {!aiMode && !deleteMode && !reorderMode && (
               <>
                 <button type="button" className="action-btn" onClick={() => { resetModes(); setDeleteMode(true) }} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
@@ -405,7 +415,7 @@ export default function CharacterPage() {
                   </svg>
                   Delete
                 </button>
-                <button type="button" className="action-btn" onClick={() => { resetModes(); setReorderMode(!reorderMode) }} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
+                <button type="button" className="action-btn" onClick={() => { resetModes(); setReorderMode(true) }} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
                     <polyline points="5 9 2 12 5 15" />
                     <polyline points="9 5 12 2 15 5" />
@@ -414,7 +424,7 @@ export default function CharacterPage() {
                     <line x1="2" y1="12" x2="22" y2="12" />
                     <line x1="12" y1="2" x2="12" y2="22" />
                   </svg>
-                  {reorderMode ? 'Done' : 'Reorder'}
+                  Reorder
                 </button>
                 <button
                   type="button"
