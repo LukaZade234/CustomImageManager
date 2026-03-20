@@ -83,6 +83,8 @@ export default function CharacterPage() {
   /** Drop target & dragged indices for reorder UI (refs alone don't re-render) */
   const [reorderDropTargetIndex, setReorderDropTargetIndex] = useState(null)
   const [reorderDragIndices, setReorderDragIndices] = useState(null)
+  /** Last pointer Y during reorder drag — drives continuous edge auto-scroll */
+  const reorderEdgePointerYRef = useRef(null)
 
   useEffect(() => {
     if (char) {
@@ -104,26 +106,49 @@ export default function CharacterPage() {
     }
   }, [reorderMode])
 
-  /** While dragging to reorder, scroll the page when the pointer nears the top or bottom edge */
+  /**
+   * Continuous edge scroll while reorder-dragging: dragover only fires when the pointer moves,
+   * so we run a rAF loop and read the last known Y — scrolling keeps going while the pointer
+   * stays in the top/bottom bands.
+   */
   useEffect(() => {
     if (!reorderDragIndices) return
-    const edge = 90
-    const speed = 16
-    let raf = 0
-    const onDragOver = (e) => {
-      const y = e.clientY
-      if (typeof y !== 'number') return
-      const h = window.innerHeight
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        if (y < edge) window.scrollBy(0, -speed)
-        else if (y > h - edge) window.scrollBy(0, speed)
-      })
+    const edge = 100
+    const maxStep = 28
+    const minStep = 5
+    let rafId = 0
+
+    const onPointerMove = (e) => {
+      if (typeof e.clientY === 'number') reorderEdgePointerYRef.current = e.clientY
     }
-    document.addEventListener('dragover', onDragOver, { passive: true })
+
+    const tick = () => {
+      const y = reorderEdgePointerYRef.current
+      if (y != null) {
+        const h = window.innerHeight
+        if (y < edge) {
+          const d = edge - y
+          const step = Math.round(Math.min(maxStep, Math.max(minStep, 4 + d * 0.22)))
+          window.scrollBy(0, -step)
+        } else if (y > h - edge) {
+          const d = y - (h - edge)
+          const step = Math.round(Math.min(maxStep, Math.max(minStep, 4 + d * 0.22)))
+          window.scrollBy(0, step)
+        }
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+
+    reorderEdgePointerYRef.current = null
+    document.addEventListener('dragover', onPointerMove, { passive: true })
+    document.addEventListener('drag', onPointerMove, { passive: true })
+    rafId = requestAnimationFrame(tick)
+
     return () => {
-      document.removeEventListener('dragover', onDragOver)
-      cancelAnimationFrame(raf)
+      cancelAnimationFrame(rafId)
+      document.removeEventListener('dragover', onPointerMove)
+      document.removeEventListener('drag', onPointerMove)
+      reorderEdgePointerYRef.current = null
     }
   }, [reorderDragIndices])
 
