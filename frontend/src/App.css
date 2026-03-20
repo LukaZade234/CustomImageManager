@@ -1642,6 +1642,37 @@ body.dark-mode .reorder-drop-label {
     pointer-events: none;
 }
 
+/* Download selection mode */
+.gallery-item-wrapper.download-mode {
+    cursor: pointer;
+}
+.gallery-item-wrapper.download-mode:hover img {
+    opacity: 0.9;
+    border-color: #17a2b8;
+}
+.gallery-item-wrapper.download-mode.selected img {
+    border: 3px solid #17a2b8;
+    opacity: 0.85;
+}
+.gallery-item-wrapper.download-mode.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    background: rgba(23, 162, 184, 0.85);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
 /* Main Image Edit Mode */
 .image-wrapper {
     position: relative;

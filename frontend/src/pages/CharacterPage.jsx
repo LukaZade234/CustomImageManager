@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore'
 import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '../utils/downloadCustomImages'
 
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
@@ -66,6 +67,7 @@ export default function CharacterPage() {
   const [loading, setLoading] = useState(false)
   const [aiMode, setAiMode] = useState(false)
   const [deleteMode, setDeleteMode] = useState(false)
+  const [downloadMode, setDownloadMode] = useState(false)
   const [reorderMode, setReorderMode] = useState(false)
   const [selectedUrls, setSelectedUrls] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -95,7 +97,7 @@ export default function CharacterPage() {
 
   useEffect(() => {
     setCharToolbarOpen(false)
-  }, [aiMode, deleteMode, reorderMode])
+  }, [aiMode, deleteMode, downloadMode, reorderMode])
 
   useEffect(() => {
     if (char) {
@@ -166,14 +168,25 @@ export default function CharacterPage() {
   const resetModes = useCallback(() => {
     setAiMode(false)
     setDeleteMode(false)
+    setDownloadMode(false)
     setReorderMode(false)
     setSelectedUrls([])
     reorderSessionBaselineRef.current = null
   }, [])
 
+  const enterDownloadMode = useCallback(() => {
+    setAiMode(false)
+    setDeleteMode(false)
+    setReorderMode(false)
+    reorderSessionBaselineRef.current = null
+    setSelectedUrls([])
+    setDownloadMode(true)
+  }, [])
+
   const enterReorderMode = useCallback(() => {
     setAiMode(false)
     setDeleteMode(false)
+    setDownloadMode(false)
     setSelectedUrls([])
     reorderSessionBaselineRef.current = [...customs]
     setReorderMode(true)
@@ -350,6 +363,30 @@ export default function CharacterPage() {
     await runCustomUpload(files)
   }
 
+  const handleDownloadSelected = async () => {
+    if (!selectedUrls.length) {
+      addToast('Select at least one image, or tap Select All', 'info')
+      return
+    }
+    try {
+      if (typeof window.showDirectoryPicker === 'function') {
+        const dirHandle = await window.showDirectoryPicker()
+        await writeCustomImagesToDirectory(selectedUrls, dirHandle)
+        addToast(`Saved ${selectedUrls.length} image${selectedUrls.length === 1 ? '' : 's'} to the folder you chose`, 'success')
+      } else {
+        await downloadCustomImagesViaBrowser(selectedUrls)
+        addToast(
+          'Downloads started. For choosing a folder, use Chrome or Edge. Other browsers save to your default download folder.',
+          'info'
+        )
+      }
+      resetModes()
+    } catch (e) {
+      if (e.name === 'AbortError') return
+      addToast(e.message || 'Download failed', 'error')
+    }
+  }
+
   const handleDeleteSelected = async () => {
     if (!selectedUrls.length) return
     const orderBeforeDelete = [...customs]
@@ -372,7 +409,7 @@ export default function CharacterPage() {
   }
 
   const toggleSelect = (url) => {
-    if (aiMode || deleteMode || reorderMode) {
+    if (aiMode || deleteMode || downloadMode || reorderMode) {
       setSelectedUrls((prev) => (prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]))
     }
   }
@@ -462,7 +499,7 @@ export default function CharacterPage() {
   }
 
   const openModal = (index) => {
-    if (aiMode || deleteMode || reorderMode) return
+    if (aiMode || deleteMode || downloadMode || reorderMode) return
     setModalIndex(index)
     setModalOpen(true)
   }
@@ -601,7 +638,28 @@ export default function CharacterPage() {
                   <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em' }}>Cancel</button>
                 </>
               )}
-              {reorderMode && !aiMode && !deleteMode && (
+              {downloadMode && (
+                <>
+                  <button
+                    type="button"
+                    className="action-btn primary"
+                    onClick={handleDownloadSelected}
+                    disabled={selectedUrls.length === 0}
+                    style={{ padding: '6px 12px', fontSize: '0.9em' }}
+                    title={selectedUrls.length === 0 ? 'Select images first' : 'Choose a folder and save files there'}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download ({selectedUrls.length})
+                  </button>
+                  <button type="button" className="action-btn" onClick={selectAllImages} style={{ padding: '6px 12px', fontSize: '0.9em' }}>Select All</button>
+                  <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em' }}>Cancel</button>
+                </>
+              )}
+              {reorderMode && !aiMode && !deleteMode && !downloadMode && (
                 <>
                   <button type="button" className="action-btn" onClick={() => setSelectedUrls([])} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
                     Clear selection
@@ -614,7 +672,7 @@ export default function CharacterPage() {
                   </button>
                 </>
               )}
-              {!aiMode && !deleteMode && !reorderMode && (
+              {!aiMode && !deleteMode && !downloadMode && !reorderMode && (
                 <>
                   <button type="button" className="action-btn" onClick={() => { resetModes(); setDeleteMode(true) }} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
@@ -622,6 +680,14 @@ export default function CharacterPage() {
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                     </svg>
                     Delete
+                  </button>
+                  <button type="button" className="action-btn" onClick={enterDownloadMode} style={{ padding: '6px 12px', fontSize: '0.9em' }} title="Download selected custom images to a folder">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download
                   </button>
                   <button type="button" className="action-btn" onClick={enterReorderMode} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
@@ -692,8 +758,8 @@ export default function CharacterPage() {
             return (
             <div
               key={url}
-              className={`gallery-item-wrapper ${aiMode ? 'ai-mode' : ''} ${deleteMode ? 'delete-mode' : ''} ${reorderMode ? 'reorder-mode' : ''} ${selectedUrls.includes(url) ? 'selected' : ''} ${isDropTarget ? 'reorder-drop-target' : ''} ${isDragSource ? 'reorder-drag-source' : ''}`}
-              onClick={() => (aiMode || deleteMode || reorderMode) && toggleSelect(url)}
+              className={`gallery-item-wrapper ${aiMode ? 'ai-mode' : ''} ${deleteMode ? 'delete-mode' : ''} ${downloadMode ? 'download-mode' : ''} ${reorderMode ? 'reorder-mode' : ''} ${selectedUrls.includes(url) ? 'selected' : ''} ${isDropTarget ? 'reorder-drop-target' : ''} ${isDragSource ? 'reorder-drag-source' : ''}`}
+              onClick={() => (aiMode || deleteMode || downloadMode || reorderMode) && toggleSelect(url)}
               onDragStart={(e) => onDragStart(e, idx)}
               onDragOver={(e) => onDragOver(e, idx)}
               onDragEnd={onDragEnd}
@@ -705,7 +771,7 @@ export default function CharacterPage() {
                 src={getImageUrl(url)}
                 alt=""
                 className="custom-image-full"
-                onClick={() => !aiMode && !deleteMode && !reorderMode && openModal(idx + 1)}
+                onClick={() => !aiMode && !deleteMode && !downloadMode && !reorderMode && openModal(idx + 1)}
               />
               {isDropTarget && (
                 <span className="reorder-drop-label" aria-hidden>
