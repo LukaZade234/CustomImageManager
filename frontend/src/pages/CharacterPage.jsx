@@ -341,10 +341,19 @@ export default function CharacterPage() {
 
   const handleDeleteSelected = async () => {
     if (!selectedUrls.length) return
+    const orderBeforeDelete = [...customs]
     try {
       await apiClient.deleteCustomImages(name, selectedUrls)
       await loadCustomImages()
-      addToast('Images deleted', 'success')
+      const n = selectedUrls.length
+      addToast(`${n} custom image${n === 1 ? '' : 's'} removed`, 'success', {
+        onUndo: async () => {
+          await apiClient.reorderCustomImages(name, orderBeforeDelete)
+          await loadCustomImages()
+          resetModes()
+          addToast('Images restored', 'info')
+        },
+      })
       resetModes()
     } catch (err) {
       addToast(err.message, 'error')

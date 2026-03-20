@@ -24,21 +24,25 @@ export default function CustomsPage() {
   const [sort, setSort] = useState('recent')
   const [page, setPage] = useState(1)
 
-  const customsList = useMemo(() => {
+  const baseCustomsList = useMemo(() => {
     const entries = Object.entries(customImages).filter(([, urls]) => urls?.length > 0)
-    const withChars = entries.map(([name, urls]) => {
+    return entries.map(([name, urls]) => {
       const char = characters.find((c) => c.name === name) || { name, series: '', rank: '' }
       return { ...char, customCount: urls.length, customUrls: urls }
     })
-    let filtered = withChars
-    if (search.trim()) {
-      const q = search.trim().toLowerCase()
-      if (searchMode === 'name') {
-        filtered = withChars.filter((c) => c.name.toLowerCase().includes(q))
-      } else {
-        filtered = withChars.filter((c) => (c.series || '').toLowerCase().includes(q))
-      }
+  }, [customImages, characters])
+
+  const searchFiltered = useMemo(() => {
+    if (!search.trim()) return baseCustomsList
+    const q = search.trim().toLowerCase()
+    if (searchMode === 'name') {
+      return baseCustomsList.filter((c) => c.name.toLowerCase().includes(q))
     }
+    return baseCustomsList.filter((c) => (c.series || '').toLowerCase().includes(q))
+  }, [baseCustomsList, search, searchMode])
+
+  const customsList = useMemo(() => {
+    const filtered = [...searchFiltered]
     if (sort === 'recent') filtered.sort((a, b) => b.customCount - a.customCount)
     if (sort === 'rank_asc') filtered.sort((a, b) => (parseInt(a.rank) || 9999) - (parseInt(b.rank) || 9999))
     if (sort === 'name_asc') filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -47,7 +51,11 @@ export default function CustomsPage() {
     if (sort === 'count_desc') filtered.sort((a, b) => b.customCount - a.customCount)
     if (sort === 'count_asc') filtered.sort((a, b) => a.customCount - b.customCount)
     return filtered
-  }, [customImages, characters, search, searchMode, sort])
+  }, [searchFiltered, sort])
+
+  const hasSearch = Boolean(search.trim())
+  const emptySearchNoMatches = hasSearch && customsList.length === 0 && baseCustomsList.length > 0
+  const totalGlobalEmpty = baseCustomsList.length === 0
 
   const totalPages = Math.ceil(customsList.length / PAGE_SIZE) || 1
   const paginatedList = useMemo(() => {
@@ -56,6 +64,11 @@ export default function CustomsPage() {
   }, [customsList, page])
 
   const resetToPage1 = () => setPage(1)
+
+  const clearSearch = () => {
+    setSearch('')
+    resetToPage1()
+  }
 
   return (
     <div id="customsPage" className="customs-page">
@@ -101,35 +114,59 @@ export default function CustomsPage() {
           ))}
         </select>
       </div>
-      <p id="customsCount" className="text-meta customs-count-line">
-        {customsList.length} characters with custom images. Showing page {page} of {totalPages}.
-      </p>
-      <div id="customsList" className="search-result-list">
-        {paginatedList.map((c) => (
-          <Link key={c.name} to={`/character/${encodeURIComponent(c.name)}`} className="customs-item-with-preview">
-            <div className="customs-item-top">
-              <img src={getImageUrl(c.image)} alt="" className="search-result-img" />
-              <div className="search-result-info" style={{ flex: 1 }}>
-                <h3>{c.name}</h3>
-                {c.series && <p>{c.series}</p>}
-                <p>
-                  <span className="badge" style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 8px', background: '#e9ecef', borderRadius: '4px', fontSize: '0.8rem' }}>
-                    {c.customCount} images
-                  </span>
-                </p>
-              </div>
-            </div>
-            {c.customUrls?.length > 0 && (
-              <div className="customs-preview-row">
-                {c.customUrls.slice(0, PREVIEW_COUNT).map((url) => (
-                  <img key={url} src={getImageUrl(url)} alt="" className="customs-preview-thumb" />
-                ))}
-              </div>
-            )}
-          </Link>
-        ))}
-      </div>
-      {totalPages > 1 && (
+
+      {totalGlobalEmpty && (
+        <div className="empty-state">
+          <p className="empty-state-title">No custom images yet</p>
+          <p className="text-meta">Upload custom images from any character page, then they will appear here.</p>
+        </div>
+      )}
+
+      {emptySearchNoMatches && (
+        <div className="empty-state empty-state--search">
+          <p className="empty-state-title">No matches</p>
+          <p className="text-meta">
+            Nothing matches &quot;{search.trim()}&quot; in {searchMode === 'name' ? 'character names' : 'series'}.
+          </p>
+          <button type="button" className="action-btn empty-state-clear" onClick={clearSearch}>
+            Clear search
+          </button>
+        </div>
+      )}
+
+      {!totalGlobalEmpty && !emptySearchNoMatches && (
+        <>
+          <p id="customsCount" className="text-meta customs-count-line">
+            {customsList.length} characters with custom images. Showing page {page} of {totalPages}.
+          </p>
+          <div id="customsList" className="search-result-list">
+            {paginatedList.map((c) => (
+              <Link key={c.name} to={`/character/${encodeURIComponent(c.name)}`} className="customs-item-with-preview">
+                <div className="customs-item-top">
+                  <img src={getImageUrl(c.image)} alt="" className="search-result-img" />
+                  <div className="search-result-info" style={{ flex: 1 }}>
+                    <h3>{c.name}</h3>
+                    {c.series && <p>{c.series}</p>}
+                    <p>
+                      <span className="badge" style={{ display: 'inline-block', marginLeft: '8px', padding: '2px 8px', background: '#e9ecef', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        {c.customCount} images
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                {c.customUrls?.length > 0 && (
+                  <div className="customs-preview-row">
+                    {c.customUrls.slice(0, PREVIEW_COUNT).map((url) => (
+                      <img key={url} src={getImageUrl(url)} alt="" className="customs-preview-thumb" />
+                    ))}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
+      {!totalGlobalEmpty && !emptySearchNoMatches && totalPages > 1 && (
         <div className="customs-pagination">
           <button
             type="button"

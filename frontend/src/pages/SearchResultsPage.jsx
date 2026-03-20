@@ -9,6 +9,7 @@ export default function SearchResultsPage() {
   const mode = useStore((s) => s.searchMode)
   const sort = useStore((s) => s.searchSort)
   const characters = useStore((s) => s.characters)
+  const loading = useStore((s) => s.loading)
   const navigate = useNavigate()
 
   const matches = useMemo(() => {
@@ -33,6 +34,28 @@ export default function SearchResultsPage() {
   }
 
   if (!searchQuery.trim()) return null
+
+  if (loading && characters.length === 0) {
+    return (
+      <div id="searchPage" className="search-results-page page-loading-shell" aria-busy="true">
+        <h2 className="page-title">Search Results</h2>
+        <p className="text-meta page-loading-lead" style={{ textAlign: 'left', marginBottom: '1rem' }}>
+          Fetching character list…
+        </p>
+        <div className="search-skeleton-list" aria-hidden>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="search-skeleton-row">
+              <div className="skeleton-circle search-skeleton-thumb" />
+              <div className="search-skeleton-text">
+                <div className="skeleton-line skeleton-line--title" style={{ marginBottom: 8 }} />
+                <div className="skeleton-line skeleton-line--body" style={{ width: '40%' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div id="searchPage" className="search-results-page">

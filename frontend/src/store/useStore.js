@@ -75,10 +75,18 @@ export const useStore = create((set, get) => ({
   setSearchSort: (s) => set({ searchSort: s }),
 
   toasts: [],
-  addToast: (msg, type = 'info') => {
-    const id = Date.now()
-    set((s) => ({ toasts: [...s.toasts, { id, msg, type }] }))
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 4000)
+  /**
+   * @param {string} msg
+   * @param {'success'|'error'|'info'} [type]
+   * @param {{ onUndo?: () => void | Promise<void>, undoLabel?: string, duration?: number }} [options]
+   *   — when `onUndo` is set, default duration is longer so the user can tap Undo.
+   */
+  addToast: (msg, type = 'info', options = {}) => {
+    const id = Date.now() + Math.random()
+    const { onUndo, undoLabel = 'Undo', duration } = options
+    const ms = typeof duration === 'number' ? duration : onUndo ? 8000 : 4000
+    set((s) => ({ toasts: [...s.toasts, { id, msg, type, onUndo, undoLabel }] }))
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), ms)
   },
   removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }))

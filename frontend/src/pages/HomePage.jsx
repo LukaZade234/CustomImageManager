@@ -1,4 +1,5 @@
 import { useStore } from '../store/useStore'
+import HomeLoadingState from '../components/HomeLoadingState'
 
 export default function HomePage() {
   const characters = useStore((s) => s.characters)
@@ -9,8 +10,8 @@ export default function HomePage() {
   const totalImages = Object.values(customImages).reduce((sum, arr) => sum + (arr?.length || 0), 0)
   const charsWithCustoms = Object.keys(customImages).filter((k) => (customImages[k]?.length || 0) > 0).length
 
-  if (loading) return <div className="loading">Loading...</div>
-  if (error) return <div className="loading" style={{ color: '#dc3545' }}>Failed to load: {error}</div>
+  if (loading) return <HomeLoadingState />
+  if (error) return <div className="loading loading-error">Failed to load: {error}</div>
 
   return (
     <div id="uploadSection" className="home-page">
