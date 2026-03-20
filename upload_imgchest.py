@@ -4,13 +4,14 @@ import os
 import csv
 import json
 import io
+from urllib.parse import urlparse
 
 # Force UTF-8 for stdout/stderr to fix Windows console encoding errors
 if sys.platform.startswith('win'):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-from flask import Flask, request, jsonify, send_from_directory, abort
+from flask import Flask, request, jsonify, send_from_directory, abort, Response
 from flask_cors import CORS
 
 # Import utility functions
@@ -28,6 +29,18 @@ ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 MAX_CHAR_NAME_LENGTH = 200
 MAX_SERIES_LENGTH = 300
 MAX_RANK_LENGTH = 50
+
+
+def _allowed_image_proxy_url(url):
+    """Only ImgChest hosts — same URLs we store from upload_to_imgchest (avoids CORS + SSRF)."""
+    try:
+        p = urlparse(url)
+        if p.scheme not in ('http', 'https'):
+            return False
+        h = (p.hostname or '').lower()
+        return h == 'imgchest.com' or h.endswith('.imgchest.com')
+    except Exception:
+        return False
 
 
 def _validate_character_name(name):
@@ -98,6 +111,38 @@ def serve_custom_images_json():
     except Exception as e:
         print(f"Error serving custom_images: {e}")
     return jsonify({})
+
+
+@app.route('/api/download-image-proxy', methods=['POST'])
+def download_image_proxy():
+    """
+    Fetch a remote image server-side so the browser can save it (avoids CORS on ImgChest URLs).
+    """
+    data = request.get_json(silent=True) or {}
+    url = (data.get('url') or '').strip()
+    if not url:
+        return jsonify({'error': 'Missing url'}), 400
+    if url.startswith('//'):
+        url = 'https:' + url
+    if not _allowed_image_proxy_url(url):
+        return jsonify({'error': 'Only ImgChest image URLs can be proxied for download'}), 403
+    try:
+        r = requests.get(
+            url,
+            timeout=90,
+            headers={'User-Agent': 'ImgManager/1.0'},
+        )
+        if r.status_code != 200:
+            return jsonify({'error': f'Image server returned {r.status_code}'}), 502
+        raw = r.content
+        if len(raw) > MAX_FILE_SIZE + 2 * 1024 * 1024:
+            return jsonify({'error': 'Image too large'}), 413
+        ct = r.headers.get('Content-Type') or 'application/octet-stream'
+        if 'image/' not in ct and 'octet-stream' not in ct:
+            ct = 'application/octet-stream'
+        return Response(raw, mimetype=ct)
+    except requests.RequestException as e:
+        return jsonify({'error': str(e)}), 502
 
 # Serve SPA static assets (JS, CSS from frontend/dist/assets/)
 @app.route('/assets/<path:filename>')

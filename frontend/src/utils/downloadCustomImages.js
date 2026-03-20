@@ -33,10 +33,38 @@ export function uniqueFilenames(urls) {
   return result
 }
 
+/**
+ * Remote images (e.g. ImgChest CDN) block cross-origin fetch in the browser (CORS).
+ * Same-origin `/character_images/...` can be fetched directly.
+ */
+function isRemoteImageUrl(path) {
+  if (!path) return false
+  return /^https?:\/\//i.test(path) || path.startsWith('//')
+}
+
+function normalizeRemoteUrl(path) {
+  if (path.startsWith('//')) return `https:${path}`
+  return path
+}
+
 export async function fetchCustomImageBlob(storedUrl) {
   const path = getImageUrl(storedUrl)
-  const href = path.startsWith('http') ? path : new URL(path, window.location.origin).href
-  const res = await fetch(href, { credentials: 'same-origin' })
+  if (isRemoteImageUrl(path)) {
+    const url = normalizeRemoteUrl(path)
+    const res = await fetch('/api/download-image-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ url }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Could not load image (${res.status})`)
+    }
+    return res.blob()
+  }
+  const href = path.startsWith('/') ? path : `/${path}`
+  const res = await fetch(new URL(href, window.location.origin).href, { credentials: 'same-origin' })
   if (!res.ok) throw new Error(`Could not load image (${res.status})`)
   return res.blob()
 }
