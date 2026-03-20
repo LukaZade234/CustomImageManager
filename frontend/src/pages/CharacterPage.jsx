@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
@@ -85,6 +86,16 @@ export default function CharacterPage() {
   const [reorderDragIndices, setReorderDragIndices] = useState(null)
   /** Last pointer Y during reorder drag — drives continuous edge auto-scroll */
   const reorderEdgePointerYRef = useRef(null)
+
+  const narrowToolbar = useMediaQuery('(max-width: 768px)')
+  const [charToolbarOpen, setCharToolbarOpen] = useState(false)
+  useEffect(() => {
+    if (!narrowToolbar) setCharToolbarOpen(false)
+  }, [narrowToolbar])
+
+  useEffect(() => {
+    setCharToolbarOpen(false)
+  }, [aiMode, deleteMode, reorderMode])
 
   useEffect(() => {
     if (char) {
@@ -550,88 +561,110 @@ export default function CharacterPage() {
       >
         <div className="custom-images-header-row">
           <h3 className="section-heading custom-images-heading">Custom Images</h3>
-          <div>
-            {aiMode && (
-              <>
-                <button type="button" className="action-btn" onClick={generateAiCommand} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px', backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
-                  Copy Command ({selectedUrls.length || customs.length})
-                </button>
-                <button type="button" className="action-btn" onClick={selectAllImages} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>Select All</button>
-                <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>Cancel</button>
-              </>
+          <div className={`char-custom-toolbar ${narrowToolbar ? 'char-custom-toolbar--narrow' : ''}`}>
+            {narrowToolbar && (
+              <button
+                type="button"
+                className="action-btn char-custom-toolbar-toggle"
+                aria-expanded={charToolbarOpen}
+                onClick={() => setCharToolbarOpen((o) => !o)}
+              >
+                {charToolbarOpen ? 'Close' : 'More'}
+              </button>
             )}
-            {deleteMode && (
-              <>
-                <button type="button" className="action-btn" onClick={handleDeleteSelected} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px', backgroundColor: '#dc3545', color: 'white', borderColor: '#dc3545' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  Delete Selected ({selectedUrls.length})
-                </button>
-                <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>Cancel</button>
-              </>
-            )}
-            {reorderMode && !aiMode && !deleteMode && (
-              <>
-                <button type="button" className="action-btn" onClick={() => setSelectedUrls([])} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
-                  Clear selection
-                </button>
-                <button type="button" className="action-btn secondary" onClick={cancelReorder} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
-                  Cancel
-                </button>
-                <button type="button" className="action-btn primary" onClick={doneReorder} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
-                  Done
-                </button>
-              </>
-            )}
-            {!aiMode && !deleteMode && !reorderMode && (
-              <>
-                <button type="button" className="action-btn" onClick={() => { resetModes(); setDeleteMode(true) }} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  Delete
-                </button>
-                <button type="button" className="action-btn" onClick={enterReorderMode} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
-                    <polyline points="5 9 2 12 5 15" />
-                    <polyline points="9 5 12 2 15 5" />
-                    <polyline points="19 9 22 12 19 15" />
-                    <polyline points="9 19 12 22 15 19" />
-                    <line x1="2" y1="12" x2="22" y2="12" />
-                    <line x1="12" y1="2" x2="12" y2="22" />
-                  </svg>
-                  Reorder
-                </button>
-                <button
-                  type="button"
-                  className="action-btn"
-                  disabled={!!customUploadProgress}
-                  onClick={() => customInputRef.current?.click()}
-                  style={{ padding: '6px 12px', fontSize: '0.9em', opacity: customUploadProgress ? 0.6 : 1 }}
-                  title="Add Custom Image"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  Add Image
-                </button>
-              </>
-            )}
+            <div
+              className={`char-custom-toolbar-actions ${!narrowToolbar || charToolbarOpen ? 'char-custom-toolbar-actions--visible' : ''}`}
+              id="char-custom-toolbar-actions"
+            >
+              {aiMode && (
+                <>
+                  <button type="button" className="action-btn" onClick={generateAiCommand} style={{ padding: '6px 12px', fontSize: '0.9em', backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                    Copy Command ({selectedUrls.length || customs.length})
+                  </button>
+                  <button type="button" className="action-btn" onClick={selectAllImages} style={{ padding: '6px 12px', fontSize: '0.9em' }}>Select All</button>
+                  <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em' }}>Cancel</button>
+                </>
+              )}
+              {deleteMode && (
+                <>
+                  <button type="button" className="action-btn" onClick={handleDeleteSelected} style={{ padding: '6px 12px', fontSize: '0.9em', backgroundColor: '#dc3545', color: 'white', borderColor: '#dc3545' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    Delete Selected ({selectedUrls.length})
+                  </button>
+                  <button type="button" className="action-btn" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em' }}>Cancel</button>
+                </>
+              )}
+              {reorderMode && !aiMode && !deleteMode && (
+                <>
+                  <button type="button" className="action-btn" onClick={() => setSelectedUrls([])} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                    Clear selection
+                  </button>
+                  <button type="button" className="action-btn secondary" onClick={cancelReorder} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                    Cancel
+                  </button>
+                  <button type="button" className="action-btn primary" onClick={doneReorder} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                    Done
+                  </button>
+                </>
+              )}
+              {!aiMode && !deleteMode && !reorderMode && (
+                <>
+                  <button type="button" className="action-btn" onClick={() => { resetModes(); setDeleteMode(true) }} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    Delete
+                  </button>
+                  <button type="button" className="action-btn" onClick={enterReorderMode} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <polyline points="5 9 2 12 5 15" />
+                      <polyline points="9 5 12 2 15 5" />
+                      <polyline points="19 9 22 12 19 15" />
+                      <polyline points="9 19 12 22 15 19" />
+                      <line x1="2" y1="12" x2="22" y2="12" />
+                      <line x1="12" y1="2" x2="12" y2="22" />
+                    </svg>
+                    Reorder
+                  </button>
+                  <button
+                    type="button"
+                    className="action-btn"
+                    disabled={!!customUploadProgress}
+                    onClick={() => customInputRef.current?.click()}
+                    style={{ padding: '6px 12px', fontSize: '0.9em', opacity: customUploadProgress ? 0.6 : 1 }}
+                    title="Add Custom Image"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Add Image
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
         {reorderMode && (
-          <p className="reorder-mode-hint">
-            <strong>Drag one image</strong> to move it to a new position. The page scrolls automatically when you drag near the top or bottom of the screen.{' '}
-            <strong>To move several at once:</strong> click images to select them (or use Clear selection), then drag any selected image — the whole group moves together.
-          </p>
+          <details className="reorder-mode-hint-details">
+            <summary className="reorder-mode-hint-summary">How reorder works</summary>
+            <div className="reorder-mode-hint-body">
+              <p>
+                <strong>Drag one image</strong> to move it to a new position. The page scrolls automatically when you drag near the top or bottom of the screen.
+              </p>
+              <p>
+                <strong>To move several at once:</strong> click images to select them (or use Clear selection), then drag any selected image — the whole group moves together.
+              </p>
+            </div>
+          </details>
         )}
         <input ref={customInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddCustomImage} disabled={!!customUploadProgress} />
         <p style={{ textAlign: 'center', color: '#6c757d', margin: '10px 0', fontSize: '0.9em', border: '1px dashed #ccc', padding: '10px', borderRadius: '5px' }}>
