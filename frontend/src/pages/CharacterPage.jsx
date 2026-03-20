@@ -34,6 +34,8 @@ export default function CharacterPage() {
   const [modalIndex, setModalIndex] = useState(0)
   const [dragOver, setDragOver] = useState(false)
   const [customDragOver, setCustomDragOver] = useState(false)
+  const [customUploadProgress, setCustomUploadProgress] = useState(null)
+  const customUploadLockRef = useRef(false)
   const mainInputRef = useRef(null)
   const customInputRef = useRef(null)
   const dragItemRef = useRef(null)
@@ -119,34 +121,75 @@ export default function CharacterPage() {
     }).catch((err) => addToast(err.message, 'error'))
   }
 
+  const runCustomUpload = async (fileList) => {
+    const list = Array.from(fileList).filter((f) => f.type.startsWith('image/'))
+    if (!list.length) {
+      addToast('No image files to upload', 'error')
+      return
+    }
+    if (customUploadLockRef.current) {
+      addToast('An upload is already in progress', 'info')
+      return
+    }
+    customUploadLockRef.current = true
+    const total = list.length
+    setCustomUploadProgress({ phase: 'starting', current: 0, total })
+    addToast(`Starting upload of ${total} image${total !== 1 ? 's' : ''}…`, 'info')
+
+    const errors = []
+    try {
+      for (let i = 0; i < list.length; i++) {
+        setCustomUploadProgress({ phase: 'uploading', current: i + 1, total, fileName: list[i].name })
+        try {
+          const fd = new FormData()
+          fd.append('character_name', name)
+          fd.append('files', list[i])
+          await apiClient.addCustomImage(fd)
+          await loadCustomImages()
+        } catch (err) {
+          errors.push({ name: list[i].name, message: err.message || 'Upload failed' })
+        }
+      }
+
+      const ok = total - errors.length
+      if (ok === total) {
+        addToast(`${ok} image${ok !== 1 ? 's' : ''} uploaded successfully.`, 'success')
+      } else if (ok > 0) {
+        addToast(
+          `Uploaded ${ok} of ${total}. Failed: ${errors.map((e) => `${e.name} (${e.message})`).join('; ')}`,
+          'error'
+        )
+      } else {
+        addToast(
+          `Upload failed for all ${total} image${total !== 1 ? 's' : ''}: ${errors.map((e) => `${e.name}: ${e.message}`).join('; ')}`,
+          'error'
+        )
+      }
+    } catch (err) {
+      addToast(`Upload stopped: ${err.message || 'Unknown error'}`, 'error')
+    } finally {
+      customUploadLockRef.current = false
+      setCustomUploadProgress(null)
+    }
+  }
+
   const handleAddCustomImage = async (e) => {
     const files = e.target.files
     if (!files?.length) return
-    const fd = new FormData()
-    fd.append('character_name', name)
-    for (let i = 0; i < files.length; i++) fd.append('files', files[i])
-    try {
-      await apiClient.addCustomImage(fd)
-      await loadCustomImages()
-      addToast('Images added', 'success')
-    } catch (err) {
-      addToast(err.message, 'error')
-    }
-    customInputRef.current.value = ''
+    await runCustomUpload(files)
+    if (customInputRef.current) customInputRef.current.value = ''
   }
 
-  const handleCustomDrop = (e) => {
+  const handleCustomDrop = async (e) => {
     e.preventDefault()
     setCustomDragOver(false)
+    if (customUploadLockRef.current) {
+      addToast('An upload is already in progress', 'info')
+      return
+    }
     const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'))
     if (!files.length) return
-    const fd = new FormData()
-    fd.append('character_name', name)
-    files.forEach((f) => fd.append('files', f))
-    apiClient.addCustomImage(fd).then(() => {
-      loadCustomImages()
-      addToast('Images added', 'success')
-    }).catch((err) => addToast(err.message, 'error'))
+    await runCustomUpload(files)
   }
 
   const handleDeleteSelected = async () => {
@@ -356,7 +399,14 @@ export default function CharacterPage() {
                   </svg>
                   {reorderMode ? 'Done' : 'Reorder'}
                 </button>
-                <button type="button" className="action-btn" onClick={() => customInputRef.current?.click()} style={{ padding: '6px 12px', fontSize: '0.9em' }} title="Add Custom Image">
+                <button
+                  type="button"
+                  className="action-btn"
+                  disabled={!!customUploadProgress}
+                  onClick={() => customInputRef.current?.click()}
+                  style={{ padding: '6px 12px', fontSize: '0.9em', opacity: customUploadProgress ? 0.6 : 1 }}
+                  title="Add Custom Image"
+                >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
@@ -367,10 +417,20 @@ export default function CharacterPage() {
             )}
           </div>
         </div>
-        <input ref={customInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddCustomImage} />
+        <input ref={customInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddCustomImage} disabled={!!customUploadProgress} />
         <p style={{ textAlign: 'center', color: '#6c757d', margin: '10px 0', fontSize: '0.9em', border: '1px dashed #ccc', padding: '10px', borderRadius: '5px' }}>
           Drag &amp; Drop images here or click &quot;Add Image&quot;
         </p>
+        {customUploadProgress && (
+          <div className="custom-upload-progress" role="status" aria-live="polite">
+            <span className="custom-upload-progress-spinner" aria-hidden />
+            <span className="custom-upload-progress-text">
+              {customUploadProgress.phase === 'starting'
+                ? `Preparing ${customUploadProgress.total} image${customUploadProgress.total !== 1 ? 's' : ''}…`
+                : `Uploading ${customUploadProgress.current}/${customUploadProgress.total}${customUploadProgress.fileName ? ` — ${customUploadProgress.fileName}` : ''}`}
+            </span>
+          </div>
+        )}
         <div id="customImagesGallery">
           {customs.map((url, idx) => (
             <div

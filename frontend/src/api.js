@@ -24,7 +24,16 @@ export const apiClient = {
   removeSaved: (name) => api(`/api/saved/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   getCustomImages: () => api('/custom_images.json'),
   getCustomImagesForChar: (name) => api(`/api/custom-image/${encodeURIComponent(name)}`),
-  addCustomImage: (formData) => fetch(`${API_BASE}/api/custom-image`, { method: 'POST', body: formData, credentials: 'same-origin' }).then(r => r.ok ? r.json() : r.json().then(j => { throw new Error(j.error || 'Upload failed') })),
+  addCustomImage: (formData) =>
+    fetch(`${API_BASE}/api/custom-image`, { method: 'POST', body: formData, credentials: 'same-origin' }).then(async (r) => {
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        const base = j.error || 'Upload failed'
+        const details = Array.isArray(j.details) && j.details.length ? ` — ${j.details.join('; ')}` : ''
+        throw new Error(base + details)
+      }
+      return j
+    }),
   deleteCustomImage: (charName, imageUrl) => api('/api/delete-custom-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_url: imageUrl }) }),
   deleteCustomImages: (charName, imageUrls) => api('/api/delete-custom-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_urls: imageUrls }) }),
   reorderCustomImages: (charName, newOrder) => api('/api/reorder-custom-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, new_order: newOrder }) }),
