@@ -737,6 +737,96 @@ The 2.3k-line vanilla JS is unmaintainable. Deferring this phase tends to mean i
 
 ---
 
+## Mobile support (explicit roadmap item)
+
+Treat **fixing and hardening mobile support** as an ongoing track alongside feature work—not an afterthought. The SPA is used on phones; layout, touch, and performance should be first-class.
+
+### Must-fix / audit checklist
+
+
+| Area                       | Action                                                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Touch targets**          | Keep primary actions ≥ ~44px height; audit nav, pagination, gallery, modals, toasts.                                            |
+| **Safe areas**             | Respect `env(safe-area-inset-*)` for notched devices (nav, fixed toasts, modals).                                               |
+| **Sticky nav**             | Confirm `scroll-padding-top` / padding so content never hides under the bar; retest after nav height changes.                   |
+| **Character page**         | Custom image grid: columns, gaps, no horizontal page scroll; reorder drag on touch (or document “desktop-only” if unsupported). |
+| **Image modal**            | Swipe between images; pinch-to-zoom optional; close control reachable for thumbs.                                               |
+| **Search + navbar**        | Wrapped layout: search remains usable at 320–375px width; no clipped toggles.                                                   |
+| **Customs / search lists** | Pagination controls stay tappable; sort + search stack cleanly (label + control).                                               |
+| **Forms (Add / Edit)**     | Inputs not zoom-jarring on iOS (`font-size` ≥ 16px on inputs where needed).                                                     |
+| **Downloads**              | Folder picker is Chromium-heavy; ensure fallback (zip / sequential downloads) messaging is visible on mobile Safari/Firefox.    |
+| **Performance**            | Virtualize very long lists on Customs / search if row counts grow (smooth scroll, fewer DOM nodes).                             |
+
+
+### Nice-to-have (mobile-adjacent)
+
+- **Bottom sheet** for character actions on small screens (optional alternative to “More” overflow).
+- `**viewport-fit=cover`** + **theme-color** for a more app-like chrome.
+- **PWA** (installable shortcut, offline shell only if worth the complexity).
+
+---
+
+## UI improvements backlog (suggestions)
+
+Ideas beyond mobile; prioritize by impact vs effort.
+
+### Navigation & wayfinding
+
+- **Breadcrumbs** (e.g. Home → Character name) on desktop; compact on mobile.
+- **“Recent characters”** or **last opened** strip on Home for quick return.
+- **Deep-link copy** (“Copy link to this character”) in share menu or overflow.
+
+### Onboarding & first-run
+
+- **First-visit, dismissible tooltip tour** — highlight search, Saved, Customs, Add (store “seen” in `localStorage`).
+
+### Character & gallery
+
+- **Pinch / double-tap zoom** in the image modal; optional full-screen viewer.
+- **Sticky “Custom Images” section header** while scrolling the gallery (desktop + mobile).
+- **Upload progress** as a single linear progress for multi-file batches (not only toasts).
+- **Undo snackbar** patterns for more actions (not only delete customs), where safe.
+- **Gallery density toggle** (comfortable vs compact thumbnails).
+- **Bulk selection:** **Shift-click range select** in delete / $ai / download modes (where technically feasible on web).
+
+### Search & Customs
+
+- **Saved searches** or **recent queries** (localStorage, optional).
+- **Export** current Customs or search results list as CSV/JSON (names + series) for power users.
+- **Skeleton rows** instead of blank space while lists load.
+- **Jump to letter** or **A–Z filter chips** on Customs (or similar) when lists are very long.
+- **Highlight matching substrings** in name/series on search results (and optionally Customs search).
+
+### Forms (Add / Edit character)
+
+- **Inline validation** before submit — name length, rank format, required fields (avoid round-trip errors only).
+
+### Feedback & polish
+
+- **Global shortcut `?`** to open a small **keyboard shortcuts** help panel.
+- **Reduced motion** respect (`prefers-reduced-motion`) for animations and reorder.
+- **Consistent empty states** (illustration or icon + one line + primary action).
+- **Loading** on character page sections (not only Home) when data is still resolving.
+- **Theme:** optional **scheduled** or **“auto at night”** dark mode (system schedule + manual override).
+- **Delight:** subtle **success micro-feedback** on save/copy/download (respect `prefers-reduced-motion`).
+
+### Trust & multi-device (future)
+
+- **“Last updated”** or subtle **sync / freshness** hint when multi-device or collaborative features matter.
+
+### Accessibility
+
+- **Focus order** audit on modals, mobile “More” menus, and pagination jump field.
+- **ARIA live regions** for async upload completion and batch errors.
+
+### Technical UX
+
+- **Retry** on failed image load (ImgChest / network) with one tap.
+- **Optimistic UI** for save/unsave where safe; rollback on error.
+- **Actionable API errors** — “Retry”, “Copy error details” (or request id) instead of raw text only.
+
+---
+
 ## Summary
 
 **Ideal setup for £5/month:** Single Droplet running Flask, Celery, Redis, and DB. React/Vue frontend. Discord OAuth. Cloudflare in front. All features that don't add hosting cost are included.
