@@ -14,8 +14,8 @@ export default function HomePage() {
 
   return (
     <div id="uploadSection" className="home-page">
-      <h2>Welcome to ImgManager</h2>
-      <p style={{ color: '#666', marginBottom: '30px', fontSize: '1.1em', lineHeight: 1.6 }}>
+      <h2 className="page-title">Welcome to ImgManager</h2>
+      <p className="page-subtitle">
         The ultimate tool for managing your character collection. Customize your favorite characters with ease,
         organize unlimited custom images, and generate bulk commands instantly.
       </p>
@@ -46,9 +46,9 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-      <div className="features-box" style={{ textAlign: 'left', maxWidth: '700px', margin: '0 auto', background: '#f8f9fa', padding: '25px', borderRadius: '12px', border: '1px solid #e9ecef' }}>
-        <h4 style={{ marginTop: 0, color: '#212529', fontSize: '1.2em', borderBottom: '1px solid #dee2e6', paddingBottom: '10px', marginBottom: '15px' }}>Key Features & Guide:</h4>
-        <ul style={{ color: '#555', lineHeight: 1.8, paddingLeft: '20px' }}>
+      <div className="features-box">
+        <h3 className="section-heading features-box-title">Key Features & Guide</h3>
+        <ul className="text-body features-list">
           <li><strong>Search & Discover:</strong> Find characters instantly by Name or Series using the smart search bar.</li>
           <li><strong>Full Customization:</strong> Upload unlimited custom images (all formats supported, including GIFs). Drag & drop images in, reorder your gallery, or remove images.</li>
           <li><strong>Bot Commands:</strong> Use the <strong>&quot;Get $ai Command&quot;</strong> tool to select images and generate bulk <code>$ai</code> strings for Mudae automatically.</li>

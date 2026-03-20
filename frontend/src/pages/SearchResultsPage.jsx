@@ -36,8 +36,8 @@ export default function SearchResultsPage() {
 
   return (
     <div id="searchPage" className="search-results-page">
-      <h2>Search Results</h2>
-      <p className="search-results-count">
+      <h2 className="page-title">Search Results</h2>
+      <p className="search-results-count text-meta">
         {matches.length === 0
           ? 'No characters found'
           : `${matches.length} ${matches.length === 1 ? 'character' : 'characters'} found`}

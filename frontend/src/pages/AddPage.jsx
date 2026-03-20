@@ -43,7 +43,7 @@ export default function AddPage() {
 
   return (
     <div id="addPage" className="add-page">
-      <h2>Add New Character</h2>
+      <h2 className="page-title">Add New Character</h2>
       <div className="edit-form-container" style={{ maxWidth: '500px', margin: 0 }}>
         <form onSubmit={handleSubmit} className="add-char-form" style={{ maxWidth: '100%' }}>
           <div className="edit-group full-width">

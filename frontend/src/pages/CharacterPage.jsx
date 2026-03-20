@@ -455,9 +455,9 @@ export default function CharacterPage() {
       <div id="charInfo" className="char-info-section">
         {!editMode ? (
           <div id="charDisplayMode">
-            <h3 id="charNameDisplay">{char.name}</h3>
-            <p id="charSeriesDisplay">{char.series || '—'}</p>
-            <p id="charRankDisplay">Rank: {char.rank || '—'}</p>
+            <h3 id="charNameDisplay" className="display-title">{char.name}</h3>
+            <p id="charSeriesDisplay" className="text-body">{char.series || '—'}</p>
+            <p id="charRankDisplay" className="text-meta">Rank: {char.rank || '—'}</p>
             <div className="bottom-controls" style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button type="button" className="action-btn" onClick={() => setEditMode(true)} title="Edit name, series, rank, and main image">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px' }}>
@@ -539,8 +539,8 @@ export default function CharacterPage() {
         onDrop={handleCustomDrop}
         style={{ display: 'block' }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0, color: '#212529' }}>Custom Images</h3>
+        <div className="custom-images-header-row">
+          <h3 className="section-heading custom-images-heading">Custom Images</h3>
           <div>
             {aiMode && (
               <>

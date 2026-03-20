@@ -59,9 +59,9 @@ export default function CustomsPage() {
 
   return (
     <div id="customsPage" className="customs-page">
-      <h2>Browse Customs</h2>
-      <div className="customs-controls" style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="search-input-wrapper" style={{ flex: '1 1 280px', minWidth: 0 }}>
+      <h2 className="page-title">Browse Customs</h2>
+      <div className="customs-controls">
+        <div className="search-input-wrapper customs-search-wrap">
           <input
             type="text"
             className="char-search-input"
@@ -92,16 +92,16 @@ export default function CustomsPage() {
           </div>
         </div>
         <select
+          className="customs-sort-select"
           value={sort}
           onChange={(e) => { setSort(e.target.value); resetToPage1() }}
-          style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
       </div>
-      <p id="customsCount" style={{ color: '#666', marginBottom: '20px' }}>
+      <p id="customsCount" className="text-meta customs-count-line">
         {customsList.length} characters with custom images. Showing page {page} of {totalPages}.
       </p>
       <div id="customsList" className="search-result-list">

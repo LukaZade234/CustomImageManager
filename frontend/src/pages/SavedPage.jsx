@@ -26,8 +26,8 @@ export default function SavedPage() {
 
   return (
     <div id="savedPage" className="saved-page">
-      <h2>Saved Characters</h2>
-      <p style={{ color: '#666', marginBottom: '20px' }}>Your personal collection of bookmarked characters.</p>
+      <h2 className="page-title">Saved Characters</h2>
+      <p className="page-subtitle">Your personal collection of bookmarked characters.</p>
       {savedCharacters.length === 0 ? (
         <p className="empty-saved">No saved characters yet.</p>
       ) : (
