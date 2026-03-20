@@ -218,6 +218,32 @@ export default function CharacterPage() {
     setReorderDragIndices(null)
   }, [])
 
+  const getIndicesToMove = useCallback(
+    (startIndex) => {
+      const indices = customs
+        .map((u, i) => (selectedUrls.includes(u) ? i : -1))
+        .filter((i) => i >= 0)
+        .sort((a, b) => a - b)
+      if (indices.length === 0) return [startIndex]
+      if (indices.includes(startIndex)) return indices
+      return [startIndex]
+    },
+    [customs, selectedUrls]
+  )
+
+  const applyReorder = useCallback(
+    (newOrder) => {
+      apiClient
+        .reorderCustomImages(name, newOrder)
+        .then(() => {
+          loadCustomImages()
+          addToast('Order updated', 'success')
+        })
+        .catch((err) => addToast(err.message, 'error'))
+    },
+    [name, loadCustomImages, addToast]
+  )
+
   if (!char) return <div className="loading">Character not found</div>
 
   const handleSaveEdit = async () => {
@@ -414,19 +440,6 @@ export default function CharacterPage() {
     }
   }
 
-  const getIndicesToMove = useCallback(
-    (startIndex) => {
-      const indices = customs
-        .map((u, i) => (selectedUrls.includes(u) ? i : -1))
-        .filter((i) => i >= 0)
-        .sort((a, b) => a - b)
-      if (indices.length === 0) return [startIndex]
-      if (indices.includes(startIndex)) return indices
-      return [startIndex]
-    },
-    [customs, selectedUrls]
-  )
-
   const selectAllImages = () => {
     setSelectedUrls([...customs])
   }
@@ -437,19 +450,6 @@ export default function CharacterPage() {
     const cmd = `$ai ${charName} ${urls.map((u) => '$' + u).join(' ')}`
     navigator.clipboard.writeText(cmd).then(() => addToast('Command copied to clipboard', 'success')).catch(() => addToast('Failed to copy', 'error'))
   }
-
-  const applyReorder = useCallback(
-    (newOrder) => {
-      apiClient
-        .reorderCustomImages(name, newOrder)
-        .then(() => {
-          loadCustomImages()
-          addToast('Order updated', 'success')
-        })
-        .catch((err) => addToast(err.message, 'error'))
-    },
-    [name, loadCustomImages, addToast]
-  )
 
   const onDragStart = (e, index) => {
     if (!reorderMode) return
