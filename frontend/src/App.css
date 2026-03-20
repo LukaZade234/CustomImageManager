@@ -922,7 +922,7 @@ input:checked + .slider:before {
     transition: transform 0.2s;
     cursor: pointer;
 }
-/* Character page custom gallery — flex-start avoids row stretch + letterboxing on landscape */
+/* Character page custom gallery — fixed height so wide images scale wider; tops line up */
 #customImagesGallery {
     display: flex;
     flex-wrap: wrap;
@@ -933,12 +933,12 @@ input:checked + .slider:before {
     display: inline-flex;
     align-items: flex-start;
     align-self: flex-start;
+    line-height: 0;
 }
 #customImagesGallery .custom-image-full {
-    max-width: 340px;
-    max-height: 260px;
+    height: 260px;
     width: auto;
-    height: auto;
+    max-width: min(720px, 100%);
     display: block;
     border-radius: 8px;
     border: 1px solid #dee2e6;
