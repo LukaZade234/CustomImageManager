@@ -7,6 +7,40 @@ import ImageModal from '../components/ImageModal'
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
 
+function adjustDropTarget(toIndex, pickedSet, len) {
+  if (len <= 0) return 0
+  let t = toIndex
+  if (t < 0) t = 0
+  if (t >= len) t = len - 1
+  if (!pickedSet.has(t)) return t
+  for (let i = t + 1; i < len; i++) if (!pickedSet.has(i)) return i
+  for (let i = t - 1; i >= 0; i--) if (!pickedSet.has(i)) return i
+  return 0
+}
+
+/** Move one contiguous group of indices to a drop target index (same visual order as `customs`). */
+function moveGroupInArray(arr, fromIndices, toIndex) {
+  const sorted = [...fromIndices].sort((a, b) => a - b)
+  const pickedSet = new Set(sorted)
+  const picked = sorted.map((i) => arr[i])
+  let t = toIndex
+  if (pickedSet.has(t)) {
+    t = adjustDropTarget(t, pickedSet, arr.length)
+  }
+  if (t < 0) t = 0
+  const without = arr.filter((_, i) => !pickedSet.has(i))
+  let insertBefore = 0
+  for (let i = 0; i < t && i < arr.length; i++) {
+    if (!pickedSet.has(i)) insertBefore++
+  }
+  return [...without.slice(0, insertBefore), ...picked, ...without.slice(insertBefore)]
+}
+
+function ordersEqual(a, b) {
+  if (a.length !== b.length) return false
+  return a.every((u, i) => u === b[i])
+}
+
 export default function CharacterPage() {
   const { name } = useParams()
   const navigate = useNavigate()
@@ -43,6 +77,10 @@ export default function CharacterPage() {
   const customInputRef = useRef(null)
   const dragItemRef = useRef(null)
   const dragOverRef = useRef(null)
+  const dragIndicesRef = useRef(null)
+  /** Drop target & dragged indices for reorder UI (refs alone don't re-render) */
+  const [reorderDropTargetIndex, setReorderDropTargetIndex] = useState(null)
+  const [reorderDragIndices, setReorderDragIndices] = useState(null)
 
   useEffect(() => {
     if (char) {
@@ -56,6 +94,13 @@ export default function CharacterPage() {
   useEffect(() => {
     loadCustomImages()
   }, [name, loadCustomImages])
+
+  useEffect(() => {
+    if (!reorderMode) {
+      setReorderDropTargetIndex(null)
+      setReorderDragIndices(null)
+    }
+  }, [reorderMode])
 
   const resetModes = useCallback(() => {
     setAiMode(false)
@@ -222,10 +267,23 @@ export default function CharacterPage() {
   }
 
   const toggleSelect = (url) => {
-    if (aiMode || deleteMode) {
+    if (aiMode || deleteMode || reorderMode) {
       setSelectedUrls((prev) => (prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]))
     }
   }
+
+  const getIndicesToMove = useCallback(
+    (startIndex) => {
+      const indices = customs
+        .map((u, i) => (selectedUrls.includes(u) ? i : -1))
+        .filter((i) => i >= 0)
+        .sort((a, b) => a - b)
+      if (indices.length === 0) return [startIndex]
+      if (indices.includes(startIndex)) return indices
+      return [startIndex]
+    },
+    [customs, selectedUrls]
+  )
 
   const selectAllImages = () => {
     setSelectedUrls([...customs])
@@ -238,36 +296,64 @@ export default function CharacterPage() {
     navigator.clipboard.writeText(cmd).then(() => addToast('Command copied to clipboard', 'success')).catch(() => addToast('Failed to copy', 'error'))
   }
 
-  const handleReorder = (fromIndex, toIndex) => {
-    if (fromIndex === toIndex) return
-    const arr = [...customs]
-    const [removed] = arr.splice(fromIndex, 1)
-    arr.splice(toIndex, 0, removed)
-    apiClient.reorderCustomImages(name, arr).then(() => {
-      loadCustomImages()
-      addToast('Order updated', 'success')
-    }).catch((err) => addToast(err.message, 'error'))
-  }
+  const applyReorder = useCallback(
+    (newOrder) => {
+      apiClient
+        .reorderCustomImages(name, newOrder)
+        .then(() => {
+          loadCustomImages()
+          addToast('Order updated', 'success')
+        })
+        .catch((err) => addToast(err.message, 'error'))
+    },
+    [name, loadCustomImages, addToast]
+  )
 
   const onDragStart = (e, index) => {
     if (!reorderMode) return
+    const indices = getIndicesToMove(index)
+    dragIndicesRef.current = indices
     dragItemRef.current = index
+    setReorderDragIndices(indices)
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', index)
+    e.dataTransfer.setData('text/plain', String(index))
   }
 
   const onDragOver = (e, index) => {
     if (!reorderMode) return
     e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
     dragOverRef.current = index
+    setReorderDropTargetIndex(index)
   }
 
   const onDragEnd = () => {
-    if (dragItemRef.current != null && dragOverRef.current != null && dragItemRef.current !== dragOverRef.current) {
-      handleReorder(dragItemRef.current, dragOverRef.current)
-    }
+    const to = dragOverRef.current
+    const from = dragItemRef.current
+    const indices = dragIndicesRef.current
     dragItemRef.current = null
     dragOverRef.current = null
+    dragIndicesRef.current = null
+    setReorderDropTargetIndex(null)
+    setReorderDragIndices(null)
+    if (from == null || to == null || !indices?.length) return
+    const next = moveGroupInArray(customs, indices, to)
+    if (ordersEqual(next, customs)) return
+    applyReorder(next)
+  }
+
+  const onGalleryDragLeave = (e) => {
+    if (!reorderMode || !reorderDragIndices) return
+    const next = e.relatedTarget
+    if (next && e.currentTarget.contains(next)) return
+    setReorderDropTargetIndex(null)
+    dragOverRef.current = null
+  }
+
+  const onGalleryDragOver = (e) => {
+    if (!reorderMode || !reorderDragIndices) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
   }
 
   const openModal = (index) => {
@@ -398,6 +484,12 @@ export default function CharacterPage() {
             )}
             {reorderMode && !aiMode && !deleteMode && (
               <>
+                <button type="button" className="action-btn" onClick={() => setSelectedUrls([...customs])} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
+                  Select all
+                </button>
+                <button type="button" className="action-btn" onClick={() => setSelectedUrls([])} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
+                  Clear selection
+                </button>
                 <button type="button" className="action-btn secondary" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
                   Cancel
                 </button>
@@ -444,6 +536,11 @@ export default function CharacterPage() {
             )}
           </div>
         </div>
+        {reorderMode && (
+          <p className="reorder-mode-hint">
+            Click images to select multiple, then drag any selected image to move the whole group at once. Or drag without selecting to move a single image.
+          </p>
+        )}
         <input ref={customInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddCustomImage} disabled={!!customUploadProgress} />
         <p style={{ textAlign: 'center', color: '#6c757d', margin: '10px 0', fontSize: '0.9em', border: '1px dashed #ccc', padding: '10px', borderRadius: '5px' }}>
           Drag &amp; Drop images here or click &quot;Add Image&quot;
@@ -458,12 +555,20 @@ export default function CharacterPage() {
             </span>
           </div>
         )}
-        <div id="customImagesGallery">
-          {customs.map((url, idx) => (
+        <div
+          id="customImagesGallery"
+          className={reorderDragIndices ? 'reorder-drag-active' : ''}
+          onDragOver={onGalleryDragOver}
+          onDragLeave={onGalleryDragLeave}
+        >
+          {customs.map((url, idx) => {
+            const isDropTarget = reorderMode && reorderDropTargetIndex === idx
+            const isDragSource = reorderMode && reorderDragIndices?.includes(idx)
+            return (
             <div
               key={url}
-              className={`gallery-item-wrapper ${aiMode ? 'ai-mode' : ''} ${deleteMode ? 'delete-mode' : ''} ${reorderMode ? 'reorder-mode' : ''} ${selectedUrls.includes(url) ? 'selected' : ''}`}
-              onClick={() => (aiMode || deleteMode) && toggleSelect(url)}
+              className={`gallery-item-wrapper ${aiMode ? 'ai-mode' : ''} ${deleteMode ? 'delete-mode' : ''} ${reorderMode ? 'reorder-mode' : ''} ${selectedUrls.includes(url) ? 'selected' : ''} ${isDropTarget ? 'reorder-drop-target' : ''} ${isDragSource ? 'reorder-drag-source' : ''}`}
+              onClick={() => (aiMode || deleteMode || reorderMode) && toggleSelect(url)}
               onDragStart={(e) => onDragStart(e, idx)}
               onDragOver={(e) => onDragOver(e, idx)}
               onDragEnd={onDragEnd}
@@ -471,9 +576,20 @@ export default function CharacterPage() {
               role={reorderMode ? 'button' : undefined}
               tabIndex={reorderMode ? 0 : undefined}
             >
-              <img src={getImageUrl(url)} alt="" className="custom-image-full" onClick={() => !aiMode && !deleteMode && !reorderMode && openModal(idx + 1)} />
+              <img
+                src={getImageUrl(url)}
+                alt=""
+                className="custom-image-full"
+                onClick={() => !aiMode && !deleteMode && !reorderMode && openModal(idx + 1)}
+              />
+              {isDropTarget && (
+                <span className="reorder-drop-label" aria-hidden>
+                  Drop here
+                </span>
+              )}
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
