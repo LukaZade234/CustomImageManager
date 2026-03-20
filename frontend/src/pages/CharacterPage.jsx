@@ -4,6 +4,9 @@ import { useStore } from '../store/useStore'
 import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
 
+/** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
+const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
+
 export default function CharacterPage() {
   const { name } = useParams()
   const navigate = useNavigate()
@@ -139,15 +142,31 @@ export default function CharacterPage() {
     const errors = []
     try {
       for (let i = 0; i < list.length; i++) {
-        setCustomUploadProgress({ phase: 'uploading', current: i + 1, total, fileName: list[i].name })
+        const file = list[i]
+        setCustomUploadProgress({ phase: 'uploading', current: i + 1, total, fileName: file.name })
+        if (file.size > MAX_CUSTOM_IMAGE_BYTES) {
+          const msg = `File too large (max ${MAX_CUSTOM_IMAGE_BYTES / (1024 * 1024)}MB)`
+          addToast(`Skipped ${i + 1}/${total} — ${file.name}: ${msg}`, 'error')
+          errors.push({ name: file.name, message: msg })
+          continue
+        }
         try {
           const fd = new FormData()
           fd.append('character_name', name)
-          fd.append('files', list[i])
-          await apiClient.addCustomImage(fd)
+          fd.append('files', file)
+          const res = await apiClient.addCustomImage(fd)
           await loadCustomImages()
+          // Server can return 200 with `errors` when a batch had partial failures (e.g. multi-file request)
+          if (res && Array.isArray(res._partialErrors) && res._partialErrors.length) {
+            res._partialErrors.forEach((msg) => {
+              addToast(`Skipped: ${msg}`, 'error')
+              errors.push({ name: file.name, message: msg })
+            })
+          }
         } catch (err) {
-          errors.push({ name: list[i].name, message: err.message || 'Upload failed' })
+          const msg = err.message || 'Upload failed'
+          addToast(`Failed ${i + 1}/${total} (${file.name}): ${msg}`, 'error')
+          errors.push({ name: file.name, message: msg })
         }
       }
 
@@ -155,15 +174,13 @@ export default function CharacterPage() {
       if (ok === total) {
         addToast(`${ok} image${ok !== 1 ? 's' : ''} uploaded successfully.`, 'success')
       } else if (ok > 0) {
-        addToast(
-          `Uploaded ${ok} of ${total}. Failed: ${errors.map((e) => `${e.name} (${e.message})`).join('; ')}`,
-          'error'
-        )
+        addToast(`${ok} of ${total} image${ok !== 1 ? 's' : ''} uploaded. ${errors.length} skipped or failed — see alert.`, 'error')
       } else {
-        addToast(
-          `Upload failed for all ${total} image${total !== 1 ? 's' : ''}: ${errors.map((e) => `${e.name}: ${e.message}`).join('; ')}`,
-          'error'
-        )
+        addToast(`No images uploaded — see alert for details.`, 'error')
+      }
+      if (errors.length > 0) {
+        const detail = errors.map((e) => (e.name ? `${e.name}\n  ${e.message}` : e.message)).join('\n\n')
+        window.alert(`Some images were skipped or failed (${errors.length} of ${total}):\n\n${detail}`)
       }
     } catch (err) {
       addToast(`Upload stopped: ${err.message || 'Unknown error'}`, 'error')

@@ -32,6 +32,10 @@ export const apiClient = {
         const details = Array.isArray(j.details) && j.details.length ? ` — ${j.details.join('; ')}` : ''
         throw new Error(base + details)
       }
+      // Batch partial success: server returns 200 with `errors` for skipped/failed files (e.g. too large)
+      if (Array.isArray(j.errors) && j.errors.length > 0) {
+        return { ...j, _partialErrors: j.errors }
+      }
       return j
     }),
   deleteCustomImage: (charName, imageUrl) => api('/api/delete-custom-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_url: imageUrl }) }),
