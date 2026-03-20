@@ -78,6 +78,8 @@ export default function CharacterPage() {
   const dragItemRef = useRef(null)
   const dragOverRef = useRef(null)
   const dragIndicesRef = useRef(null)
+  /** Snapshot of custom image URLs when reorder session started (Cancel restores this order) */
+  const reorderSessionBaselineRef = useRef(null)
   /** Drop target & dragged indices for reorder UI (refs alone don't re-render) */
   const [reorderDropTargetIndex, setReorderDropTargetIndex] = useState(null)
   const [reorderDragIndices, setReorderDragIndices] = useState(null)
@@ -102,11 +104,69 @@ export default function CharacterPage() {
     }
   }, [reorderMode])
 
+  /** While dragging to reorder, scroll the page when the pointer nears the top or bottom edge */
+  useEffect(() => {
+    if (!reorderDragIndices) return
+    const edge = 90
+    const speed = 16
+    let raf = 0
+    const onDragOver = (e) => {
+      const y = e.clientY
+      if (typeof y !== 'number') return
+      const h = window.innerHeight
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        if (y < edge) window.scrollBy(0, -speed)
+        else if (y > h - edge) window.scrollBy(0, speed)
+      })
+    }
+    document.addEventListener('dragover', onDragOver, { passive: true })
+    return () => {
+      document.removeEventListener('dragover', onDragOver)
+      cancelAnimationFrame(raf)
+    }
+  }, [reorderDragIndices])
+
   const resetModes = useCallback(() => {
     setAiMode(false)
     setDeleteMode(false)
     setReorderMode(false)
     setSelectedUrls([])
+    reorderSessionBaselineRef.current = null
+  }, [])
+
+  const enterReorderMode = useCallback(() => {
+    setAiMode(false)
+    setDeleteMode(false)
+    setSelectedUrls([])
+    reorderSessionBaselineRef.current = [...customs]
+    setReorderMode(true)
+  }, [customs])
+
+  const cancelReorder = useCallback(async () => {
+    const baseline = reorderSessionBaselineRef.current
+    try {
+      if (baseline) {
+        await apiClient.reorderCustomImages(name, baseline)
+        await loadCustomImages()
+      }
+      reorderSessionBaselineRef.current = null
+      setReorderMode(false)
+      setSelectedUrls([])
+      setReorderDropTargetIndex(null)
+      setReorderDragIndices(null)
+      addToast('Order reverted to before you started reordering.', 'info')
+    } catch (e) {
+      addToast(e.message || 'Could not revert order', 'error')
+    }
+  }, [name, loadCustomImages, addToast])
+
+  const doneReorder = useCallback(() => {
+    reorderSessionBaselineRef.current = null
+    setReorderMode(false)
+    setSelectedUrls([])
+    setReorderDropTargetIndex(null)
+    setReorderDragIndices(null)
   }, [])
 
   if (!char) return <div className="loading">Character not found</div>
@@ -484,16 +544,13 @@ export default function CharacterPage() {
             )}
             {reorderMode && !aiMode && !deleteMode && (
               <>
-                <button type="button" className="action-btn" onClick={() => setSelectedUrls([...customs])} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
-                  Select all
-                </button>
                 <button type="button" className="action-btn" onClick={() => setSelectedUrls([])} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
                   Clear selection
                 </button>
-                <button type="button" className="action-btn secondary" onClick={resetModes} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
+                <button type="button" className="action-btn secondary" onClick={cancelReorder} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
                   Cancel
                 </button>
-                <button type="button" className="action-btn primary" onClick={() => setReorderMode(false)} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
+                <button type="button" className="action-btn primary" onClick={doneReorder} style={{ padding: '6px 12px', fontSize: '0.9em' }}>
                   Done
                 </button>
               </>
@@ -507,7 +564,7 @@ export default function CharacterPage() {
                   </svg>
                   Delete
                 </button>
-                <button type="button" className="action-btn" onClick={() => { resetModes(); setReorderMode(true) }} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
+                <button type="button" className="action-btn" onClick={enterReorderMode} style={{ padding: '6px 12px', fontSize: '0.9em', marginRight: '5px' }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px', verticalAlign: 'text-bottom' }}>
                     <polyline points="5 9 2 12 5 15" />
                     <polyline points="9 5 12 2 15 5" />
@@ -538,7 +595,8 @@ export default function CharacterPage() {
         </div>
         {reorderMode && (
           <p className="reorder-mode-hint">
-            Click images to select multiple, then drag any selected image to move the whole group at once. Or drag without selecting to move a single image.
+            <strong>Drag one image</strong> to move it to a new position. The page scrolls automatically when you drag near the top or bottom of the screen.{' '}
+            <strong>To move several at once:</strong> click images to select them (or use Clear selection), then drag any selected image — the whole group moves together.
           </p>
         )}
         <input ref={customInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddCustomImage} disabled={!!customUploadProgress} />
