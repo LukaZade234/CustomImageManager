@@ -49,6 +49,12 @@ export const useStore = create((set, get) => ({
     try {
       const data = await apiClient.getCustomImages()
       set({ customImages: data || {} })
+      try {
+        const lastUpd = await apiClient.getLastUpdated()
+        if (lastUpd && typeof lastUpd === 'object') set({ lastUpdated: lastUpd })
+      } catch {
+        /* keep existing lastUpdated */
+      }
     } catch (e) {
       set({ customImages: {} })
     }

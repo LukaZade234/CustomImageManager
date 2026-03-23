@@ -19,6 +19,8 @@ const SORT_OPTIONS = [
 export default function CustomsPage() {
   const characters = useStore((s) => s.characters)
   const customImages = useStore((s) => s.customImages)
+  /** Unix seconds per character — updated when customs change (server `last_updated`). */
+  const lastUpdated = useStore((s) => s.lastUpdated)
   const [search, setSearch] = useState('')
   const [searchMode, setSearchMode] = useState('name')
   const [sort, setSort] = useState('recent')
@@ -31,9 +33,11 @@ export default function CustomsPage() {
     const entries = Object.entries(customImages).filter(([, urls]) => urls?.length > 0)
     return entries.map(([name, urls]) => {
       const char = characters.find((c) => c.name === name) || { name, series: '', rank: '' }
-      return { ...char, customCount: urls.length, customUrls: urls }
+      const ts = lastUpdated[name]
+      const lastModified = typeof ts === 'number' && Number.isFinite(ts) ? ts : 0
+      return { ...char, customCount: urls.length, customUrls: urls, lastModified }
     })
-  }, [customImages, characters])
+  }, [customImages, characters, lastUpdated])
 
   const searchFiltered = useMemo(() => {
     if (!search.trim()) return baseCustomsList
@@ -46,7 +50,7 @@ export default function CustomsPage() {
 
   const customsList = useMemo(() => {
     const filtered = [...searchFiltered]
-    if (sort === 'recent') filtered.sort((a, b) => b.customCount - a.customCount)
+    if (sort === 'recent') filtered.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0))
     if (sort === 'rank_asc') filtered.sort((a, b) => (parseInt(a.rank) || 9999) - (parseInt(b.rank) || 9999))
     if (sort === 'name_asc') filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
     if (sort === 'name_desc') filtered.sort((a, b) => (b.name || '').localeCompare(a.name || ''))
