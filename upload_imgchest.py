@@ -1,4 +1,5 @@
 import requests
+import re
 import sys
 import os
 import csv
@@ -130,6 +131,32 @@ def _safe_import_image_url(url):
         return False
 
 
+def _request_headers_for_image_import(url):
+    """
+    Headers for fetching remote images. Pixiv CDN (pximg.net) returns 403 without a pixiv Referer.
+    """
+    headers = {
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+            '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        ),
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8',
+    }
+    try:
+        host = (urlparse(url).hostname or '').lower()
+        if host.endswith('pximg.net') or host.endswith('pixiv.net') or host.endswith('pixiv.me'):
+            # Per-artwork Referer when path includes Pixiv illustration id (e.g. .../119107915_p0.jpg)
+            m = re.search(r'/(\d{6,})_p\d+', url)
+            if m:
+                headers['Referer'] = f'https://www.pixiv.net/artworks/{m.group(1)}'
+            else:
+                headers['Referer'] = 'https://www.pixiv.net/'
+    except Exception:
+        pass
+    return headers
+
+
 def _guess_ext_from_response(content_type, final_url):
     ct = (content_type or '').lower()
     if 'png' in ct:
@@ -159,13 +186,7 @@ def _fetch_image_from_url_for_import(url):
     r = requests.get(
         url,
         timeout=60,
-        headers={
-            'User-Agent': (
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            ),
-            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-        },
+        headers=_request_headers_for_image_import(url),
         allow_redirects=True,
         stream=True,
     )

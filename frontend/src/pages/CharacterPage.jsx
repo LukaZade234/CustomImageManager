@@ -425,15 +425,22 @@ export default function CharacterPage() {
   }
 
   const runImportFromUrls = async (urls) => {
-    const list = dedupeImageUrls(urls)
-    if (!list.length) return
+    const deduped = dedupeImageUrls(urls)
+    if (!deduped.length) return
     if (customUploadLockRef.current) {
       addToast('An upload is already in progress', 'info')
       return
     }
+    // Web drag often yields duplicate URLs for the same image; max 1 import per web drop only.
+    const list = deduped.slice(0, 1)
     customUploadLockRef.current = true
-    setCustomUploadProgress({ phase: 'uploading', current: 1, total: list.length })
-    addToast(`Importing ${list.length} image${list.length !== 1 ? 's' : ''} from the web…`, 'info')
+    setCustomUploadProgress({ phase: 'uploading', current: 1, total: 1 })
+    addToast(
+      deduped.length > 1
+        ? 'Importing one image from the web (extra URLs ignored)…'
+        : 'Importing image from the web…',
+      'info'
+    )
     try {
       const res = await apiClient.importCustomImagesFromUrls(name, list)
       await loadCustomImages()
@@ -441,12 +448,10 @@ export default function CharacterPage() {
         res._partialErrors.forEach((msg) => addToast(`Skipped: ${msg}`, 'error'))
       }
       const n = (res && res.links && res.links.length) || 0
-      if (n === list.length) {
-        addToast(`${n} image${n !== 1 ? 's' : ''} imported from the web.`, 'success')
-      } else if (n > 0) {
-        addToast(`${n} of ${list.length} imported. Some URLs failed — check alerts.`, 'error')
+      if (n >= 1) {
+        addToast('Image imported from the web.', 'success')
       } else {
-        addToast('Could not import from those URLs.', 'error')
+        addToast('Could not import from that URL.', 'error')
       }
     } catch (err) {
       addToast(err.message || 'Import failed', 'error')
