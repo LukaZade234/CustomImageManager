@@ -414,23 +414,30 @@ export default function CharacterPage() {
     e.preventDefault()
     e.stopPropagation()
     setCustomDragOver(false)
+    // In-flight HTML5 reorder uses drag/drop on gallery items; ignore stray drops on the section chrome
+    if (reorderMode && reorderDragIndices) return
+
     if (customUploadLockRef.current) {
       addToast('An upload is already in progress', 'info')
       return
     }
-    const files = Array.from(e.dataTransfer.files || []).filter((f) => isImageFileLike(f))
+    const raw = e.dataTransfer.files
+    const files = Array.from(raw || []).filter((f) => isImageFileLike(f))
     if (!files.length) {
-      addToast('Drop image files only (PNG, JPEG, WebP, …)', 'info')
+      if (raw && raw.length > 0) {
+        addToast('Drop image files only (PNG, JPEG, WebP, …)', 'info')
+      }
       return
     }
     await runCustomUpload(files)
   }
 
+  /** OS file drags often omit `Files` in types until drop; `dropEffect: none` blocks the drop event — only use move for in-gallery reorder. */
   const handleCustomSectionDragOver = (e) => {
     e.preventDefault()
     const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
-    e.dataTransfer.dropEffect = fileDrag ? 'copy' : 'none'
-    // Always highlight while dragging over the zone (file detection can miss OS quirks; border is UX-only)
+    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag
+    e.dataTransfer.dropEffect = reorderInternal ? 'move' : 'copy'
     setCustomDragOver(true)
   }
 
@@ -513,16 +520,17 @@ export default function CharacterPage() {
   }
 
   const onDragOver = (e, index) => {
-    if (dataTransferIsFileDrag(e.dataTransfer)) {
+    const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
+    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag
+    if (reorderInternal) {
       e.preventDefault()
-      e.dataTransfer.dropEffect = 'copy'
+      e.dataTransfer.dropEffect = 'move'
+      dragOverRef.current = index
+      setReorderDropTargetIndex(index)
       return
     }
-    if (!reorderMode) return
     e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    dragOverRef.current = index
-    setReorderDropTargetIndex(index)
+    e.dataTransfer.dropEffect = 'copy'
   }
 
   const onDragEnd = () => {
@@ -550,15 +558,9 @@ export default function CharacterPage() {
 
   const onGalleryDragOver = (e) => {
     const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
-    if (reorderMode && reorderDragIndices && !fileDrag) {
-      e.preventDefault()
-      e.dataTransfer.dropEffect = 'move'
-      return
-    }
-    if (fileDrag) {
-      e.preventDefault()
-      e.dataTransfer.dropEffect = 'copy'
-    }
+    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag
+    e.preventDefault()
+    e.dataTransfer.dropEffect = reorderInternal ? 'move' : 'copy'
   }
 
   const openModal = (index) => {
@@ -833,6 +835,7 @@ export default function CharacterPage() {
               <img
                 src={getImageUrl(url)}
                 alt=""
+                draggable={false}
                 className="custom-image-full"
                 onClick={() => !aiMode && !deleteMode && !downloadMode && !reorderMode && openModal(idx + 1)}
               />
