@@ -5,6 +5,68 @@
 
 const HTTP_URL_RE = /^https?:\/\//i
 
+/** Query params that are safe to ignore when comparing “same image” URLs (tracking / cache-bust noise). */
+const TRACKING_QUERY_PARAMS = new Set([
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'fbclid',
+  'gclid',
+  '_ga',
+  'mc_eid',
+  'igshid',
+  'ref',
+  'ref_src',
+  'spm',
+  'spm_id',
+])
+
+/**
+ * Normalize URL for deduping (fragment + common tracking params). Same logical image often appears
+ * with different query strings across text/uri-list vs HTML.
+ */
+export function canonicalImageUrlKey(href) {
+  if (!href || typeof href !== 'string') return ''
+  try {
+    const u = new URL(href.trim())
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return href.trim()
+    u.hash = ''
+    const toDelete = []
+    u.searchParams.forEach((_, k) => {
+      if (TRACKING_QUERY_PARAMS.has(k.toLowerCase())) toDelete.push(k)
+    })
+    toDelete.forEach((k) => u.searchParams.delete(k))
+    const entries = [...u.searchParams.entries()]
+    entries.sort((a, b) => a[0].localeCompare(b[0]) || String(a[1]).localeCompare(String(b[1])))
+    u.search = ''
+    for (const [k, v] of entries) {
+      u.searchParams.append(k, v)
+    }
+    return u.href
+  } catch {
+    return href.trim().split('#')[0]
+  }
+}
+
+/**
+ * @param {string[]} urls
+ * @returns {string[]} first occurrence per canonical key, order preserved
+ */
+export function dedupeImageUrls(urls) {
+  const seen = new Set()
+  const out = []
+  for (const raw of urls) {
+    if (!raw || typeof raw !== 'string') continue
+    const key = canonicalImageUrlKey(raw)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(raw)
+  }
+  return out
+}
+
 function normalizeHttpUrl(s) {
   if (!s || typeof s !== 'string') return null
   const u = s.trim().split(/\s/)[0].split('#')[0]
@@ -80,7 +142,7 @@ export function extractImageUrlsFromDataTransfer(dt) {
     /* ignore */
   }
 
-  return [...out]
+  return dedupeImageUrls([...out])
 }
 
 /** Types present during dragover (cannot rely on getData until drop). */

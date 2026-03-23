@@ -7,7 +7,7 @@ import io
 import socket
 import ipaddress
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 # Force UTF-8 for stdout/stderr to fix Windows console encoding errors
 if sys.platform.startswith('win'):
@@ -34,6 +34,42 @@ ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
 MAX_CHAR_NAME_LENGTH = 200
 MAX_SERIES_LENGTH = 300
 MAX_RANK_LENGTH = 50
+
+# Match frontend dragImageUrls.js — strip when deduping web import batches
+_IMPORT_URL_TRACKING_PARAMS = frozenset({
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+    'fbclid', 'gclid', '_ga', 'mc_eid', 'igshid', 'ref', 'ref_src', 'spm', 'spm_id',
+})
+
+
+def _canonical_url_key_for_dedup(url):
+    """Fragment + tracking params removed for stable equality (same image, different query strings)."""
+    try:
+        p = urlparse(url)
+        if p.scheme not in ('http', 'https'):
+            return (url or '').strip()
+        netloc = (p.netloc or '').lower()
+        pairs = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
+                 if k.lower() not in _IMPORT_URL_TRACKING_PARAMS]
+        pairs.sort(key=lambda x: (x[0].lower(), x[1]))
+        query = urlencode(pairs)
+        return urlunparse((p.scheme, netloc, p.path, p.params, query, ''))
+    except Exception:
+        return (url or '').split('#')[0].strip()
+
+
+def _dedupe_import_urls_preserve_order(urls):
+    seen = set()
+    out = []
+    for u in urls:
+        if not u:
+            continue
+        key = _canonical_url_key_for_dedup(u)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(u)
+    return out
 
 
 def _allowed_image_proxy_url(url):
@@ -608,7 +644,8 @@ def import_custom_images_from_urls():
         urls = data.get('urls')
         if not isinstance(urls, list) or not urls:
             return jsonify({'error': 'urls must be a non-empty array'}), 400
-        urls = [str(u).strip() for u in urls if u][:MAX_IMPORT_URLS]
+        urls = [str(u).strip() for u in urls if u]
+        urls = _dedupe_import_urls_preserve_order(urls)[:MAX_IMPORT_URLS]
         if not urls:
             return jsonify({'error': 'No valid URLs'}), 400
 

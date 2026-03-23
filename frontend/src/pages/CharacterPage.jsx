@@ -5,7 +5,7 @@ import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '../utils/downloadCustomImages'
-import { extractImageUrlsFromDataTransfer, dataTransferHasWebImageDrag } from '../utils/dragImageUrls'
+import { extractImageUrlsFromDataTransfer, dataTransferHasWebImageDrag, dedupeImageUrls } from '../utils/dragImageUrls'
 
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
@@ -75,6 +75,19 @@ function moveGroupInArray(arr, fromIndices, toIndex) {
 function ordersEqual(a, b) {
   if (a.length !== b.length) return false
   return a.every((u, i) => u === b[i])
+}
+
+/** Some browsers list the same file more than once in a single drop. */
+function dedupeFilesByIdentity(fileList) {
+  const seen = new Set()
+  const out = []
+  for (const f of fileList) {
+    const key = `${f.name}\0${f.size}\0${f.lastModified}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(f)
+  }
+  return out
 }
 
 export default function CharacterPage() {
@@ -339,7 +352,7 @@ export default function CharacterPage() {
   }
 
   const runCustomUpload = async (fileList) => {
-    const list = Array.from(fileList).filter((f) => isImageFileLike(f))
+    const list = dedupeFilesByIdentity(Array.from(fileList)).filter((f) => isImageFileLike(f))
     if (!list.length) {
       addToast('No image files to upload', 'error')
       return
@@ -412,7 +425,7 @@ export default function CharacterPage() {
   }
 
   const runImportFromUrls = async (urls) => {
-    const list = [...new Set(urls)].filter(Boolean)
+    const list = dedupeImageUrls(urls)
     if (!list.length) return
     if (customUploadLockRef.current) {
       addToast('An upload is already in progress', 'info')
