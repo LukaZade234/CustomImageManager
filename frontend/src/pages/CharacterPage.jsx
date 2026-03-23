@@ -9,6 +9,28 @@ import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '..
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
 
+const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|bmp|svg|avif|heic|heif|ico)$/i
+
+/** MIME image/* or empty type with image extension (OS drag often omits MIME on Linux). */
+function isImageFileLike(file) {
+  if (!file) return false
+  if (file.type && file.type.startsWith('image/')) return true
+  if (typeof file.name === 'string' && IMAGE_EXT_RE.test(file.name)) return true
+  return false
+}
+
+function dataTransferIsFileDrag(dt) {
+  if (!dt) return false
+  try {
+    const { types } = dt
+    if (types && typeof types.includes === 'function') return types.includes('Files')
+    if (types && typeof types.contains === 'function') return types.contains('Files')
+    return Array.from(types || []).includes('Files')
+  } catch {
+    return false
+  }
+}
+
 function adjustDropTarget(toIndex, pickedSet, len) {
   if (len <= 0) return 0
   let t = toIndex
@@ -294,7 +316,7 @@ export default function CharacterPage() {
     e.preventDefault()
     setDragOver(false)
     const file = e.dataTransfer.files?.[0]
-    if (!file?.type.startsWith('image/')) return
+    if (!isImageFileLike(file)) return
     const fd = new FormData()
     fd.append('file', file)
     fd.append('character_name', name)
@@ -305,7 +327,7 @@ export default function CharacterPage() {
   }
 
   const runCustomUpload = async (fileList) => {
-    const list = Array.from(fileList).filter((f) => f.type.startsWith('image/'))
+    const list = Array.from(fileList).filter((f) => isImageFileLike(f))
     if (!list.length) {
       addToast('No image files to upload', 'error')
       return
@@ -379,14 +401,35 @@ export default function CharacterPage() {
 
   const handleCustomDrop = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
     setCustomDragOver(false)
     if (customUploadLockRef.current) {
       addToast('An upload is already in progress', 'info')
       return
     }
-    const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'))
-    if (!files.length) return
+    const files = Array.from(e.dataTransfer.files || []).filter((f) => isImageFileLike(f))
+    if (!files.length) {
+      addToast('Drop image files only (PNG, JPEG, WebP, …)', 'info')
+      return
+    }
     await runCustomUpload(files)
+  }
+
+  const handleCustomSectionDragOver = (e) => {
+    e.preventDefault()
+    if (dataTransferIsFileDrag(e.dataTransfer)) {
+      e.dataTransfer.dropEffect = 'copy'
+      setCustomDragOver(true)
+    } else {
+      e.dataTransfer.dropEffect = 'none'
+      setCustomDragOver(false)
+    }
+  }
+
+  const handleCustomSectionDragLeave = (e) => {
+    const next = e.relatedTarget
+    if (next && e.currentTarget.contains(next)) return
+    setCustomDragOver(false)
   }
 
   const handleDownloadSelected = async () => {
@@ -462,6 +505,11 @@ export default function CharacterPage() {
   }
 
   const onDragOver = (e, index) => {
+    if (dataTransferIsFileDrag(e.dataTransfer)) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+      return
+    }
     if (!reorderMode) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
@@ -493,9 +541,16 @@ export default function CharacterPage() {
   }
 
   const onGalleryDragOver = (e) => {
-    if (!reorderMode || !reorderDragIndices) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
+    const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
+    if (reorderMode && reorderDragIndices && !fileDrag) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      return
+    }
+    if (fileDrag) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
   }
 
   const openModal = (index) => {
@@ -591,8 +646,8 @@ export default function CharacterPage() {
       <div
         id="customImagesSection"
         className={customDragOver ? 'drag-over' : ''}
-        onDragOver={(e) => { e.preventDefault(); setCustomDragOver(true) }}
-        onDragLeave={() => setCustomDragOver(false)}
+        onDragOver={handleCustomSectionDragOver}
+        onDragLeave={handleCustomSectionDragLeave}
         onDrop={handleCustomDrop}
         style={{ display: 'block' }}
       >
