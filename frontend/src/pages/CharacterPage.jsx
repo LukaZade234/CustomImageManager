@@ -22,10 +22,21 @@ function isImageFileLike(file) {
 function dataTransferIsFileDrag(dt) {
   if (!dt) return false
   try {
-    const { types } = dt
-    if (types && typeof types.includes === 'function') return types.includes('Files')
-    if (types && typeof types.contains === 'function') return types.contains('Files')
-    return Array.from(types || []).includes('Files')
+    const { types, items } = dt
+    // DOMStringList (Firefox / older WebKit): has .contains, not .includes — check contains first
+    if (types) {
+      if (typeof types.contains === 'function' && types.contains('Files')) return true
+      if (typeof types.includes === 'function' && types.includes('Files')) return true
+      const typeArr = Array.from(types)
+      if (typeArr.includes('Files')) return true
+      if (typeArr.includes('application/x-moz-file')) return true
+    }
+    if (items && items.length) {
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') return true
+      }
+    }
+    return false
   } catch {
     return false
   }
@@ -417,13 +428,10 @@ export default function CharacterPage() {
 
   const handleCustomSectionDragOver = (e) => {
     e.preventDefault()
-    if (dataTransferIsFileDrag(e.dataTransfer)) {
-      e.dataTransfer.dropEffect = 'copy'
-      setCustomDragOver(true)
-    } else {
-      e.dataTransfer.dropEffect = 'none'
-      setCustomDragOver(false)
-    }
+    const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
+    e.dataTransfer.dropEffect = fileDrag ? 'copy' : 'none'
+    // Always highlight while dragging over the zone (file detection can miss OS quirks; border is UX-only)
+    setCustomDragOver(true)
   }
 
   const handleCustomSectionDragLeave = (e) => {
