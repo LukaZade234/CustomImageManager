@@ -4,6 +4,9 @@ import os
 import csv
 import json
 import io
+import socket
+import ipaddress
+import uuid
 from urllib.parse import urlparse
 
 # Force UTF-8 for stdout/stderr to fix Windows console encoding errors
@@ -21,6 +24,8 @@ import db
 
 # Max file size (30MB) - reject larger files to avoid memory issues
 MAX_FILE_SIZE = 30 * 1024 * 1024
+# Drag-from-web: max image URLs per request
+MAX_IMPORT_URLS = 20
 
 # Allowed image extensions
 ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
@@ -41,6 +46,186 @@ def _allowed_image_proxy_url(url):
         return h == 'imgchest.com' or h.endswith('.imgchest.com')
     except Exception:
         return False
+
+
+def _host_resolves_only_to_public_ips(hostname):
+    """Block SSRF: reject if any resolved address is loopback, private, link-local, etc."""
+    try:
+        hostname = (hostname or '').lower().rstrip('.')
+        if not hostname or hostname == 'localhost':
+            return False
+        infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        for res in infos:
+            addr = res[4][0]
+            ip = ipaddress.ip_address(addr)
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                return False
+            if ip.is_reserved or ip.is_multicast:
+                return False
+    except Exception:
+        return False
+    return True
+
+
+def _safe_import_image_url(url):
+    """
+    Allow https/http image URLs from the public internet for drag-from-web import.
+    Stricter than ImgChest-only proxy: still blocks obvious SSRF targets.
+    """
+    try:
+        p = urlparse(url)
+        if p.scheme not in ('http', 'https'):
+            return False
+        if p.username or p.password:
+            return False
+        h = (p.hostname or '').lower()
+        if not h:
+            return False
+        if h in ('localhost', '127.0.0.1', '::1', '0.0.0.0'):
+            return False
+        if h.endswith('.local') or h.endswith('.localhost'):
+            return False
+        if h.startswith('169.254.'):  # link-local literal in hostname (unusual)
+            return False
+        if not _host_resolves_only_to_public_ips(h):
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def _guess_ext_from_response(content_type, final_url):
+    ct = (content_type or '').lower()
+    if 'png' in ct:
+        return '.png'
+    if 'jpeg' in ct or 'jpg' in ct:
+        return '.jpg'
+    if 'gif' in ct:
+        return '.gif'
+    if 'webp' in ct:
+        return '.webp'
+    if 'bmp' in ct:
+        return '.bmp'
+    path = urlparse(final_url).path.lower()
+    for ext in ALLOWED_IMAGE_EXTENSIONS:
+        if path.endswith(ext):
+            return ext
+    return '.png'
+
+
+def _fetch_image_from_url_for_import(url):
+    """
+    Download remote image to a temp file. Validates URL before and after redirects.
+    Returns (temp_path, display_filename) or raises ValueError.
+    """
+    if not _safe_import_image_url(url):
+        raise ValueError('URL not allowed or blocked (private hosts are not permitted)')
+    r = requests.get(
+        url,
+        timeout=60,
+        headers={
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            ),
+            'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+        allow_redirects=True,
+        stream=True,
+    )
+    if not _safe_import_image_url(r.url):
+        raise ValueError('Redirect target is not allowed')
+    if r.status_code != 200:
+        raise ValueError(f'Image server returned HTTP {r.status_code}')
+    total = 0
+    chunks = []
+    for chunk in r.iter_content(chunk_size=65536):
+        if chunk:
+            total += len(chunk)
+            if total > MAX_FILE_SIZE + 2 * 1024 * 1024:
+                raise ValueError('Image too large')
+            chunks.append(chunk)
+    raw = b''.join(chunks)
+    if not raw:
+        raise ValueError('Empty response')
+    ext = _guess_ext_from_response(r.headers.get('Content-Type', ''), r.url)
+    safe = f'web_import_{uuid.uuid4().hex[:12]}{ext}'
+    temp_path = os.path.join('.', 'temp_custom_' + safe)
+    with open(temp_path, 'wb') as f:
+        f.write(raw)
+    return temp_path, safe
+
+
+def _run_single_custom_upload_from_temp(temp_path, display_filename):
+    """
+    Validate, convert, upload one temp file to ImgChest.
+    Returns (direct_link, None) on success, or (None, error_message).
+    Removes temp files when done.
+    """
+    conversion_created_new_file = False
+    final_path = temp_path
+    try:
+        file_size = os.path.getsize(temp_path)
+        file_size_mb = file_size / (1024 * 1024)
+        print(f"[UPLOAD] temp file: {temp_path} ({file_size_mb:.2f} MB)", flush=True)
+
+        if file_size > MAX_FILE_SIZE:
+            print(f"[UPLOAD] REJECT: {display_filename} too large", flush=True)
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            return None, f"{display_filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)"
+
+        ok, val_err = validate_image_file(temp_path)
+        if not ok:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            return None, f"{display_filename}: {val_err}"
+
+        filename_lower = display_filename.lower()
+        if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
+            print(f"[UPLOAD] converting {display_filename} to PNG", flush=True)
+            converted_path, convert_error = convert_to_png(temp_path)
+            if converted_path:
+                final_path = converted_path
+                conversion_created_new_file = True
+                print(f"[UPLOAD] conversion OK, using {final_path}", flush=True)
+            else:
+                err_msg = f"{display_filename}: {convert_error}" if convert_error else f"{display_filename}: Failed to convert to PNG"
+                print(f"[UPLOAD] conversion FAILED for {display_filename}: {convert_error}", flush=True)
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                return None, err_msg
+        else:
+            print(f"[UPLOAD] skipping conversion (already {filename_lower[-4:]}), using as-is", flush=True)
+
+        try:
+            print(f"[UPLOAD] uploading to ImgChest: {final_path}", flush=True)
+            result = upload_to_imgchest(final_path)
+            if result:
+                post_link, direct_link = result
+                print(f"[UPLOAD] SUCCESS: {display_filename}", flush=True)
+                return direct_link, None
+            print(f"[UPLOAD] FAILED (ImgChest): {display_filename}", flush=True)
+            return None, f"Failed to upload {display_filename}"
+        except ImgChestError as e:
+            print(f"[UPLOAD] ImgChest error: {e}", flush=True)
+            return None, str(e)
+        except Exception as e:
+            print(f"[UPLOAD] EXCEPTION: {display_filename}: {type(e).__name__}: {e}", flush=True)
+            return None, f"Error uploading {display_filename}: {str(e)}"
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+                print(f"[UPLOAD] cleaned temp: {temp_path}", flush=True)
+            except Exception as cleanup_e:
+                print(f"[UPLOAD] cleanup warning: could not remove {temp_path}: {cleanup_e}", flush=True)
+        if conversion_created_new_file and os.path.exists(final_path):
+            try:
+                os.remove(final_path)
+                print(f"[UPLOAD] cleaned converted: {final_path}", flush=True)
+            except Exception as cleanup_e:
+                print(f"[UPLOAD] cleanup warning: could not remove {final_path}: {cleanup_e}", flush=True)
 
 
 def _validate_character_name(name):
@@ -375,77 +560,14 @@ def add_custom_image():
             # Save temporarily
             temp_path = os.path.join('.', 'temp_custom_' + file.filename)
             file.save(temp_path)
-            file_size = os.path.getsize(temp_path)
-            file_size_mb = file_size / (1024 * 1024)
-            print(f"[UPLOAD] saved temp: {temp_path} ({file_size_mb:.2f} MB)", flush=True)
 
-            if file_size > MAX_FILE_SIZE:
-                print(f"[UPLOAD] REJECT: {file.filename} too large ({file_size_mb:.2f} MB > {MAX_FILE_SIZE // (1024*1024)} MB)", flush=True)
-                errors.append(f"{file.filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)")
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-                continue
-
-            ok, val_err = validate_image_file(temp_path)
-            if not ok:
-                errors.append(f"{file.filename}: {val_err}")
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-                continue
-
-            conversion_created_new_file = False
-            final_path = temp_path
-            
-            # Convert to PNG if not already PNG or GIF
-            filename_lower = file.filename.lower()
-            if not filename_lower.endswith('.png') and not filename_lower.endswith('.gif'):
-                print(f"[UPLOAD] converting {file.filename} to PNG", flush=True)
-                converted_path, convert_error = convert_to_png(temp_path)
-                if converted_path:
-                    final_path = converted_path
-                    conversion_created_new_file = True
-                    print(f"[UPLOAD] conversion OK, using {final_path}", flush=True)
-                else:
-                    err_msg = f"{file.filename}: {convert_error}" if convert_error else f"{file.filename}: Failed to convert to PNG"
-                    print(f"[UPLOAD] conversion FAILED for {file.filename}: {convert_error}", flush=True)
-                    errors.append(err_msg)
-                    if os.path.exists(temp_path):
-                        os.remove(temp_path)
-                    continue
+            direct_link, one_err = _run_single_custom_upload_from_temp(temp_path, file.filename)
+            if direct_link:
+                uploaded_links.append(direct_link)
+                print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {file.filename}", flush=True)
             else:
-                print(f"[UPLOAD] skipping conversion (already {filename_lower[-4:]}), using as-is", flush=True)
-            
-            try:
-                print(f"[UPLOAD] uploading to ImgChest: {final_path}", flush=True)
-                result = upload_to_imgchest(final_path)
-                
-                if result:
-                    post_link, direct_link = result
-                    uploaded_links.append(direct_link)
-                    print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {file.filename}", flush=True)
-                else:
-                    errors.append(f"Failed to upload {file.filename}")
-                    print(f"[UPLOAD] file {processed}/{file_count} FAILED (ImgChest): {file.filename}", flush=True)
-            except ImgChestError as e:
-                errors.append(str(e))
-                print(f"[UPLOAD] file {processed}/{file_count} ImgChest error: {e}", flush=True)
-            except Exception as e:
-                errors.append(f"Error uploading {file.filename}: {str(e)}")
-                print(f"[UPLOAD] file {processed}/{file_count} EXCEPTION: {file.filename}: {type(e).__name__}: {e}", flush=True)
-            finally:
-                # Clean up files
-                if os.path.exists(temp_path):
-                    try:
-                        os.remove(temp_path)
-                        print(f"[UPLOAD] cleaned temp: {temp_path}", flush=True)
-                    except Exception as cleanup_e:
-                        print(f"[UPLOAD] cleanup warning: could not remove {temp_path}: {cleanup_e}", flush=True)
-                if conversion_created_new_file and os.path.exists(final_path):
-                    try:
-                        os.remove(final_path)
-                        print(f"[UPLOAD] cleaned converted: {final_path}", flush=True)
-                    except Exception as cleanup_e:
-                        print(f"[UPLOAD] cleanup warning: could not remove {final_path}: {cleanup_e}", flush=True)
+                errors.append(one_err or 'Unknown error')
+                print(f"[UPLOAD] file {processed}/{file_count} failed: {file.filename}", flush=True)
 
         print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
         if not uploaded_links:
@@ -472,6 +594,68 @@ def add_custom_image():
             'error': str(e),
             'details': [f'Server error: {type(e).__name__}']
         }), 500
+
+
+@app.route('/api/import-custom-images-from-urls', methods=['POST'])
+def import_custom_images_from_urls():
+    """Fetch image URLs server-side (drag-from-web: Pinterest, etc.) and add as custom images."""
+    try:
+        data = request.get_json(silent=True) or {}
+        char_name = (data.get('character_name') or '').strip()
+        ok, err = _validate_character_name(char_name)
+        if not ok:
+            return jsonify({'error': err}), 400
+        urls = data.get('urls')
+        if not isinstance(urls, list) or not urls:
+            return jsonify({'error': 'urls must be a non-empty array'}), 400
+        urls = [str(u).strip() for u in urls if u][:MAX_IMPORT_URLS]
+        if not urls:
+            return jsonify({'error': 'No valid URLs'}), 400
+
+        uploaded_links = []
+        errors = []
+        for idx, url in enumerate(urls):
+            print(f"[IMPORT] fetching {idx + 1}/{len(urls)}: {url[:120]}...", flush=True)
+            try:
+                temp_path, display_filename = _fetch_image_from_url_for_import(url)
+            except ValueError as e:
+                errors.append(f"{url}: {e}")
+                continue
+            except Exception as e:
+                errors.append(f"{url}: {str(e)}")
+                continue
+            direct_link, one_err = _run_single_custom_upload_from_temp(temp_path, display_filename)
+            if direct_link:
+                uploaded_links.append(direct_link)
+            else:
+                errors.append(one_err or 'Unknown error')
+
+        print(f"[IMPORT] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
+        if not uploaded_links:
+            main_error = errors[0] if errors else 'No images were imported'
+            return jsonify({'error': main_error, 'details': errors}), 500
+
+        custom_data = db.get_custom_images()
+        if char_name not in custom_data:
+            custom_data[char_name] = []
+        custom_data[char_name].extend(uploaded_links)
+        db.set_custom_images(custom_data)
+        db.update_last_modified(char_name)
+        print(f"[IMPORT] updating custom_images for {char_name}, added {len(uploaded_links)} link(s)", flush=True)
+
+        return jsonify({
+            'success': True,
+            'message': f'{len(uploaded_links)} images added',
+            'links': uploaded_links,
+            'errors': errors
+        })
+    except Exception as e:
+        print(f"[IMPORT] EXCEPTION: {type(e).__name__}: {e}", flush=True)
+        return jsonify({
+            'error': str(e),
+            'details': [f'Server error: {type(e).__name__}']
+        }), 500
+
 
 @app.route('/api/custom-image/<path:char_name>', methods=['GET'])
 def get_custom_images(char_name):

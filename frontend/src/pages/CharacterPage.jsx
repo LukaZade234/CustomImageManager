@@ -5,6 +5,7 @@ import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '../utils/downloadCustomImages'
+import { extractImageUrlsFromDataTransfer, dataTransferHasWebImageDrag } from '../utils/dragImageUrls'
 
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
@@ -410,33 +411,75 @@ export default function CharacterPage() {
     if (customInputRef.current) customInputRef.current.value = ''
   }
 
+  const runImportFromUrls = async (urls) => {
+    const list = [...new Set(urls)].filter(Boolean)
+    if (!list.length) return
+    if (customUploadLockRef.current) {
+      addToast('An upload is already in progress', 'info')
+      return
+    }
+    customUploadLockRef.current = true
+    setCustomUploadProgress({ phase: 'uploading', current: 1, total: list.length })
+    addToast(`Importing ${list.length} image${list.length !== 1 ? 's' : ''} from the web…`, 'info')
+    try {
+      const res = await apiClient.importCustomImagesFromUrls(name, list)
+      await loadCustomImages()
+      if (res && Array.isArray(res._partialErrors) && res._partialErrors.length) {
+        res._partialErrors.forEach((msg) => addToast(`Skipped: ${msg}`, 'error'))
+      }
+      const n = (res && res.links && res.links.length) || 0
+      if (n === list.length) {
+        addToast(`${n} image${n !== 1 ? 's' : ''} imported from the web.`, 'success')
+      } else if (n > 0) {
+        addToast(`${n} of ${list.length} imported. Some URLs failed — check alerts.`, 'error')
+      } else {
+        addToast('Could not import from those URLs.', 'error')
+      }
+    } catch (err) {
+      addToast(err.message || 'Import failed', 'error')
+    } finally {
+      customUploadLockRef.current = false
+      setCustomUploadProgress(null)
+    }
+  }
+
   const handleCustomDrop = async (e) => {
     e.preventDefault()
     e.stopPropagation()
     setCustomDragOver(false)
-    // In-flight HTML5 reorder uses drag/drop on gallery items; ignore stray drops on the section chrome
-    if (reorderMode && reorderDragIndices) return
+
+    const urls = extractImageUrlsFromDataTransfer(e.dataTransfer)
+    const raw = e.dataTransfer.files
+    const files = Array.from(raw || []).filter((f) => isImageFileLike(f))
+
+    if (reorderMode && reorderDragIndices) {
+      if (urls.length === 0 && files.length === 0) return
+    }
 
     if (customUploadLockRef.current) {
       addToast('An upload is already in progress', 'info')
       return
     }
-    const raw = e.dataTransfer.files
-    const files = Array.from(raw || []).filter((f) => isImageFileLike(f))
-    if (!files.length) {
-      if (raw && raw.length > 0) {
-        addToast('Drop image files only (PNG, JPEG, WebP, …)', 'info')
-      }
+
+    if (files.length) {
+      await runCustomUpload(files)
       return
     }
-    await runCustomUpload(files)
+    if (urls.length) {
+      await runImportFromUrls(urls)
+      return
+    }
+    if (raw && raw.length > 0) {
+      addToast('Drop image files only (PNG, JPEG, WebP, …)', 'info')
+    }
   }
 
   /** OS file drags often omit `Files` in types until drop; `dropEffect: none` blocks the drop event — only use move for in-gallery reorder. */
   const handleCustomSectionDragOver = (e) => {
     e.preventDefault()
     const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
-    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag
+    const webDrag = dataTransferHasWebImageDrag(e.dataTransfer)
+    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag && !webDrag
     e.dataTransfer.dropEffect = reorderInternal ? 'move' : 'copy'
     setCustomDragOver(true)
   }
@@ -521,7 +564,8 @@ export default function CharacterPage() {
 
   const onDragOver = (e, index) => {
     const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
-    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag
+    const webDrag = dataTransferHasWebImageDrag(e.dataTransfer)
+    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag && !webDrag
     if (reorderInternal) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'move'
@@ -558,7 +602,8 @@ export default function CharacterPage() {
 
   const onGalleryDragOver = (e) => {
     const fileDrag = dataTransferIsFileDrag(e.dataTransfer)
-    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag
+    const webDrag = dataTransferHasWebImageDrag(e.dataTransfer)
+    const reorderInternal = reorderMode && reorderDragIndices && !fileDrag && !webDrag
     e.preventDefault()
     e.dataTransfer.dropEffect = reorderInternal ? 'move' : 'copy'
   }
@@ -799,7 +844,7 @@ export default function CharacterPage() {
         )}
         <input ref={customInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handleAddCustomImage} disabled={!!customUploadProgress} />
         <p style={{ textAlign: 'center', color: '#6c757d', margin: '10px 0', fontSize: '0.9em', border: '1px dashed #ccc', padding: '10px', borderRadius: '5px' }}>
-          Drag &amp; Drop images here or click &quot;Add Image&quot;
+          Drag &amp; drop files or images from the web (e.g. Pinterest) here, or click &quot;Add Image&quot;
         </p>
         {customUploadProgress && (
           <div className="custom-upload-progress" role="status" aria-live="polite">
