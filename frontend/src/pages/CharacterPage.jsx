@@ -567,7 +567,13 @@ export default function CharacterPage() {
     const urls = selectedUrls.length ? selectedUrls : customs
     const charName = editMode ? editName : char.name
     const cmd = `$ai ${charName} ${urls.map((u) => '$' + u).join(' ')}`
-    navigator.clipboard.writeText(cmd).then(() => addToast('Command copied to clipboard', 'success')).catch(() => addToast('Failed to copy', 'error'))
+    navigator.clipboard
+      .writeText(cmd)
+      .then(() => {
+        addToast('Command copied to clipboard', 'success')
+        setSelectedUrls([])
+      })
+      .catch(() => addToast('Failed to copy', 'error'))
   }
 
   const onDragStart = (e, index) => {

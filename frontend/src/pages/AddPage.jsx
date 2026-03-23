@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '../api'
 import { useStore } from '../store/useStore'
@@ -11,8 +11,19 @@ export default function AddPage() {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const characters = useStore((s) => s.characters)
+  const savedCharacters = useStore((s) => s.savedCharacters)
   const loadCharacters = useStore((s) => s.loadCharacters)
   const addToast = useStore((s) => s.addToast)
+
+  const seriesSuggestions = useMemo(() => {
+    const seen = new Set()
+    for (const c of [...characters, ...savedCharacters]) {
+      const s = (c.series || '').trim()
+      if (s) seen.add(s)
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  }, [characters, savedCharacters])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -60,6 +71,11 @@ export default function AddPage() {
           </div>
           <div className="edit-group full-width">
             <label htmlFor="addCharSeries">Series</label>
+            <datalist id="addCharSeriesSuggestions">
+              {seriesSuggestions.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
             <input
               id="addCharSeries"
               type="text"
@@ -67,6 +83,7 @@ export default function AddPage() {
               placeholder="Series Name"
               value={series}
               onChange={(e) => setSeries(e.target.value)}
+              list="addCharSeriesSuggestions"
               autoComplete="off"
             />
           </div>
