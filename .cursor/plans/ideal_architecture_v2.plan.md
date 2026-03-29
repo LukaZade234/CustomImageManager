@@ -866,7 +866,7 @@ Phases 1–4 focused on **security basics, DB-backed API, and React**. This sect
 
 #### Not done (recommended order)
 
-1. [ ] **Sanitize temp filenames** — `werkzeug.utils.secure_filename` (or equivalent) on all user-provided names before `temp_*` paths (path traversal hardening).
+1. [ ] **Sanitize temp filenames** — `werkzeug.utils.secure_filename` (or equivalent) on all user-provided names before `temp_`* paths (path traversal hardening).
 2. [ ] **Pin dependencies** — e.g. `pip-tools` or pinned `Pillow` major version in `requirements.txt`.
 3. [ ] `**GET /api/health` or `/health`** — cheap liveness/readiness for load balancers; avoid heavy POST routes for probes.
 4. [ ] **Minimal tests** — pytest for validation helpers, URL allowlists, and upload pre-guard behavior.
