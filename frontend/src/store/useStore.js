@@ -45,8 +45,10 @@ export const useStore = create((set, get) => ({
 
   loadSaved: async () => {
     try {
-      const saved = await apiClient.getSaved()
-      const lastUpd = await apiClient.getLastUpdated()
+      const [saved, lastUpd] = await Promise.all([
+        apiClient.getSaved(),
+        apiClient.getLastUpdated(),
+      ])
       set({ savedCharacters: saved || [], lastUpdated: lastUpd || {} })
       const sorted = [...(saved || [])].sort((a, b) => (lastUpd[b.name] || 0) - (lastUpd[a.name] || 0))
       set({ savedCharacters: sorted })

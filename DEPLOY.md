@@ -40,14 +40,29 @@ After the first deploy with `DATABASE_URL` set:
 1. Open the app’s **Console** (or run a one-off job)
 2. Run:
    ```bash
-   python migrate_to_db.py
-   python import_characters_to_db.py
+   python scripts/migrate_to_db.py
+   python scripts/import_characters_to_db.py
    ```
 3. Or run locally with `DATABASE_URL` set, then redeploy
 
 ## Step 6: Launch
 
 Click **Create Resources** or **Deploy** and wait for the build to finish.
+
+## Faster loads for users far from the server (CDN)
+
+The app runs in **one region** (e.g. London). Every API call pays full round-trip time to that region, which is noticeable for friends overseas.
+
+**What the app already does after deploy:**
+
+- **Gzip** on JSON and text responses (`flask-compress`).
+- **Long cache** on hashed JS/CSS under `/assets/` (Vite filenames include a content hash).
+- **No long cache** on the HTML shell so new deploys are picked up.
+- **Parallel fetches** where possible in the client (e.g. saved list + last-updated).
+
+**Biggest win for global users:** put a **CDN** in front of your domain (e.g. [Cloudflare](https://www.cloudflare.com/) free tier): proxy orange cloud, SSL, and cache **static** files. Point DNS at Cloudflare, then to your App Platform URL. That moves JS/CSS (and often the first HTML request) closer to the user. **API calls** (`/api/*`, `/custom_images.json`) still hit your origin unless you configure caching carefully—**do not** cache authenticated or user-specific JSON without understanding the tradeoffs.
+
+**Other options:** deploy the App Platform component in a **region closer to most users** (Settings → region), or accept higher latency for API-heavy pages until you add a lighter API or edge caching for public read-only data.
 
 ## Running Locally
 

@@ -15,6 +15,7 @@ if sys.platform.startswith('win'):
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from flask import Flask, request, jsonify, send_from_directory, abort, Response
+from flask_compress import Compress
 from flask_cors import CORS
 
 # Import utility functions
@@ -318,7 +319,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-produ
 _origins = os.environ.get('CORS_ORIGINS', '*')
 cors_origins = [o.strip() for o in _origins.split(',')] if _origins != '*' else '*'
 CORS(app, origins=cors_origins)
-
+Compress(app)
 
 @app.before_request
 def _guard_custom_image_upload_preprocess():
@@ -366,7 +367,10 @@ SPA_INDEX = os.path.join(SPA_DIR, 'index.html')
 @app.route('/character/<path:name>')
 def index(name=None):
     if os.path.exists(SPA_INDEX):
-        return send_from_directory(SPA_DIR, 'index.html')
+        resp = send_from_directory(SPA_DIR, 'index.html')
+        # Avoid stale SPA shell after deploy; hashed /assets/* are cached separately.
+        resp.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        return resp
     return (
         '<html><body><h1>Frontend not built</h1><p>Run the GitHub Action or: '
         '<code>cd frontend && npm install && npm run build</code></p></body></html>',
@@ -430,7 +434,8 @@ def download_image_proxy():
 def get_spa_assets(filename):
     assets_dir = os.path.join(SPA_DIR, 'assets')
     if os.path.exists(assets_dir):
-        return send_from_directory(assets_dir, filename)
+        # Vite emits content-hashed filenames — safe to cache for a year at the edge.
+        return send_from_directory(assets_dir, filename, max_age=31536000)
     abort(404)
 
 @app.route('/characters')
@@ -440,7 +445,7 @@ def get_characters():
         chars = db.get_characters()
         if chars is not None:
             return jsonify(chars)
-        return jsonify({'error': 'Character data not loaded. Run import_characters_to_db.py with your CSV/mapping backup.'}), 503
+        return jsonify({'error': 'Character data not loaded. Run scripts/import_characters_to_db.py with your CSV/mapping backup.'}), 503
     except Exception as e:
         print(f"Error reading characters: {e}")
         return jsonify({'error': str(e)}), 500
@@ -578,7 +583,7 @@ def add_character():
 
     try:
         if db.get_characters() is None:
-            return jsonify({'error': 'Characters not migrated to DB yet. Run import_characters_to_db.py first.'}), 500
+            return jsonify({'error': 'Characters not migrated to DB yet. Run scripts/import_characters_to_db.py first.'}), 500
         if not db.add_character(name, series, rank, image_url):
             return jsonify({'error': f'Character "{name}" already exists'}), 400
         db.update_last_modified(name)
@@ -841,7 +846,7 @@ def edit_character():
 
     try:
         if db.get_characters() is None:
-            return jsonify({'error': 'Characters not migrated to DB yet. Run import_characters_to_db.py first.'}), 500
+            return jsonify({'error': 'Characters not migrated to DB yet. Run scripts/import_characters_to_db.py first.'}), 500
         if not db.update_character(orig_name, new_name, series, rank):
             return jsonify({'error': 'Character not found'}), 404
     except Exception as e:
@@ -918,7 +923,7 @@ def set_main_image():
         post_link, direct_link = result
 
         if db.get_characters() is None:
-            return jsonify({'error': 'Character data not loaded. Run import_characters_to_db.py first.'}), 503
+            return jsonify({'error': 'Character data not loaded. Run scripts/import_characters_to_db.py first.'}), 503
         if db.set_main_image(char_name, direct_link):
             db.update_last_modified(char_name)
             return jsonify({'success': True, 'message': 'Main image updated', 'image_url': direct_link})

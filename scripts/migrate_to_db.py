@@ -5,15 +5,19 @@ One-time migration: copy JSON backups into PostgreSQL (kv_store).
 Requires DATABASE_URL. Point --dir or individual paths at a folder containing
 backup copies of the old files (or pass each file path).
 
-Example:
-  DATABASE_URL=postgresql://... python migrate_to_db.py --dir ./backup_from_git
+Example (from repository root):
+  DATABASE_URL=postgresql://... python scripts/migrate_to_db.py --dir ./backup_from_git
 """
 import argparse
 import json
 import os
 import sys
 
-import db
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+import db  # noqa: E402
 
 DEFAULT_NAMES = [
     ('custom_images', 'custom_images.json'),

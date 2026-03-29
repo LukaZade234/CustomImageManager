@@ -4,8 +4,8 @@ One-time import: CSV + optional mapping JSON into PostgreSQL characters kv_store
 
 Requires DATABASE_URL. Paths are required (no bundled CharName.csv in repo).
 
-Example:
-  DATABASE_URL=postgresql://... python import_characters_to_db.py \\
+Example (from repository root):
+  DATABASE_URL=postgresql://... python scripts/import_characters_to_db.py \\
     --csv /path/to/CharName.csv --mapping /path/to/character_image_mapping.json
 """
 import argparse
@@ -14,7 +14,11 @@ import json
 import os
 import sys
 
-import db
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+import db  # noqa: E402
 
 
 def main():

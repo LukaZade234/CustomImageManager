@@ -544,14 +544,14 @@ This guide assumes the **current progress** as the base and walks through implem
 ### Current State (Baseline)
 
 
-| Component        | Current                                                                                                                                         | File(s)                                                                                                              |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **DB**           | **Done:** [db.py](db.py) — PostgreSQL (when DATABASE_URL) + JSON fallback for `custom_images`, `saved_characters`, `last_updated`, `characters` | [db.py](db.py)                                                                                                       |
-| **Characters**   | ~~CharName.csv + character_image_mapping.json~~ **Done:** In DB (kv_store). API at `GET /api/characters`.                                       | [upload_imgchest.py](upload_imgchest.py), [app.js](app.js), [import_characters_to_db.py](import_characters_to_db.py) |
-| **ImgChest key** | ~~Hardcoded~~ **Done:** Now in env (`IMGCHEST_API_KEY`)                                                                                         | [imgchest_utils.py](imgchest_utils.py)                                                                               |
-| **GitHub sync**  | ~~Broken~~ **Removed:** All data in DB. No GitHub sync. `github_utils.py` unused.                                                               | —                                                                                                                    |
-| **Frontend**     | Vanilla JS (~2.3k lines), loads from `GET /api/characters`                                                                                      | [app.js](app.js), [upload.html](upload.html)                                                                         |
-| **Deployment**   | DigitalOcean App Platform + managed PostgreSQL (Neon)                                                                                           | [.do/app.yaml](.do/app.yaml)                                                                                         |
+| Component        | Current                                                                                                                                             | File(s)                                                                                                            |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **DB**           | **Done:** [db.py](db.py) — PostgreSQL only (`DATABASE_URL`); `kv_store` JSONB for `custom_images`, `saved_characters`, `last_updated`, `characters` | [db.py](db.py)                                                                                                     |
+| **Characters**   | ~~CharName.csv + character_image_mapping.json~~ **Done:** In DB (kv_store). API at `GET /api/characters`.                                           | [upload_imgchest.py](upload_imgchest.py), [scripts/import_characters_to_db.py](scripts/import_characters_to_db.py) |
+| **ImgChest key** | ~~Hardcoded~~ **Done:** Now in env (`IMGCHEST_API_KEY`)                                                                                             | [imgchest_utils.py](imgchest_utils.py)                                                                             |
+| **GitHub sync**  | ~~Broken~~ **Removed:** All data in DB. No GitHub sync. `github_utils.py` unused.                                                                   | —                                                                                                                  |
+| **Frontend**     | **Done:** React SPA in `frontend/` (Vite), Zustand, `GET /api/characters` + per-character custom image APIs                                         | [frontend/src](frontend/src)                                                                                       |
+| **Deployment**   | DigitalOcean App Platform + managed PostgreSQL (Neon)                                                                                               | [.do/app.yaml](.do/app.yaml)                                                                                       |
 
 
 ---
@@ -579,8 +579,8 @@ This guide assumes the **current progress** as the base and walks through implem
 
 **Step 2.2 — One-time import script** *(done)*
 
-- ~~**What:** Create `import_characters_to_db.py` that reads CharName.csv + character_image_mapping.json and inserts into `characters` table.~~
-- **Done:** [import_characters_to_db.py](import_characters_to_db.py) imports into kv_store `characters` key.
+- ~~**What:** Create `scripts/import_characters_to_db.py` that reads CharName.csv + character_image_mapping.json and inserts into `characters` table.~~
+- **Done:** [scripts/import_characters_to_db.py](scripts/import_characters_to_db.py) imports into kv_store `characters` key.
 
 **Step 2.3 — Migrate custom_images format** *(deferred)*
 
@@ -688,7 +688,7 @@ The 2.3k-line vanilla JS is unmaintainable. Deferring this phase tends to mean i
 
 **Step 6.4 — Migrate data**
 
-- **What:** Export from App Platform PostgreSQL, import into Droplet PostgreSQL. Or use `migrate_to_db.py` with new `DATABASE_URL`.
+- **What:** Export from App Platform PostgreSQL, import into Droplet PostgreSQL. Or use `scripts/migrate_to_db.py` with new `DATABASE_URL`.
 
 ---
 
@@ -824,6 +824,93 @@ Ideas beyond mobile; prioritize by impact vs effort.
 - **Retry** on failed image load (ImgChest / network) with one tap.
 - **Optimistic UI** for save/unsave where safe; rollback on error.
 - **Actionable API errors** — “Retry”, “Copy error details” (or request id) instead of raw text only.
+
+---
+
+## Production maturity — company-grade checklist
+
+*Cross-cutting quality bar (not the same as the £5 “ideal architecture” phases above). Use this to prioritize hardening and operability.*
+
+### How this relates to the phase table
+
+Phases 1–4 focused on **security basics, DB-backed API, and React**. This section tracks **maturity** items: observability, dependency hygiene, tests, auth, and schema—what many teams add as the product grows.
+
+### Status vs ideal (high level)
+
+
+| Area              | “Pro” target                                         | Current repo / deploy                                                                      |
+| ----------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| **Structure**     | Thin routes, services, blueprints                    | Monolithic `upload_imgchest.py` — acceptable for now                                       |
+| **Observability** | Structured logs, request IDs, metrics                | `print` + platform access logs                                                             |
+| **Errors**        | Stable JSON error shape, no stack to clients in prod | Mostly OK; mixed patterns                                                                  |
+| **Testing**       | Unit + integration tests on critical paths           | **None** in repo                                                                           |
+| **Dependencies**  | Pinned versions (lockfile / narrow ranges)           | **Loose** `>=` pins; Pillow unpinned                                                       |
+| **Data model**    | Normalized tables + migrations when needed           | **kv_store** JSON blobs — fine until scale                                                 |
+| **Auth & abuse**  | Authn/authz, rate limits                             | **Open** API; UA guard on upload route only                                                |
+| **Deploy**        | Health checks; spec matches production               | **Dockerfile** + `.do/app.yaml`; **live `run_command` confirmed** (2 workers, timeout 120) |
+
+
+### Prioritized checklist
+
+#### Done (implemented)
+
+- **ImgChest resilience** — connect/read timeouts, retries on 5xx/429, bounded error bodies (`imgchest_utils.py`).
+- **Upload pipeline** — size limits, PNG conversion, resize, Pillow resampling fallback (`image_utils.py`).
+- **PostgreSQL** — `DATABASE_URL` required for app data; connection retry + keepalive (`db.py`).
+- **SSRF-aware import** — URL allowlist + DNS checks for drag-from-web; ImgChest-only download proxy (`upload_imgchest.py`).
+- **CORS** — configurable via `CORS_ORIGINS` (tighten in production).
+- **Multipart ghost mitigation** — `before_request` on `POST /api/custom-image`: headers-only checks (multipart, non-empty `User-Agent`, non-zero length) before `request.form`.
+- **Gunicorn** — `--workers 2 --timeout 120` in **Dockerfile** and `.do/app.yaml`; live App Spec `run_command` confirmed.
+- **Werkzeug `FileStorage.filename` typing** — narrowed to `str` before path concat (`upload_imgchest.py`).
+- **Frontend UX** — upload lock, retries on transient network errors, merge new URLs after upload; error dialog / toasts (per current `frontend/`).
+
+#### Not done (recommended order)
+
+1. [ ] **Sanitize temp filenames** — `werkzeug.utils.secure_filename` (or equivalent) on all user-provided names before `temp_*` paths (path traversal hardening).
+2. [ ] **Pin dependencies** — e.g. `pip-tools` or pinned `Pillow` major version in `requirements.txt`.
+3. [ ] `**GET /api/health` or `/health`** — cheap liveness/readiness for load balancers; avoid heavy POST routes for probes.
+4. [ ] **Minimal tests** — pytest for validation helpers, URL allowlists, and upload pre-guard behavior.
+5. [ ] **Structured logging** — `logging` + optional JSON or request-id middleware when debugging at scale.
+6. [ ] **Rate limiting** — per-user/IP on upload routes (Phase 3 noted “skipped”; revisit if public or abused).
+7. [ ] **Discord OAuth / auth** — Phase 5 in plan; required for per-user data and abuse control.
+8. [ ] **Normalized schema + Alembic** — only when JSON blobs become a bottleneck.
+
+### Next step (single recommended action)
+
+**Next:** add `**secure_filename`** (or equivalent) for every temp file path built from `file.filename`.
+
+After that: `**GET /api/health**` and **pin Pillow** — small wins before larger test or auth work. Optional: **custom domain + Cloudflare** (section below) for global static latency.
+
+---
+
+## Custom domain, HTTPS, and Cloudflare (global speed)
+
+*You need a **domain you own** (any registrar). You **cannot** put Cloudflare in front of the default DigitalOcean URL `*.ondigitalocean.app` — DigitalOcean controls that DNS.*
+
+### Do you need to buy an SSL certificate?
+
+**No**, for a normal App Platform + Cloudflare setup:
+
+1. **Browser → Cloudflare** — On Cloudflare’s free plan, HTTPS is terminated at Cloudflare’s edge (visitors see a padlock). You do not install a paid cert on your laptop or a random host for that.
+2. **Cloudflare → DigitalOcean** — In **DigitalOcean App Platform**, when you **add the custom domain** to the app and DNS is correct, DO usually **provisions a free Let’s Encrypt** certificate for that hostname automatically.
+3. **Cloudflare SSL/TLS mode** — Use **Full** or **Full (strict)** (prefer **Full (strict)** once DO’s cert is active). Avoid staying on **Flexible** long term (HTTPS to user, HTTP to origin) — weaker and can break cookies/API behavior.
+
+### Cloudflare setup (outline)
+
+1. Create a [Cloudflare](https://dash.cloudflare.com) account → **Add a Site** → enter your **root domain** → choose Free plan.
+2. At your **domain registrar**, replace nameservers with the two Cloudflare nameservers they show (propagation can take minutes to hours).
+3. In **DigitalOcean** → App → **Settings** → **Domains**: add e.g. `app.example.com` (or apex, per DO docs). Copy the **CNAME** (or record) DO requires.
+4. In **Cloudflare** → **DNS**, create that record pointing to the App Platform hostname; enable **Proxied** (orange cloud) so traffic goes through Cloudflare (CDN + HTTPS at edge).
+5. Wait until DO marks the domain **active** / certificate **ready**, then set Cloudflare SSL to **Full (strict)** if possible.
+
+### Apex vs subdomain
+
+- **Subdomain** (`app.example.com`) — straightforward CNAME to the `*.ondigitalocean.app` target DO gives.
+- **Apex** (`example.com`) — may need Cloudflare “CNAME flattening” or DO’s documented apex flow; some setups redirect apex → `www`.
+
+### If you only use the default DO URL
+
+Cloudflare on a **custom domain** does not apply. Rely on **region choice**, **compression**, and **asset caching** (see Production maturity / `DEPLOY.md`).
 
 ---
 
