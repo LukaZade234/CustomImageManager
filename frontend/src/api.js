@@ -1,5 +1,31 @@
 const API_BASE = ''
 
+/** @param {Response} res @param {string} text @param {Record<string, unknown>} parsed */
+function messageFromFailedResponse(res, text, parsed) {
+  const base = typeof parsed?.error === 'string' ? parsed.error : typeof parsed?.message === 'string' ? parsed.message : ''
+  const details = Array.isArray(parsed?.details) && parsed.details.length ? ` — ${parsed.details.join('; ')}` : ''
+  if (base) return base + details
+
+  const raw = (text || '').trim().replace(/\s+/g, ' ')
+  if (raw.startsWith('<') || !raw) {
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      return `Gateway or upstream error (HTTP ${res.status}). Often a short overload or timeout between your browser and the app — try again in a moment.`
+    }
+    return `HTTP ${res.status} ${res.statusText || ''}. The server did not return a readable error (often HTML from a proxy). Check app logs or retry.`.trim()
+  }
+  return `HTTP ${res.status}: ${raw.slice(0, 400)}`
+}
+
+function toNetworkError(err) {
+  const m = err?.message || ''
+  if (err instanceof TypeError && (m === 'Failed to fetch' || m === 'Load failed' || /fetch/i.test(m))) {
+    return new Error(
+      'Network error: the browser could not complete the request. Common causes: lost connection, the app restarting, or a timeout. Try again in a moment.'
+    )
+  }
+  return err
+}
+
 function getImageUrl(imagePath) {
   if (!imagePath) return ''
   if (imagePath.startsWith('http') || imagePath.startsWith('//')) return imagePath
@@ -25,19 +51,27 @@ export const apiClient = {
   getCustomImages: () => api('/custom_images.json'),
   getCustomImagesForChar: (name) => api(`/api/custom-image/${encodeURIComponent(name)}`),
   addCustomImage: (formData) =>
-    fetch(`${API_BASE}/api/custom-image`, { method: 'POST', body: formData, credentials: 'same-origin' }).then(async (r) => {
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok) {
-        const base = j.error || 'Upload failed'
-        const details = Array.isArray(j.details) && j.details.length ? ` — ${j.details.join('; ')}` : ''
-        throw new Error(base + details)
-      }
-      // Batch partial success: server returns 200 with `errors` for skipped/failed files (e.g. too large)
-      if (Array.isArray(j.errors) && j.errors.length > 0) {
-        return { ...j, _partialErrors: j.errors }
-      }
-      return j
-    }),
+    fetch(`${API_BASE}/api/custom-image`, { method: 'POST', body: formData, credentials: 'same-origin' })
+      .catch((e) => {
+        throw toNetworkError(e)
+      })
+      .then(async (r) => {
+        const text = await r.text()
+        let j = {}
+        try {
+          j = text ? JSON.parse(text) : {}
+        } catch {
+          j = {}
+        }
+        if (!r.ok) {
+          throw new Error(messageFromFailedResponse(r, text, j))
+        }
+        // Batch partial success: server returns 200 with `errors` for skipped/failed files (e.g. too large)
+        if (Array.isArray(j.errors) && j.errors.length > 0) {
+          return { ...j, _partialErrors: j.errors }
+        }
+        return j
+      }),
   deleteCustomImage: (charName, imageUrl) => api('/api/delete-custom-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_url: imageUrl }) }),
   deleteCustomImages: (charName, imageUrls) => api('/api/delete-custom-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_urls: imageUrls }) }),
   importCustomImagesFromUrls: (characterName, urls) =>
@@ -46,18 +80,26 @@ export const apiClient = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ character_name: characterName, urls }),
-    }).then(async (r) => {
-      const j = await r.json().catch(() => ({}))
-      if (!r.ok) {
-        const base = j.error || 'Import failed'
-        const details = Array.isArray(j.details) && j.details.length ? ` — ${j.details.join('; ')}` : ''
-        throw new Error(base + details)
-      }
-      if (Array.isArray(j.errors) && j.errors.length > 0) {
-        return { ...j, _partialErrors: j.errors }
-      }
-      return j
-    }),
+    })
+      .catch((e) => {
+        throw toNetworkError(e)
+      })
+      .then(async (r) => {
+        const text = await r.text()
+        let j = {}
+        try {
+          j = text ? JSON.parse(text) : {}
+        } catch {
+          j = {}
+        }
+        if (!r.ok) {
+          throw new Error(messageFromFailedResponse(r, text, j))
+        }
+        if (Array.isArray(j.errors) && j.errors.length > 0) {
+          return { ...j, _partialErrors: j.errors }
+        }
+        return j
+      }),
   reorderCustomImages: (charName, newOrder) => api('/api/reorder-custom-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, new_order: newOrder }) }),
   setMainImage: (formData) => fetch(`${API_BASE}/api/set-main-image`, { method: 'POST', body: formData, credentials: 'same-origin' }).then(r => r.ok ? r.json() : r.json().then(j => { throw new Error(j.error || 'Upload failed') })),
   editCharacter: (data) => api('/api/edit-character', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),

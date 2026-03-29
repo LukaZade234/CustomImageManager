@@ -2069,6 +2069,75 @@ body.dark-mode .reorder-drop-label {
     margin-top: 10px;
 }
 
+/* Upload error dialog (replaces window.alert — stays until dismissed, copy-friendly) */
+.upload-error-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+.upload-error-dialog {
+    background: var(--surface, #fff);
+    color: var(--text, #212529);
+    max-width: 560px;
+    width: 100%;
+    max-height: min(90vh, 640px);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.upload-error-dialog__title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+.upload-error-dialog__hint {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--muted, #6c757d);
+    line-height: 1.4;
+}
+.upload-error-dialog__body {
+    flex: 1;
+    min-height: 120px;
+    max-height: 42vh;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    resize: vertical;
+    background: #f8f9fa;
+    color: #212529;
+}
+.upload-error-dialog__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 0.25rem;
+}
+body.dark-mode .upload-error-dialog {
+    background: var(--surface, #1e1e1e);
+    color: var(--text, #e9ecef);
+}
+body.dark-mode .upload-error-dialog__body {
+    background: #2d2d2d;
+    border-color: #444;
+    color: #e9ecef;
+}
+
 .loading {
     padding: 40px;
     text-align: center;

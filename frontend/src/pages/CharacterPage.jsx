@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
+import UploadErrorDialog from '../components/UploadErrorDialog'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '../utils/downloadCustomImages'
 import { extractImageUrlsFromDataTransfer, dataTransferHasWebImageDrag, dedupeImageUrls } from '../utils/dragImageUrls'
@@ -122,6 +123,8 @@ export default function CharacterPage() {
   const [dragOver, setDragOver] = useState(false)
   const [customDragOver, setCustomDragOver] = useState(false)
   const [customUploadProgress, setCustomUploadProgress] = useState(null)
+  /** Full multi-line upload error for dismissible dialog (replaces window.alert). */
+  const [uploadErrorDialog, setUploadErrorDialog] = useState(null)
   const customUploadLockRef = useRef(false)
   const mainInputRef = useRef(null)
   const customInputRef = useRef(null)
@@ -401,13 +404,24 @@ export default function CharacterPage() {
       if (ok === total) {
         addToast(`${ok} image${ok !== 1 ? 's' : ''} uploaded successfully.`, 'success')
       } else if (ok > 0) {
-        addToast(`${ok} of ${total} image${ok !== 1 ? 's' : ''} uploaded. ${errors.length} skipped or failed — see alert.`, 'error')
+        addToast(
+          `${ok} of ${total} image${ok !== 1 ? 's' : ''} uploaded. ${errors.length} failed — open the error panel to read and copy details.`,
+          'error'
+        )
       } else {
-        addToast(`No images uploaded — see alert for details.`, 'error')
+        addToast(`No images uploaded — open the error panel for full details.`, 'error')
       }
       if (errors.length > 0) {
-        const detail = errors.map((e) => (e.name ? `${e.name}\n  ${e.message}` : e.message)).join('\n\n')
-        window.alert(`Some images were skipped or failed (${errors.length} of ${total}):\n\n${detail}`)
+        const detail = [
+          `Some images were skipped or failed (${errors.length} of ${total}).`,
+          '',
+          'Per file:',
+          '',
+          ...errors.map((e) => (e.name ? `${e.name}\n  ${e.message}` : e.message)),
+          '',
+          'Tip: intermittent failures often mean the image host or network was briefly unavailable — retry usually works.',
+        ].join('\n')
+        setUploadErrorDialog(detail)
       }
     } catch (err) {
       addToast(`Upload stopped: ${err.message || 'Unknown error'}`, 'error')
@@ -571,7 +585,7 @@ export default function CharacterPage() {
       .writeText(cmd)
       .then(() => {
         addToast('Command copied to clipboard', 'success')
-        setSelectedUrls([])
+        resetModes()
       })
       .catch(() => addToast('Failed to copy', 'error'))
   }
@@ -926,6 +940,13 @@ export default function CharacterPage() {
           onClose={() => setModalOpen(false)}
           onPrev={() => setModalIndex((i) => Math.max(0, i - 1))}
           onNext={() => setModalIndex((i) => Math.min(allImages.length - 1, i + 1))}
+        />
+      )}
+      {uploadErrorDialog && (
+        <UploadErrorDialog
+          title="Upload issue"
+          body={uploadErrorDialog}
+          onClose={() => setUploadErrorDialog(null)}
         />
       )}
     </div>

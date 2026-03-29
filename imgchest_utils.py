@@ -1,5 +1,7 @@
-import requests
+import json
 import os
+
+import requests
 
 
 class ImgChestError(Exception):
@@ -11,6 +13,30 @@ API_KEY = os.environ.get("IMGCHEST_API_KEY", "")
 
 def _log(msg):
     print(f"[IMGCHEST] {msg}", flush=True)
+
+
+def _error_detail_from_response(response):
+    """Short, safe string for user-facing errors (no secrets expected in ImgChest JSON)."""
+    raw = (response.text or "").strip()
+    if not raw:
+        return ""
+    try:
+        data = response.json()
+        if isinstance(data, dict):
+            for key in ("message", "error", "errors"):
+                v = data.get(key)
+                if isinstance(v, str) and v.strip():
+                    return v.strip()[:400]
+                if isinstance(v, list) and v and isinstance(v[0], str):
+                    return "; ".join(v)[:400]
+        return json.dumps(data)[:400]
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return raw.replace("\n", " ")[:400]
+
+
+# Connect + read timeouts so the worker does not hang until a proxy kills the connection (often seen as 502 + empty body).
+_IMGCHEST_POST_TIMEOUT = (30, 120)
+
 
 def upload_to_imgchest(file_path):
     if API_KEY == "YOUR_API_KEY_HERE" or not API_KEY:
@@ -42,7 +68,9 @@ def upload_to_imgchest(file_path):
             }
             
             _log("sending POST to api.imgchest.com...")
-            response = requests.post(url, headers=headers, data=payload, files=files)
+            response = requests.post(
+                url, headers=headers, data=payload, files=files, timeout=_IMGCHEST_POST_TIMEOUT
+            )
             _log(f"response status: {response.status_code}")
             
             if response.status_code == 200:
@@ -71,14 +99,30 @@ def upload_to_imgchest(file_path):
                 _log(f"upload FAILED: rate limited (429)")
                 raise ImgChestError("Image hosting rate limit reached. Please try again in a few minutes.")
             elif response.status_code >= 500:
+                detail = _error_detail_from_response(response)
                 _log(f"upload FAILED: server error {response.status_code}, body={response.text[:200]}")
-                raise ImgChestError("Image hosting is temporarily unavailable. Please try again later.")
+                extra = f" ({detail})" if detail else ""
+                raise ImgChestError(
+                    f"Image hosting returned server error {response.status_code}.{extra} Please try again later."
+                )
             else:
+                detail = _error_detail_from_response(response)
                 _log(f"upload FAILED: status={response.status_code}, body={response.text[:200]}")
-                raise ImgChestError("Image upload failed. Please try again later.")
+                if detail:
+                    raise ImgChestError(
+                        f"Image hosting rejected the upload (HTTP {response.status_code}): {detail}"
+                    )
+                raise ImgChestError(
+                    f"Image hosting rejected the upload (HTTP {response.status_code}). Please try again later."
+                )
 
     except ImgChestError:
         raise
+    except requests.Timeout as e:
+        _log(f"upload TIMEOUT: {type(e).__name__}: {e}")
+        raise ImgChestError(
+            "Image hosting timed out while uploading. Your network may be slow or the service busy — try again, or use a smaller file."
+        )
     except requests.RequestException as e:
         _log(f"upload REQUEST EXCEPTION: {type(e).__name__}: {e}")
         raise ImgChestError("Could not reach image hosting. Please check your connection and try again.")

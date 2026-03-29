@@ -263,7 +263,7 @@ def _run_single_custom_upload_from_temp(temp_path, display_filename):
                 print(f"[UPLOAD] SUCCESS: {display_filename}", flush=True)
                 return direct_link, None
             print(f"[UPLOAD] FAILED (ImgChest): {display_filename}", flush=True)
-            return None, f"Failed to upload {display_filename}"
+            return None, f"{display_filename}: Image host did not return a link (unexpected). Try again."
         except ImgChestError as e:
             print(f"[UPLOAD] ImgChest error: {e}", flush=True)
             return None, str(e)
@@ -470,7 +470,7 @@ def upload():
             })
         else:
             print(f"[UPLOAD] single-file upload FAILED: {file.filename}", flush=True)
-            return jsonify({'error': 'Upload failed'}), 500
+            return jsonify({'error': 'Image host did not return a link (unexpected). Try again.'}), 500
     except ImgChestError as e:
         print(f"[UPLOAD] ImgChest error: {e}", flush=True)
         return jsonify({'error': str(e)}), 503
