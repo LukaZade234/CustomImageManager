@@ -320,6 +320,24 @@ cors_origins = [o.strip() for o in _origins.split(',')] if _origins != '*' else 
 CORS(app, origins=cors_origins)
 
 
+@app.before_request
+def _guard_custom_image_upload_preprocess():
+    """Reject bad POSTs using headers only — do not touch request.form (avoids blocking on ghost/slow bodies)."""
+    if request.method != 'POST' or request.path != '/api/custom-image':
+        return None
+    ct = (request.content_type or '').lower()
+    if 'multipart/form-data' not in ct:
+        return jsonify({'error': 'Content-Type must be multipart/form-data'}), 400
+    ua = (request.headers.get('User-Agent') or '').strip()
+    if not ua:
+        print('[UPLOAD] reject pre-parse: missing User-Agent', flush=True)
+        return jsonify({'error': 'Missing User-Agent'}), 400
+    cl = request.content_length
+    if cl is not None and cl == 0:
+        return jsonify({'error': 'Empty body'}), 400
+    return None
+
+
 @app.errorhandler(db.DatabaseConfigurationError)
 def _handle_database_configuration_error(exc):
     return jsonify({'error': str(exc)}), 503
@@ -433,13 +451,14 @@ def upload():
         return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
-    if file.filename == '':
+    fn = file.filename
+    if not fn:
         return jsonify({'error': 'No file selected'}), 400
 
-    print(f"[UPLOAD] Starting single-file upload: {file.filename}", flush=True)
+    print(f"[UPLOAD] Starting single-file upload: {fn}", flush=True)
 
     # Save temporarily
-    temp_path = os.path.join('.', 'temp_upload_' + file.filename)
+    temp_path = os.path.join('.', 'temp_upload_' + fn)
     file.save(temp_path)
     file_size = os.path.getsize(temp_path)
     file_size_mb = file_size / (1024 * 1024)
@@ -540,8 +559,9 @@ def add_character():
 
     if 'image' in request.files:
         file = request.files['image']
-        if file.filename != '':
-            temp_path = os.path.join('.', 'temp_add_' + file.filename)
+        fn = file.filename
+        if fn:
+            temp_path = os.path.join('.', 'temp_add_' + fn)
             file.save(temp_path)
             try:
                 result = upload_to_imgchest(temp_path)
@@ -583,11 +603,6 @@ def remove_saved(name):
 @app.route('/api/custom-image', methods=['POST'])
 def add_custom_image():
     try:
-        # Reject non-multipart before touching request.form (avoids blocking on body read for junk POSTs).
-        ct = (request.content_type or '').lower()
-        if 'multipart/form-data' not in ct:
-            return jsonify({'error': 'Content-Type must be multipart/form-data'}), 400
-
         if 'character_name' not in request.form:
             return jsonify({'error': 'Character name is required'}), 400
 
@@ -613,23 +628,24 @@ def add_custom_image():
         processed = 0
 
         for file in files:
-            if file.filename == '':
+            fn = file.filename
+            if not fn:
                 continue
 
             processed += 1
-            print(f"[UPLOAD] Processing file {processed}/{file_count}: {file.filename}", flush=True)
+            print(f"[UPLOAD] Processing file {processed}/{file_count}: {fn}", flush=True)
 
             # Save temporarily
-            temp_path = os.path.join('.', 'temp_custom_' + file.filename)
+            temp_path = os.path.join('.', 'temp_custom_' + fn)
             file.save(temp_path)
 
-            direct_link, one_err = _run_single_custom_upload_from_temp(temp_path, file.filename)
+            direct_link, one_err = _run_single_custom_upload_from_temp(temp_path, fn)
             if direct_link:
                 uploaded_links.append(direct_link)
-                print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {file.filename}", flush=True)
+                print(f"[UPLOAD] file {processed}/{file_count} SUCCESS: {fn}", flush=True)
             else:
                 errors.append(one_err or 'Unknown error')
-                print(f"[UPLOAD] file {processed}/{file_count} failed: {file.filename}", flush=True)
+                print(f"[UPLOAD] file {processed}/{file_count} failed: {fn}", flush=True)
 
         print(f"[UPLOAD] batch complete: {len(uploaded_links)} succeeded, {len(errors)} failed", flush=True)
         if not uploaded_links:
@@ -874,10 +890,11 @@ def set_main_image():
     if not ok:
         return jsonify({'error': err}), 400
 
-    if file.filename == '':
+    fn = file.filename
+    if not fn:
         return jsonify({'error': 'No file selected'}), 400
 
-    temp_path = os.path.join('.', 'temp_main_' + file.filename)
+    temp_path = os.path.join('.', 'temp_main_' + fn)
     file.save(temp_path)
 
     main_size = os.path.getsize(temp_path)
