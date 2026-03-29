@@ -55,8 +55,8 @@ export const useStore = create((set, get) => ({
       } catch {
         /* keep existing lastUpdated */
       }
-    } catch (e) {
-      set({ customImages: {} })
+    } catch {
+      /* Keep previous customImages — clearing on a failed refresh hid successful uploads and worsened batch UX. */
     }
   },
 

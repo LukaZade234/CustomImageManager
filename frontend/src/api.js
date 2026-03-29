@@ -56,28 +56,48 @@ export const apiClient = {
   removeSaved: (name) => api(`/api/saved/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   getCustomImages: () => api('/custom_images.json'),
   getCustomImagesForChar: (name) => api(`/api/custom-image/${encodeURIComponent(name)}`),
-  addCustomImage: (formData) =>
-    fetch(`${API_BASE}/api/custom-image`, { method: 'POST', body: formData, credentials: 'same-origin' })
-      .catch((e) => {
-        throw toNetworkError(e)
-      })
-      .then(async (r) => {
-        const text = await r.text()
-        let j = {}
-        try {
-          j = text ? JSON.parse(text) : {}
-        } catch {
-          j = {}
-        }
-        if (!r.ok) {
-          throw new Error(messageFromFailedResponse(r, text, j))
-        }
-        // Batch partial success: server returns 200 with `errors` for skipped/failed files (e.g. too large)
-        if (Array.isArray(j.errors) && j.errors.length > 0) {
-          return { ...j, _partialErrors: j.errors }
-        }
-        return j
-      }),
+  addCustomImage: async (formData) => {
+    const url = `${API_BASE}/api/custom-image`
+    const maxAttempts = 4
+
+    const attemptOnce = () =>
+      fetch(url, { method: 'POST', body: formData, credentials: 'same-origin' })
+        .catch((e) => {
+          throw toNetworkError(e)
+        })
+        .then(async (r) => {
+          const text = await r.text()
+          let j = {}
+          try {
+            j = text ? JSON.parse(text) : {}
+          } catch {
+            j = {}
+          }
+          if (!r.ok) {
+            throw new Error(messageFromFailedResponse(r, text, j))
+          }
+          if (Array.isArray(j.errors) && j.errors.length > 0) {
+            return { ...j, _partialErrors: j.errors }
+          }
+          return j
+        })
+
+    let lastErr
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await attemptOnce()
+      } catch (e) {
+        lastErr = e
+        const msg = e?.message || ''
+        const transient =
+          msg.startsWith('Network error:') || /could not complete the request/i.test(msg)
+        if (!transient || attempt === maxAttempts - 1) throw e
+        const delayMs = 450 * 2 ** attempt + Math.random() * 300
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+    throw lastErr
+  },
   deleteCustomImage: (charName, imageUrl) => api('/api/delete-custom-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_url: imageUrl }) }),
   deleteCustomImages: (charName, imageUrls) => api('/api/delete-custom-images', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ character_name: charName, image_urls: imageUrls }) }),
   importCustomImagesFromUrls: (characterName, urls) =>

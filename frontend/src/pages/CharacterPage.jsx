@@ -385,7 +385,8 @@ export default function CharacterPage() {
           fd.append('character_name', name)
           fd.append('files', file)
           const res = await apiClient.addCustomImage(fd)
-          await loadCustomImages()
+          // Avoid loading huge custom_images.json + last-updated after every file (bursts traffic and can
+          // starve the next upload → "Failed to fetch"). Refresh once after the whole batch (see finally).
           // Server can return 200 with `errors` when a batch had partial failures (e.g. multi-file request)
           if (res && Array.isArray(res._partialErrors) && res._partialErrors.length) {
             res._partialErrors.forEach((msg) => {
@@ -419,13 +420,18 @@ export default function CharacterPage() {
           '',
           ...errors.map((e) => (e.name ? `${e.name}\n  ${e.message}` : e.message)),
           '',
-          'Tip: the app retries slow ImgChest responses and gateway errors automatically; if something still fails, try again. Very large images are scaled before upload — if you see a size error, the message includes the file size in MB.',
+          'Tip: uploads to ImgChest are retried on the server; the browser also retries brief connection errors. The gallery refreshes once per batch (not after each file) to avoid overloading the connection. If you see a network error, try again.',
         ].join('\n')
         setUploadErrorDialog(detail)
       }
     } catch (err) {
       addToast(`Upload stopped: ${err.message || 'Unknown error'}`, 'error')
     } finally {
+      try {
+        await loadCustomImages()
+      } catch {
+        /* store may still have prior snapshot if this fails */
+      }
       customUploadLockRef.current = false
       setCustomUploadProgress(null)
     }
