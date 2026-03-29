@@ -1,6 +1,13 @@
 from PIL import Image, ImageOps
 import os
 
+# Pillow 9.1+ exposes LANCZOS on Image.Resampling (preferred for type checkers).
+# Older Pillow used Image.LANCZOS.
+try:
+    _RESAMPLE = Image.Resampling.LANCZOS
+except AttributeError:
+    _RESAMPLE = Image.LANCZOS  # type: ignore[attr-defined]
+
 # Max dimension (width or height) to reduce memory usage on small instances.
 # Large images (e.g. 4000x4000) can use 64MB+ in RGBA; 2048 keeps it ~16MB.
 MAX_DIMENSION = 2048
@@ -60,7 +67,7 @@ def convert_to_png(input_path):
                 ratio = min(MAX_DIMENSION / w, MAX_DIMENSION / h)
                 new_size = (int(w * ratio), int(h * ratio))
                 _log(f"resizing {w}x{h} -> {new_size[0]}x{new_size[1]} (ratio={ratio:.3f})")
-                img = img.resize(new_size, Image.LANCZOS)
+                img = img.resize(new_size, _RESAMPLE)
                 w, h = img.size
 
             # Convert to RGBA to handle transparency and ensure compatibility
@@ -88,7 +95,7 @@ def convert_to_png(input_path):
                     f"PNG {out_size / (1024 * 1024):.2f} MB exceeds {MAX_OUTPUT_BYTES // (1024 * 1024)} MB limit, "
                     f"scaling {w0}x{h0} -> {new_w}x{new_h}"
                 )
-                img = img.resize((new_w, new_h), Image.LANCZOS)
+                img = img.resize((new_w, new_h), _RESAMPLE)
                 img.save(output_path, 'PNG')
                 out_size = os.path.getsize(output_path)
 

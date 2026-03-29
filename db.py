@@ -1,14 +1,17 @@
 """
 Database layer for user data. Requires PostgreSQL (DATABASE_URL).
 """
+import json
 import os
+import threading
+import time
+from typing import Callable, TypeVar
+
+_T = TypeVar("_T")
 
 
 class DatabaseConfigurationError(RuntimeError):
     """Raised when DATABASE_URL is not set or PostgreSQL is unavailable."""
-import json
-import threading
-import time
 
 _db = None
 _db_lock = threading.Lock()
@@ -118,7 +121,7 @@ def _set_pg(conn, key, value):
         )
 
 
-def _with_retry(fn):
+def _with_retry(fn: Callable[[], _T]) -> _T:
     """Execute fn() and retry once on connection error (stale PostgreSQL)."""
     for attempt in range(2):
         try:
@@ -128,6 +131,7 @@ def _with_retry(fn):
                 _reset_db()
                 continue
             raise
+    raise AssertionError("_with_retry: exhausted retries without return")
 
 
 def get_custom_images():
@@ -166,7 +170,9 @@ def get_last_updated():
     """Get {char_name: timestamp, ...}."""
     def _do():
         _, conn = _get_db()
-        return _get_pg(conn, 'last_updated', {})
+        raw = _get_pg(conn, 'last_updated', {})
+        return raw if isinstance(raw, dict) else {}
+
     return _with_retry(_do)
 
 

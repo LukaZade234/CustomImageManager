@@ -583,6 +583,11 @@ def remove_saved(name):
 @app.route('/api/custom-image', methods=['POST'])
 def add_custom_image():
     try:
+        # Reject non-multipart before touching request.form (avoids blocking on body read for junk POSTs).
+        ct = (request.content_type or '').lower()
+        if 'multipart/form-data' not in ct:
+            return jsonify({'error': 'Content-Type must be multipart/form-data'}), 400
+
         if 'character_name' not in request.form:
             return jsonify({'error': 'Character name is required'}), 400
 
