@@ -3,7 +3,9 @@ const API_BASE = ''
 /** @param {Response} res @param {string} text @param {Record<string, unknown>} parsed */
 function messageFromFailedResponse(res, text, parsed) {
   const base = typeof parsed?.error === 'string' ? parsed.error : typeof parsed?.message === 'string' ? parsed.message : ''
-  const details = Array.isArray(parsed?.details) && parsed.details.length ? ` — ${parsed.details.join('; ')}` : ''
+  const rawDetails = Array.isArray(parsed?.details) ? parsed.details.filter((d) => typeof d === 'string' && d.trim()) : []
+  const extraDetails = rawDetails.filter((d) => d !== base)
+  const details = extraDetails.length ? ` — ${extraDetails.join('; ')}` : ''
   if (base) return base + details
 
   const raw = (text || '').trim().replace(/\s+/g, ' ')
@@ -13,7 +15,11 @@ function messageFromFailedResponse(res, text, parsed) {
     }
     return `HTTP ${res.status} ${res.statusText || ''}. The server did not return a readable error (often HTML from a proxy). Check app logs or retry.`.trim()
   }
-  return `HTTP ${res.status}: ${raw.slice(0, 400)}`
+  const cap = 200000
+  if (raw.length > cap) {
+    return `HTTP ${res.status}: ${raw.slice(0, cap)}\n\n(Error response was ${raw.length} characters; showing first ${cap}.)`
+  }
+  return `HTTP ${res.status}: ${raw}`
 }
 
 function toNetworkError(err) {

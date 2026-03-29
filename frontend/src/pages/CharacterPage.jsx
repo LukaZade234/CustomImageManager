@@ -419,7 +419,7 @@ export default function CharacterPage() {
           '',
           ...errors.map((e) => (e.name ? `${e.name}\n  ${e.message}` : e.message)),
           '',
-          'Tip: intermittent failures often mean the image host or network was briefly unavailable — retry usually works.',
+          'Tip: the app retries slow ImgChest responses and gateway errors automatically; if something still fails, try again. Very large images are scaled before upload — if you see a size error, the message includes the file size in MB.',
         ].join('\n')
         setUploadErrorDialog(detail)
       }

@@ -7,9 +7,12 @@ MAX_DIMENSION = 2048
 # Reject images larger than this (avoids loading huge images into memory at all).
 # 4096x4096 RGBA ≈ 64MB; 7500x7500 ≈ 225MB causes OOM on 1GB instances.
 MAX_DIMENSION_REJECT = 4096
-# If file is under this size, skip dimension checks (allow large resolutions).
+# If file is under this size, skip the hard reject for dimensions above MAX_DIMENSION_REJECT.
+# JPEGs under this size can still decode to huge PNGs — we always resize by MAX_DIMENSION below.
 # Should match MAX_FILE_SIZE in upload_imgchest.py.
 MAX_FILE_SIZE_SKIP_DIM_CHECK = 30 * 1024 * 1024  # 30MB
+# Output must fit ImgChest upload limit (same as upload_imgchest.MAX_FILE_SIZE).
+MAX_OUTPUT_BYTES = 30 * 1024 * 1024
 
 def _log(msg):
     print(f"[IMG] {msg}", flush=True)
@@ -51,12 +54,14 @@ def convert_to_png(input_path):
             w, h = img.size
             _log(f"after exif_transpose: {w}x{h} px")
 
-            # Resize if too large (skip when file is under size limit)
-            if not skip_dim_check and (w > MAX_DIMENSION or h > MAX_DIMENSION):
+            # Always cap longest edge — small JPEGs can decode to very tall/wide bitmaps whose
+            # uncompressed PNG exceeds ImgChest's 30MB limit (e.g. 2700×5400 → 30.76 MB PNG).
+            if w > MAX_DIMENSION or h > MAX_DIMENSION:
                 ratio = min(MAX_DIMENSION / w, MAX_DIMENSION / h)
                 new_size = (int(w * ratio), int(h * ratio))
                 _log(f"resizing {w}x{h} -> {new_size[0]}x{new_size[1]} (ratio={ratio:.3f})")
                 img = img.resize(new_size, Image.LANCZOS)
+                w, h = img.size
 
             # Convert to RGBA to handle transparency and ensure compatibility
             _log("converting to RGBA")
@@ -66,11 +71,39 @@ def convert_to_png(input_path):
             base, _ = os.path.splitext(input_path)
             output_path = base + ".png"
 
-            # Save as PNG
+            # Save as PNG; if still over host limit, scale down until it fits (rare: complex art)
             _log(f"saving to {output_path}")
             img.save(output_path, 'PNG')
+            out_size = os.path.getsize(output_path)
+            guard = 0
+            while out_size > MAX_OUTPUT_BYTES and guard < 14:
+                guard += 1
+                w0, h0 = img.size
+                factor = (MAX_OUTPUT_BYTES / out_size) ** 0.5 * 0.92
+                new_w = max(32, int(w0 * factor))
+                new_h = max(32, int(h0 * factor))
+                if new_w >= w0 and new_h >= h0:
+                    new_w, new_h = max(32, int(w0 * 0.88)), max(32, int(h0 * 0.88))
+                _log(
+                    f"PNG {out_size / (1024 * 1024):.2f} MB exceeds {MAX_OUTPUT_BYTES // (1024 * 1024)} MB limit, "
+                    f"scaling {w0}x{h0} -> {new_w}x{new_h}"
+                )
+                img = img.resize((new_w, new_h), Image.LANCZOS)
+                img.save(output_path, 'PNG')
+                out_size = os.path.getsize(output_path)
 
-            out_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+            out_size_mb = out_size / (1024 * 1024)
+            if out_size > MAX_OUTPUT_BYTES:
+                try:
+                    os.remove(output_path)
+                except OSError:
+                    pass
+                return (
+                    None,
+                    f"PNG is still {out_size_mb:.2f} MB after scaling; ImgChest allows at most "
+                    f"{MAX_OUTPUT_BYTES // (1024 * 1024)} MB — simplify or export a smaller image.",
+                )
+
             _log(f"convert_to_png done: {output_path} ({out_size_mb:.2f} MB)")
             return output_path, None
 

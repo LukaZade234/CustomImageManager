@@ -230,7 +230,10 @@ def _run_single_custom_upload_from_temp(temp_path, display_filename):
             print(f"[UPLOAD] REJECT: {display_filename} too large", flush=True)
             if os.path.exists(temp_path):
                 os.remove(temp_path)
-            return None, f"{display_filename}: File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)"
+            limit_mb = MAX_FILE_SIZE / (1024 * 1024)
+            return None, (
+                f"{display_filename}: File is {file_size_mb:.2f} MB; maximum allowed is {limit_mb:.0f} MB."
+            )
 
         ok, val_err = validate_image_file(temp_path)
         if not ok:
@@ -254,6 +257,16 @@ def _run_single_custom_upload_from_temp(temp_path, display_filename):
                 return None, err_msg
         else:
             print(f"[UPLOAD] skipping conversion (already {filename_lower[-4:]}), using as-is", flush=True)
+
+        final_size = os.path.getsize(final_path)
+        if final_size > MAX_FILE_SIZE:
+            final_mb = final_size / (1024 * 1024)
+            limit_mb = MAX_FILE_SIZE / (1024 * 1024)
+            print(f"[UPLOAD] REJECT: {display_filename} exceeds limit after processing ({final_size} bytes)", flush=True)
+            return None, (
+                f"{display_filename}: After processing the file is {final_mb:.2f} MB, which exceeds "
+                f"ImgChest's limit of {limit_mb:.0f} MB."
+            )
 
         try:
             print(f"[UPLOAD] uploading to ImgChest: {final_path}", flush=True)
@@ -449,7 +462,7 @@ def upload():
         print(f"[UPLOAD] REJECT: file too large ({file_size_mb:.2f} MB > {MAX_FILE_SIZE // (1024*1024)} MB)", flush=True)
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        return jsonify({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)'}), 400
+        return jsonify({'error': f'File is {file_size_mb:.2f} MB; maximum allowed is {MAX_FILE_SIZE / (1024 * 1024):.0f} MB.'}), 400
 
     ok, err = validate_image_file(temp_path)
     if not ok:
@@ -875,10 +888,12 @@ def set_main_image():
     temp_path = os.path.join('.', 'temp_main_' + file.filename)
     file.save(temp_path)
 
-    if os.path.getsize(temp_path) > MAX_FILE_SIZE:
+    main_size = os.path.getsize(temp_path)
+    if main_size > MAX_FILE_SIZE:
         if os.path.exists(temp_path):
             os.remove(temp_path)
-        return jsonify({'error': f'File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)'}), 400
+        main_mb = main_size / (1024 * 1024)
+        return jsonify({'error': f'File is {main_mb:.2f} MB; maximum allowed is {MAX_FILE_SIZE / (1024 * 1024):.0f} MB.'}), 400
 
     ok, val_err = validate_image_file(temp_path)
     if not ok:
