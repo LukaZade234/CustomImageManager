@@ -44,7 +44,6 @@ class AppErrorBoundary extends React.Component {
 function App() {
   const loadCharacters = useStore((s) => s.loadCharacters)
   const loadSaved = useStore((s) => s.loadSaved)
-  const loadCustomImages = useStore((s) => s.loadCustomImages)
   const setDarkMode = useStore((s) => s.setDarkMode)
   const darkMode = useStore((s) => s.darkMode)
   const searchQuery = useStore((s) => s.searchQuery)
@@ -52,8 +51,7 @@ function App() {
   useEffect(() => {
     loadCharacters()
     loadSaved()
-    loadCustomImages()
-  }, [loadCharacters, loadSaved, loadCustomImages])
+  }, [loadCharacters, loadSaved])
 
   useEffect(() => {
     setDarkMode(darkMode)

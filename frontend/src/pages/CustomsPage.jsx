@@ -19,6 +19,7 @@ const SORT_OPTIONS = [
 export default function CustomsPage() {
   const characters = useStore((s) => s.characters)
   const customImages = useStore((s) => s.customImages)
+  const loadCustomImages = useStore((s) => s.loadCustomImages)
   /** Unix seconds per character — updated when customs change (server `last_updated`). */
   const lastUpdated = useStore((s) => s.lastUpdated)
   const [search, setSearch] = useState('')
@@ -28,6 +29,10 @@ export default function CustomsPage() {
   const [pageJumpEditing, setPageJumpEditing] = useState(false)
   const [pageJumpValue, setPageJumpValue] = useState('1')
   const pageJumpInputRef = useRef(null)
+
+  useEffect(() => {
+    loadCustomImages()
+  }, [loadCustomImages])
 
   const baseCustomsList = useMemo(() => {
     const entries = Object.entries(customImages).filter(([, urls]) => urls?.length > 0)

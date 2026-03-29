@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useStore } from '../store/useStore'
 import HomeLoadingState from '../components/HomeLoadingState'
 
@@ -6,6 +7,11 @@ export default function HomePage() {
   const customImages = useStore((s) => s.customImages)
   const loading = useStore((s) => s.loading)
   const error = useStore((s) => s.error)
+  const loadCustomImages = useStore((s) => s.loadCustomImages)
+
+  useEffect(() => {
+    loadCustomImages()
+  }, [loadCustomImages])
 
   const totalImages = Object.values(customImages).reduce((sum, arr) => sum + (arr?.length || 0), 0)
   const charsWithCustoms = Object.keys(customImages).filter((k) => (customImages[k]?.length || 0) > 0).length

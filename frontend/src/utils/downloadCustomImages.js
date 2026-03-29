@@ -71,7 +71,7 @@ export async function fetchCustomImageBlob(storedUrl) {
 
 /**
  * Write images into a directory chosen via showDirectoryPicker (Chromium).
- * @param {string[]} urls — stored keys from custom_images.json
+ * @param {string[]} urls — stored ImgChest URLs from the app
  * @param {FileSystemDirectoryHandle} dirHandle
  */
 export async function writeCustomImagesToDirectory(urls, dirHandle) {

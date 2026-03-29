@@ -2,7 +2,6 @@ import requests
 import re
 import sys
 import os
-import csv
 import json
 import io
 import socket
@@ -321,10 +320,17 @@ cors_origins = [o.strip() for o in _origins.split(',')] if _origins != '*' else 
 CORS(app, origins=cors_origins)
 
 
+@app.errorhandler(db.DatabaseConfigurationError)
+def _handle_database_configuration_error(exc):
+    return jsonify({'error': str(exc)}), 503
+
+
 @app.route('/api/last-updated', methods=['GET'])
 def get_last_updated():
     try:
         return jsonify(db.get_last_updated())
+    except db.DatabaseConfigurationError:
+        raise
     except Exception as e:
         print(f"Error reading last_updated: {e}")
     return jsonify({})
@@ -358,11 +364,13 @@ def get_image(filename):
 def get_character_image(filename):
     return send_from_directory('character_images', filename)
 
-# Serve custom_images from database (or JSON fallback)
+# Serve custom_images from PostgreSQL (JSON response; URL kept for API compatibility)
 @app.route('/custom_images.json')
 def serve_custom_images_json():
     try:
         return jsonify(db.get_custom_images())
+    except db.DatabaseConfigurationError:
+        raise
     except Exception as e:
         print(f"Error serving custom_images: {e}")
     return jsonify({})
@@ -414,28 +422,7 @@ def get_characters():
         chars = db.get_characters()
         if chars is not None:
             return jsonify(chars)
-        # Fallback: not yet migrated (use project root for paths)
-        _base = os.path.dirname(os.path.abspath(__file__))
-        characters = []
-        mapping = {}
-        mapping_path = os.path.join(_base, 'character_image_mapping.json')
-        csv_path = os.path.join(_base, 'CharName.csv')
-        if os.path.exists(mapping_path):
-            with open(mapping_path, 'r', encoding='utf-8') as f:
-                mapping = json.load(f)
-        if os.path.exists(csv_path):
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    char_name = row['name']
-                    image_filename = mapping.get(char_name, {}).get('filename', '')
-                    characters.append({
-                        'name': char_name,
-                        'series': row['series'],
-                        'rank': row['rank'],
-                        'image': image_filename
-                    })
-        return jsonify(characters)
+        return jsonify({'error': 'Character data not loaded. Run import_characters_to_db.py with your CSV/mapping backup.'}), 503
     except Exception as e:
         print(f"Error reading characters: {e}")
         return jsonify({'error': str(e)}), 500
@@ -908,25 +895,12 @@ def set_main_image():
 
         post_link, direct_link = result
 
-        if db.get_characters() is not None:
-            if db.set_main_image(char_name, direct_link):
-                db.update_last_modified(char_name)
-                return jsonify({'success': True, 'message': 'Main image updated', 'image_url': direct_link})
-            return jsonify({'error': 'Character not found'}), 404
-
-        # Fallback: not yet migrated, update JSON file
-        json_file = 'character_image_mapping.json'
-        mapping = {}
-        if os.path.exists(json_file):
-            try:
-                with open(json_file, 'r', encoding='utf-8') as f:
-                    mapping = json.load(f)
-            except Exception:
-                pass
-        mapping[char_name] = {"filename": direct_link}
-        with open(json_file, 'w', encoding='utf-8') as f:
-            json.dump(mapping, f, indent=4, ensure_ascii=False)
-        return jsonify({'success': True, 'message': 'Main image updated', 'image_url': direct_link})
+        if db.get_characters() is None:
+            return jsonify({'error': 'Character data not loaded. Run import_characters_to_db.py first.'}), 503
+        if db.set_main_image(char_name, direct_link):
+            db.update_last_modified(char_name)
+            return jsonify({'success': True, 'message': 'Main image updated', 'image_url': direct_link})
+        return jsonify({'error': 'Character not found'}), 404
     except ImgChestError as e:
         print(f"Error setting main image (ImgChest): {e}")
         return jsonify({'error': str(e)}), 503

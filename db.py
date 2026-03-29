@@ -1,8 +1,11 @@
 """
-Database layer for user data. Uses PostgreSQL when DATABASE_URL is set,
-falls back to JSON files for local development and App Platform without a DB.
+Database layer for user data. Requires PostgreSQL (DATABASE_URL).
 """
 import os
+
+
+class DatabaseConfigurationError(RuntimeError):
+    """Raised when DATABASE_URL is not set or PostgreSQL is unavailable."""
 import json
 import threading
 import time
@@ -11,21 +14,12 @@ _db = None
 _db_lock = threading.Lock()
 _keepalive_thread = None
 
-# Base directory for JSON files (project root, CWD-independent)
-_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# JSON file paths (fallback when no DATABASE_URL)
-CUSTOM_IMAGES_FILE = os.path.join(_BASE_DIR, 'custom_images.json')
-SAVED_CHARACTERS_FILE = os.path.join(_BASE_DIR, 'saved_characters.json')
-LAST_UPDATED_FILE = os.path.join(_BASE_DIR, 'last_updated.json')
-CHARACTERS_FILE = os.path.join(_BASE_DIR, 'characters.json')
-
 
 def _reset_db():
-    """Clear cached DB connection (e.g. after stale connection)."""
+    """Clear cached DB connection (e.g., after stale connection)."""
     global _db
     with _db_lock:
-        if _db is not None and _db[0] == 'postgres':
+        if _db is not None:
             try:
                 _db[1].close()
             except Exception:
@@ -49,7 +43,7 @@ def _keepalive_loop():
     while True:
         time.sleep(_KEEPALIVE_INTERVAL)
         with _db_lock:
-            if _db is None or _db[0] != 'postgres':
+            if _db is None:
                 return
             conn = _db[1]
         try:
@@ -69,32 +63,30 @@ def _start_keepalive():
 
 
 def _get_db():
-    """Get database connection. Uses PostgreSQL if DATABASE_URL is set."""
+    """Get PostgreSQL connection. Requires DATABASE_URL."""
     global _db
     with _db_lock:
         if _db is not None:
             return _db
         url = os.environ.get('DATABASE_URL')
-        if url:
-            try:
-                import psycopg2
-                if url.startswith('postgres://'):
-                    url = 'postgresql://' + url[11:]
-                conn = psycopg2.connect(
-                    url,
-                    keepalives=1,
-                    keepalives_idle=60,
-                    keepalives_interval=30,
-                    keepalives_count=5,
-                )
-                conn.autocommit = True
-                _db = ('postgres', conn)
-                _init_postgres(conn)
-                _start_keepalive()
-                return _db
-            except Exception as e:
-                print(f"[DB] PostgreSQL init failed: {e}, falling back to JSON files", flush=True)
-        _db = ('json', None)
+        if not url:
+            raise DatabaseConfigurationError(
+                'DATABASE_URL is not set. Configure PostgreSQL (e.g. on DigitalOcean) and set DATABASE_URL.'
+            )
+        import psycopg2
+        if url.startswith('postgres://'):
+            url = 'postgresql://' + url[11:]
+        conn = psycopg2.connect(
+            url,
+            keepalives=1,
+            keepalives_idle=60,
+            keepalives_interval=30,
+            keepalives_count=5,
+        )
+        conn.autocommit = True
+        _init_postgres(conn)
+        _db = ('postgres', conn)
+        _start_keepalive()
         return _db
 
 
@@ -107,38 +99,6 @@ def _init_postgres(conn):
                 value JSONB NOT NULL
             )
         """)
-
-
-def _get_json(key, default):
-    """Read from JSON file."""
-    files = {
-        'custom_images': CUSTOM_IMAGES_FILE,
-        'saved_characters': SAVED_CHARACTERS_FILE,
-        'last_updated': LAST_UPDATED_FILE,
-        'characters': CHARACTERS_FILE,
-    }
-    path = files.get(key)
-    if not path or not os.path.exists(path):
-        return default
-    try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return default
-
-
-def _set_json(key, value):
-    """Write to JSON file."""
-    files = {
-        'custom_images': CUSTOM_IMAGES_FILE,
-        'saved_characters': SAVED_CHARACTERS_FILE,
-        'last_updated': LAST_UPDATED_FILE,
-        'characters': CHARACTERS_FILE,
-    }
-    path = files.get(key)
-    if path:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(value, f, indent=4, ensure_ascii=False)
 
 
 def _get_pg(conn, key, default):
@@ -173,63 +133,48 @@ def _with_retry(fn):
 def get_custom_images():
     """Get {char_name: [url1, url2, ...]}."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            return _get_pg(conn, 'custom_images', {})
-        return _get_json('custom_images', {})
+        _, conn = _get_db()
+        return _get_pg(conn, 'custom_images', {})
     return _with_retry(_do)
 
 
 def set_custom_images(data):
     """Save custom_images."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            _set_pg(conn, 'custom_images', data)
-        else:
-            _set_json('custom_images', data)
+        _, conn = _get_db()
+        _set_pg(conn, 'custom_images', data)
     _with_retry(_do)
 
 
 def get_saved_characters():
     """Get list of saved character objects."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            return _get_pg(conn, 'saved_characters', [])
-        return _get_json('saved_characters', [])
+        _, conn = _get_db()
+        return _get_pg(conn, 'saved_characters', [])
     return _with_retry(_do)
 
 
 def set_saved_characters(data):
     """Save saved_characters."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            _set_pg(conn, 'saved_characters', data)
-        else:
-            _set_json('saved_characters', data)
+        _, conn = _get_db()
+        _set_pg(conn, 'saved_characters', data)
     _with_retry(_do)
 
 
 def get_last_updated():
     """Get {char_name: timestamp, ...}."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            return _get_pg(conn, 'last_updated', {})
-        return _get_json('last_updated', {})
+        _, conn = _get_db()
+        return _get_pg(conn, 'last_updated', {})
     return _with_retry(_do)
 
 
 def set_last_updated(data):
     """Save last_updated."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            _set_pg(conn, 'last_updated', data)
-        else:
-            _set_json('last_updated', data)
+        _, conn = _get_db()
+        _set_pg(conn, 'last_updated', data)
     _with_retry(_do)
 
 
@@ -246,8 +191,8 @@ def update_last_modified(char_name):
 def get_characters():
     """Get list of characters as [{name, series, rank, image}, ...] for API."""
     def _do():
-        db_type, conn = _get_db()
-        raw = _get_pg(conn, 'characters', None) if db_type == 'postgres' else _get_json('characters', None)
+        _, conn = _get_db()
+        raw = _get_pg(conn, 'characters', None)
         if raw is None:
             return None  # Not yet migrated
         chars = raw if isinstance(raw, list) else []
@@ -258,8 +203,8 @@ def get_characters():
 def _get_characters_raw():
     """Get raw character list (internal)."""
     def _do():
-        db_type, conn = _get_db()
-        raw = _get_pg(conn, 'characters', []) if db_type == 'postgres' else _get_json('characters', [])
+        _, conn = _get_db()
+        raw = _get_pg(conn, 'characters', [])
         return raw if isinstance(raw, list) else []
     return _with_retry(_do)
 
@@ -267,11 +212,8 @@ def _get_characters_raw():
 def _set_characters_raw(chars):
     """Save raw character list (internal)."""
     def _do():
-        db_type, conn = _get_db()
-        if db_type == 'postgres':
-            _set_pg(conn, 'characters', chars)
-        else:
-            _set_json('characters', chars)
+        _, conn = _get_db()
+        _set_pg(conn, 'characters', chars)
     _with_retry(_do)
 
 

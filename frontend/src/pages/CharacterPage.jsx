@@ -97,8 +97,11 @@ export default function CharacterPage() {
   const characters = useStore((s) => s.characters)
   const savedCharacters = useStore((s) => s.savedCharacters)
   const customImages = useStore((s) => s.customImages)
-  const loadCustomImages = useStore((s) => s.loadCustomImages)
+  const loadCustomImagesForCharacter = useStore((s) => s.loadCustomImagesForCharacter)
+  const appendCustomImageUrls = useStore((s) => s.appendCustomImageUrls)
   const loadCharacters = useStore((s) => s.loadCharacters)
+  const loadSaved = useStore((s) => s.loadSaved)
+  const renameCustomCharacterData = useStore((s) => s.renameCustomCharacterData)
   const saveCharacter = useStore((s) => s.saveCharacter)
   const removeSaved = useStore((s) => s.removeSaved)
   const addToast = useStore((s) => s.addToast)
@@ -159,8 +162,8 @@ export default function CharacterPage() {
   }, [char])
 
   useEffect(() => {
-    loadCustomImages()
-  }, [name, loadCustomImages])
+    loadCustomImagesForCharacter(name)
+  }, [name, loadCustomImagesForCharacter])
 
   useEffect(() => {
     if (!reorderMode) {
@@ -247,7 +250,7 @@ export default function CharacterPage() {
     try {
       if (baseline) {
         await apiClient.reorderCustomImages(name, baseline)
-        await loadCustomImages()
+        await loadCustomImagesForCharacter(name)
       }
       reorderSessionBaselineRef.current = null
       setReorderMode(false)
@@ -258,7 +261,7 @@ export default function CharacterPage() {
     } catch (e) {
       addToast(e.message || 'Could not revert order', 'error')
     }
-  }, [name, loadCustomImages, addToast])
+  }, [name, loadCustomImagesForCharacter, addToast])
 
   const doneReorder = useCallback(() => {
     reorderSessionBaselineRef.current = null
@@ -286,12 +289,12 @@ export default function CharacterPage() {
       apiClient
         .reorderCustomImages(name, newOrder)
         .then(() => {
-          loadCustomImages()
+          loadCustomImagesForCharacter(name)
           addToast('Order updated', 'success')
         })
         .catch((err) => addToast(err.message, 'error'))
     },
-    [name, loadCustomImages, addToast]
+    [name, loadCustomImagesForCharacter, addToast]
   )
 
   if (!char) return <div className="loading">Character not found</div>
@@ -301,6 +304,10 @@ export default function CharacterPage() {
     try {
       await apiClient.editCharacter({ original_name: name, new_name: editName, series: editSeries, rank: editRank })
       await loadCharacters()
+      await loadSaved()
+      if (name !== editName) {
+        renameCustomCharacterData(name, editName)
+      }
       addToast('Character updated', 'success')
       setEditMode(false)
       navigate(`/character/${encodeURIComponent(editName)}`, { replace: true })
@@ -385,8 +392,9 @@ export default function CharacterPage() {
           fd.append('character_name', name)
           fd.append('files', file)
           const res = await apiClient.addCustomImage(fd)
-          // Avoid loading huge custom_images.json + last-updated after every file (bursts traffic and can
-          // starve the next upload → "Failed to fetch"). Refresh once after the whole batch (see finally).
+          if (Array.isArray(res.links) && res.links.length > 0) {
+            await appendCustomImageUrls(name, res.links)
+          }
           // Server can return 200 with `errors` when a batch had partial failures (e.g. multi-file request)
           if (res && Array.isArray(res._partialErrors) && res._partialErrors.length) {
             res._partialErrors.forEach((msg) => {
@@ -420,18 +428,13 @@ export default function CharacterPage() {
           '',
           ...errors.map((e) => (e.name ? `${e.name}\n  ${e.message}` : e.message)),
           '',
-          'Tip: uploads to ImgChest are retried on the server; the browser also retries brief connection errors. The gallery refreshes once per batch (not after each file) to avoid overloading the connection. If you see a network error, try again.',
+          'Tip: uploads to ImgChest are retried on the server; the browser also retries brief connection errors. New URLs are merged into the gallery without reloading the full library. If you see a network error, try again.',
         ].join('\n')
         setUploadErrorDialog(detail)
       }
     } catch (err) {
       addToast(`Upload stopped: ${err.message || 'Unknown error'}`, 'error')
     } finally {
-      try {
-        await loadCustomImages()
-      } catch {
-        /* store may still have prior snapshot if this fails */
-      }
       customUploadLockRef.current = false
       setCustomUploadProgress(null)
     }
@@ -463,7 +466,9 @@ export default function CharacterPage() {
     )
     try {
       const res = await apiClient.importCustomImagesFromUrls(name, list)
-      await loadCustomImages()
+      if (Array.isArray(res.links) && res.links.length > 0) {
+        await appendCustomImageUrls(name, res.links)
+      }
       if (res && Array.isArray(res._partialErrors) && res._partialErrors.length) {
         res._partialErrors.forEach((msg) => addToast(`Skipped: ${msg}`, 'error'))
       }
@@ -557,12 +562,12 @@ export default function CharacterPage() {
     const orderBeforeDelete = [...customs]
     try {
       await apiClient.deleteCustomImages(name, selectedUrls)
-      await loadCustomImages()
+      await loadCustomImagesForCharacter(name)
       const n = selectedUrls.length
       addToast(`${n} custom image${n === 1 ? '' : 's'} removed`, 'success', {
         onUndo: async () => {
           await apiClient.reorderCustomImages(name, orderBeforeDelete)
-          await loadCustomImages()
+          await loadCustomImagesForCharacter(name)
           resetModes()
           addToast('Images restored', 'info')
         },

@@ -1,6 +1,16 @@
 import { create } from 'zustand'
 import { apiClient } from '../api'
 
+/** Transient browser / gateway failures worth retrying (not 4xx validation). */
+function shouldRetryFetchError(e) {
+  if (e instanceof TypeError) return true
+  const m = e?.message || ''
+  if (m.startsWith('Network error:')) return true
+  if (/could not complete the request/i.test(m)) return true
+  if (/Gateway|502|503|504/i.test(m)) return true
+  return false
+}
+
 export const useStore = create((set, get) => ({
   characters: [],
   savedCharacters: [],
@@ -45,19 +55,90 @@ export const useStore = create((set, get) => ({
     }
   },
 
+  /** Full map — used by Home / Customs (stats, browse all). */
   loadCustomImages: async () => {
-    try {
-      const data = await apiClient.getCustomImages()
-      set({ customImages: data || {} })
+    const maxAttempts = 3
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const lastUpd = await apiClient.getLastUpdated()
-        if (lastUpd && typeof lastUpd === 'object') set({ lastUpdated: lastUpd })
-      } catch {
-        /* keep existing lastUpdated */
+        const data = await apiClient.getCustomImages()
+        set({ customImages: data || {} })
+        try {
+          const lastUpd = await apiClient.getLastUpdated()
+          if (lastUpd && typeof lastUpd === 'object') set({ lastUpdated: lastUpd })
+        } catch {
+          /* keep existing lastUpdated */
+        }
+        return
+      } catch (e) {
+        if (!shouldRetryFetchError(e) || attempt === maxAttempts - 1) break
+        await new Promise((r) => setTimeout(r, 400 * 2 ** attempt + Math.random() * 200))
       }
-    } catch {
-      /* Keep previous customImages — clearing on a failed refresh hid successful uploads and worsened batch UX. */
     }
+    /* Keep previous customImages — clearing on a failed refresh hid successful uploads and worsened batch UX. */
+  },
+
+  /** One character’s URLs from GET /api/custom-image/<name> — merges into the map without loading everyone. */
+  loadCustomImagesForCharacter: async (characterName) => {
+    if (!characterName) return
+    const maxAttempts = 3
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const urls = await apiClient.getCustomImagesForChar(characterName)
+        const list = Array.isArray(urls) ? urls : []
+        set((s) => ({
+          customImages: { ...s.customImages, [characterName]: list },
+        }))
+        try {
+          const lastUpd = await apiClient.getLastUpdated()
+          if (lastUpd && typeof lastUpd === 'object') set({ lastUpdated: lastUpd })
+        } catch {
+          /* keep */
+        }
+        return
+      } catch (e) {
+        if (!shouldRetryFetchError(e) || attempt === maxAttempts - 1) break
+        await new Promise((r) => setTimeout(r, 400 * 2 ** attempt + Math.random() * 200))
+      }
+    }
+    /* keep previous slice for this character */
+  },
+
+  /** Append ImgChest URLs after a successful upload/import (server already saved). */
+  appendCustomImageUrls: async (characterName, urls) => {
+    if (!characterName || !urls?.length) return
+    set((s) => ({
+      customImages: {
+        ...s.customImages,
+        [characterName]: [...(s.customImages[characterName] || []), ...urls],
+      },
+    }))
+    try {
+      const lastUpd = await apiClient.getLastUpdated()
+      if (lastUpd && typeof lastUpd === 'object') set({ lastUpdated: lastUpd })
+    } catch {
+      /* keep */
+    }
+  },
+
+  /**
+   * After server-side rename of a character, move custom image URLs + timestamps to the new key
+   * so Home/Customs stats do not double-count the old name.
+   */
+  renameCustomCharacterData: (oldName, newName) => {
+    if (!oldName || !newName || oldName === newName) return
+    set((s) => {
+      const customImages = { ...s.customImages }
+      if (Object.prototype.hasOwnProperty.call(customImages, oldName)) {
+        customImages[newName] = customImages[oldName]
+        delete customImages[oldName]
+      }
+      const lastUpdated = { ...s.lastUpdated }
+      if (Object.prototype.hasOwnProperty.call(lastUpdated, oldName)) {
+        lastUpdated[newName] = lastUpdated[oldName]
+        delete lastUpdated[oldName]
+      }
+      return { customImages, lastUpdated }
+    })
   },
 
   saveCharacter: async (char) => {
