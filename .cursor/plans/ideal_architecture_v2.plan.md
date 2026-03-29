@@ -879,7 +879,7 @@ Phases 1–4 focused on **security basics, DB-backed API, and React**. This sect
 
 **Next:** add `**secure_filename`** (or equivalent) for every temp file path built from `file.filename`.
 
-After that: `**GET /api/health**` and **pin Pillow** — small wins before larger test or auth work. Optional: **custom domain + Cloudflare** (section below) for global static latency.
+After that: `**GET /api/health`** and **pin Pillow** — small wins before larger test or auth work. Optional: **custom domain + Cloudflare** (section below) for global static latency.
 
 ---
 
