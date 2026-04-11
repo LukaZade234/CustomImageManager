@@ -137,24 +137,26 @@ body.dark-mode .search-input-wrapper {
     background-color: #2a3036;
     border-color: #6b7280;
 }
-/* Single outer ring only — no inner glow/box on the text field */
+/* Outer pill highlight (same idea as light mode) */
 body.dark-mode .search-input-wrapper:focus-within {
-    border-color: #7c8a9a;
-    box-shadow: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
-body.dark-mode .char-search-input {
+/*
+ * Kill the inner rectangular focus outline on the <input>. Browsers draw :focus-visible
+ * as a sharp box inside the rounded wrapper — only the outer pill ring above should show.
+ */
+body.dark-mode .search-input-wrapper .char-search-input,
+body.dark-mode .search-input-wrapper .char-search-input:focus,
+body.dark-mode .search-input-wrapper .char-search-input:focus-visible {
     color: #f1f3f5;
-    border: none;
-    outline: none;
-    box-shadow: none;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    outline-offset: 0 !important;
+    box-shadow: none !important;
     -webkit-appearance: none;
     appearance: none;
-}
-body.dark-mode .char-search-input:focus,
-body.dark-mode .char-search-input:focus-visible {
-    outline: none;
-    box-shadow: none;
-    border: none;
 }
 body.dark-mode .char-search-input::placeholder {
     color: #9ca3af;
@@ -294,7 +296,7 @@ body.dark-mode .stat-label {
 }
 
 body.dark-mode .modern-input,
-body.dark-mode input[type="text"],
+body.dark-mode input[type="text"]:not(.char-search-input),
 body.dark-mode input[type="number"],
 body.dark-mode select {
     background-color: #2a3036;
@@ -302,7 +304,7 @@ body.dark-mode select {
     color: #f1f3f5;
 }
 body.dark-mode .modern-input:focus,
-body.dark-mode input[type="text"]:focus,
+body.dark-mode input[type="text"]:focus:not(.char-search-input),
 body.dark-mode input[type="number"]:focus,
 body.dark-mode select:focus {
     border-color: #4dabf7;
