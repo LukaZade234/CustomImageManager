@@ -1,11 +1,22 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { useStore } from '../store/useStore'
 import { DISCORD_LIMIT_REGULAR, DISCORD_LIMIT_NITRO } from '../utils/aiCommandDiscord'
 
+function copyButtonLabel(partIndex, totalParts) {
+  if (totalParts <= 1) return 'Copy command'
+  return `Copy command ${partIndex + 1}/${totalParts}`
+}
+
+function truncatePreview(s, max = 80) {
+  if (!s || s.length <= max) return s
+  return `${s.slice(0, max - 1)}…`
+}
+
+/** @returns {Promise<boolean>} */
 async function copyWithFallback(text, addToast) {
   if (!text) {
     addToast('Nothing to copy', 'info')
-    return
+    return false
   }
   const fallback = () => {
     const ta = document.createElement('textarea')
@@ -24,25 +35,39 @@ async function copyWithFallback(text, addToast) {
     try {
       await navigator.clipboard.writeText(text)
       addToast('Copied to clipboard', 'success')
-      return
+      return true
     } catch {
       /* fall through */
     }
   }
-  if (fallback()) addToast('Copied to clipboard', 'success')
-  else addToast('Could not copy — select text manually (Ctrl+C / Cmd+C)', 'error')
+  if (fallback()) {
+    addToast('Copied to clipboard', 'success')
+    return true
+  }
+  addToast('Could not copy — select text manually (Ctrl+C / Cmd+C)', 'error')
+  return false
 }
 
 /**
- * Shown when $ai command length >= 2000. Two columns: non-Nitro (≤2000 per message) and Nitro (≤4000 per message).
+ * Shown when $ai command length >= 2000. Two card columns: Regular vs Nitro limits.
  */
 export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroParts, onClose }) {
   const closeBtnRef = useRef(null)
+  const announceTimerRef = useRef(null)
   const addToast = useStore((s) => s.addToast)
+  const [announce, setAnnounce] = useState('')
 
   const copyPart = useCallback(
-    (text) => {
-      copyWithFallback(text, addToast)
+    async (text, screenReaderLabel) => {
+      const ok = await copyWithFallback(text, addToast)
+      if (ok) {
+        if (announceTimerRef.current) clearTimeout(announceTimerRef.current)
+        setAnnounce(`${screenReaderLabel} copied to clipboard`)
+        announceTimerRef.current = setTimeout(() => {
+          setAnnounce('')
+          announceTimerRef.current = null
+        }, 2000)
+      }
     },
     [addToast]
   )
@@ -53,6 +78,7 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
     return () => {
       clearTimeout(t)
       document.body.style.overflow = ''
+      if (announceTimerRef.current) clearTimeout(announceTimerRef.current)
     }
   }, [])
 
@@ -67,6 +93,8 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
     return () => document.removeEventListener('keydown', h)
   }, [onClose])
 
+  const dialogDescId = 'ai-command-limit-desc'
+
   return (
     <div
       className="upload-error-dialog-backdrop ai-command-limit-dialog-backdrop"
@@ -78,60 +106,95 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
         role="dialog"
         aria-modal="true"
         aria-labelledby="ai-command-limit-title"
+        aria-describedby={dialogDescId}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 id="ai-command-limit-title" className="upload-error-dialog__title">
-          $ai command exceeds Discord length
-        </h2>
-        <p className="upload-error-dialog__hint ai-command-limit-dialog__summary">
-          This command is <strong>{charCount.toLocaleString()}</strong> characters. Regular Discord accounts can send{' '}
-          <strong>{DISCORD_LIMIT_REGULAR.toLocaleString()}</strong> characters per message; Nitro allows{' '}
-          <strong>{DISCORD_LIMIT_NITRO.toLocaleString()}</strong>. Copy the parts below and paste each as its own message
-          in Discord.
-        </p>
-
-        <div className="ai-command-limit-dialog__columns">
-          <section className="ai-command-limit-dialog__column" aria-label="Without Nitro">
-            <h3 className="ai-command-limit-dialog__column-title">Without Nitro (≤{DISCORD_LIMIT_REGULAR.toLocaleString()} each)</h3>
-            <ul className="ai-command-limit-dialog__part-list">
-              {nonNitroParts.map((text, idx) => (
-                <li key={`n-${idx}`}>
-                  <button
-                    type="button"
-                    className="action-btn primary ai-command-limit-dialog__copy-btn"
-                    onClick={() => copyPart(text, idx)}
-                  >
-                    Copy command part {idx + 1}
-                    <span className="ai-command-limit-dialog__meta"> ({text.length.toLocaleString()} chars)</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="ai-command-limit-dialog__column" aria-label="With Nitro">
-            <h3 className="ai-command-limit-dialog__column-title">With Nitro (≤{DISCORD_LIMIT_NITRO.toLocaleString()} each)</h3>
-            <ul className="ai-command-limit-dialog__part-list">
-              {nitroParts.map((text, idx) => (
-                <li key={`t-${idx}`}>
-                  <button
-                    type="button"
-                    className="action-btn primary ai-command-limit-dialog__copy-btn"
-                    onClick={() => copyPart(text, idx)}
-                  >
-                    {nitroParts.length === 1 ? 'Copy full command' : `Copy command part ${idx + 1}`}
-                    <span className="ai-command-limit-dialog__meta"> ({text.length.toLocaleString()} chars)</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
+        <div className="ai-command-limit-dialog__header">
+          <span className="ai-command-limit-dialog__header-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </span>
+          <h2 id="ai-command-limit-title" className="ai-command-limit-dialog__title">
+            $ai command exceeds Discord length
+          </h2>
         </div>
 
-        <div className="upload-error-dialog__actions">
+        <div id={dialogDescId} className="ai-command-limit-dialog__summary-strip">
+          <strong>{charCount.toLocaleString()}</strong> characters — Discord allows <strong>{DISCORD_LIMIT_REGULAR.toLocaleString()}</strong> per
+          message (<strong>{DISCORD_LIMIT_NITRO.toLocaleString()}</strong> with Nitro). Copy each block as a separate message.
+        </div>
+
+        <div className="ai-command-limit-dialog__body">
+          <div className="ai-command-limit-dialog__columns">
+            <section className="ai-command-limit-dialog__column-card" aria-label="Regular Discord">
+              <h3 className="ai-command-limit-dialog__column-title">
+                Regular <span className="ai-command-limit-dialog__limit-pill">{DISCORD_LIMIT_REGULAR.toLocaleString()} max</span>
+              </h3>
+              <p className="ai-command-limit-dialog__column-meta">
+                {nonNitroParts.length} message{nonNitroParts.length === 1 ? '' : 's'}
+              </p>
+              <div className="ai-command-limit-dialog__column-scroll">
+                <ul className="ai-command-limit-dialog__part-list">
+                  {nonNitroParts.map((text, idx) => (
+                    <li key={`n-${idx}`} className="ai-command-limit-dialog__part-row">
+                      <div className="ai-command-limit-dialog__preview" title={text}>
+                        {truncatePreview(text)}
+                      </div>
+                      <button
+                        type="button"
+                        className={`action-btn ai-command-limit-dialog__copy-btn ${idx === 0 ? 'primary' : 'secondary'}`}
+                        onClick={() =>
+                          copyPart(text, copyButtonLabel(idx, nonNitroParts.length))
+                        }
+                      >
+                        {copyButtonLabel(idx, nonNitroParts.length)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+
+            <section className="ai-command-limit-dialog__column-card" aria-label="Discord Nitro">
+              <h3 className="ai-command-limit-dialog__column-title">
+                Nitro <span className="ai-command-limit-dialog__limit-pill">{DISCORD_LIMIT_NITRO.toLocaleString()} max</span>
+              </h3>
+              <p className="ai-command-limit-dialog__column-meta">
+                {nitroParts.length} message{nitroParts.length === 1 ? '' : 's'}
+              </p>
+              <div className="ai-command-limit-dialog__column-scroll">
+                <ul className="ai-command-limit-dialog__part-list">
+                  {nitroParts.map((text, idx) => (
+                    <li key={`t-${idx}`} className="ai-command-limit-dialog__part-row">
+                      <div className="ai-command-limit-dialog__preview" title={text}>
+                        {truncatePreview(text)}
+                      </div>
+                      <button
+                        type="button"
+                        className={`action-btn ai-command-limit-dialog__copy-btn ${idx === 0 ? 'primary' : 'secondary'}`}
+                        onClick={() => copyPart(text, copyButtonLabel(idx, nitroParts.length))}
+                      >
+                        {copyButtonLabel(idx, nitroParts.length)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div className="ai-command-limit-dialog__footer upload-error-dialog__actions">
           <button ref={closeBtnRef} type="button" className="action-btn secondary" onClick={onClose}>
             Close
           </button>
+        </div>
+
+        <div className="ai-command-limit-dialog__sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {announce}
         </div>
       </div>
     </div>
