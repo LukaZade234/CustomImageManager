@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -7,14 +7,22 @@
       name="description"
       content="ImgManager — personal tool to browse characters, manage custom images for Mudae, and copy $ai commands. No login; not affiliated with Discord or Mudae."
     />
-    <meta name="google-site-verification" content="7U-EcXYg_g_s3VD9qSfqlEPrIKelnXNfJf9gYwUfyqM" />
+    <meta
+      name="google-site-verification"
+      h
+      content="7U-EcXYg_g_s3VD9qSfqlEPrIKelnXNfJf9gYwUfyqM"
+    />
     <title>ImgManager — Mudae custom image helper</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   </head>
   <body>
     <script>
       try {
-        if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
-      } catch (_) { /* private mode / blocked storage */ }
+        if (localStorage.getItem("darkMode") === "true")
+          document.body.classList.add("dark-mode");
+      } catch (_) {
+        /* private mode / blocked storage */
+      }
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
