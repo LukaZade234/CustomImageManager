@@ -3,5 +3,5 @@ flask-cors>=4.0
 flask-compress>=1.14
 gunicorn>=21.0
 requests>=2.25
-Pillow
+Pillow>=10.0.0,<12
 psycopg2-binary>=2.9

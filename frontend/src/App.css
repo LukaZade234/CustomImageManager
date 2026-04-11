@@ -2138,6 +2138,58 @@ body.dark-mode .upload-error-dialog__body {
     color: #e9ecef;
 }
 
+/* $ai command Discord length dialog (two columns: non-Nitro vs Nitro) */
+.ai-command-limit-dialog-backdrop {
+    z-index: 3100;
+}
+.ai-command-limit-dialog {
+    max-width: min(960px, 100%);
+    max-height: min(92vh, 720px);
+}
+.ai-command-limit-dialog__summary strong {
+    color: var(--text, #212529);
+}
+.ai-command-limit-dialog__columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.25rem;
+    align-items: start;
+    margin-top: 0.25rem;
+}
+@media (max-width: 720px) {
+    .ai-command-limit-dialog__columns {
+        grid-template-columns: 1fr;
+    }
+}
+.ai-command-limit-dialog__column-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text, #212529);
+}
+.ai-command-limit-dialog__part-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.ai-command-limit-dialog__copy-btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    flex-wrap: wrap;
+}
+.ai-command-limit-dialog__meta {
+    font-weight: 400;
+    opacity: 0.9;
+    font-size: 0.85em;
+}
+body.dark-mode .ai-command-limit-dialog__column-title {
+    color: var(--text, #e9ecef);
+}
+
 .loading {
     padding: 40px;
     text-align: center;

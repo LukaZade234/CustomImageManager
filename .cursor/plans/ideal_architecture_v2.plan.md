@@ -863,23 +863,21 @@ Phases 1–4 focused on **security basics, DB-backed API, and React**. This sect
 - **Gunicorn** — `--workers 2 --timeout 120` in **Dockerfile** and `.do/app.yaml`; live App Spec `run_command` confirmed.
 - **Werkzeug `FileStorage.filename` typing** — narrowed to `str` before path concat (`upload_imgchest.py`).
 - **Frontend UX** — upload lock, retries on transient network errors, merge new URLs after upload; error dialog / toasts (per current `frontend/`).
+- **Temp upload paths** — `_safe_stored_filename()` via `werkzeug.utils.secure_filename` for temp upload/add/custom/main prefixes (`upload_imgchest.py`).
+- **`GET /api/health`** — liveness JSON for probes (`upload_imgchest.py`).
+- **Pillow** — version range pinned in `requirements.txt` (`>=10.0.0,<12`).
 
 #### Not done (recommended order)
 
-1. [ ] **Sanitize temp filenames** — `werkzeug.utils.secure_filename` (or equivalent) on all user-provided names before `temp`_* paths (path traversal hardening).
-2. [ ] **Pin dependencies** — e.g. `pip-tools` or pinned `Pillow` major version in `requirements.txt`.
-3. [ ] `**GET /api/health` or `/health`** — cheap liveness/readiness for load balancers; avoid heavy POST routes for probes.
-4. [ ] **Minimal tests** — pytest for validation helpers, URL allowlists, and upload pre-guard behavior.
-5. [ ] **Structured logging** — `logging` + optional JSON or request-id middleware when debugging at scale.
-6. [ ] **Rate limiting** — per-user/IP on upload routes (Phase 3 noted “skipped”; revisit if public or abused).
-7. [ ] **Discord OAuth / auth** — Phase 5 in plan; required for per-user data and abuse control.
-8. [ ] **Normalized schema + Alembic** — only when JSON blobs become a bottleneck.
+1. [ ] **Minimal tests** — pytest for validation helpers, URL allowlists, and upload pre-guard behavior.
+2. [ ] **Structured logging** — `logging` + optional JSON or request-id middleware when debugging at scale.
+3. [ ] **Rate limiting** — per-user/IP on upload routes (Phase 3 noted “skipped”; revisit if public or abused).
+4. [ ] **Discord OAuth / auth** — Phase 5 in plan; required for per-user data and abuse control.
+5. [ ] **Normalized schema + Alembic** — only when JSON blobs become a bottleneck.
 
 ### Next step (single recommended action)
 
-**Next:** add `**secure_filename`** (or equivalent) for every temp file path built from `file.filename`.
-
-After that: `**GET /api/health`** and **pin Pillow** — small wins before larger test or auth work. Optional: **custom domain + Cloudflare** (section below) for global static latency.
+**Next:** **minimal tests** (pytest) or **structured logging** when debugging at scale. Optional: **custom domain + Cloudflare** (section below) for global static latency.
 
 ---
 

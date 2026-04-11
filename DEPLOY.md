@@ -33,6 +33,8 @@ In the app’s **Settings** → **App-Level Environment Variables**, add:
 
 The app uses the React SPA. The Dockerfile builds it during deploy. No extra config needed.
 
+**Health check:** `GET /api/health` returns `{"status":"ok","service":"imgmanager"}` — use for uptime probes (not a full DB check).
+
 ## Step 5: Database Setup (if using DATABASE_URL)
 
 After the first deploy with `DATABASE_URL` set:

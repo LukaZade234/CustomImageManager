@@ -4,6 +4,13 @@ import { useStore } from '../store/useStore'
 import { apiClient, getImageUrl } from '../api'
 import ImageModal from '../components/ImageModal'
 import UploadErrorDialog from '../components/UploadErrorDialog'
+import AiCommandLimitDialog from '../components/AiCommandLimitDialog'
+import {
+  buildAiCommand,
+  splitAiCommandForLimit,
+  DISCORD_LIMIT_REGULAR,
+  DISCORD_LIMIT_NITRO,
+} from '../utils/aiCommandDiscord'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '../utils/downloadCustomImages'
 import { extractImageUrlsFromDataTransfer, dataTransferHasWebImageDrag, dedupeImageUrls } from '../utils/dragImageUrls'
@@ -117,6 +124,7 @@ export default function CharacterPage() {
   const [mainImage, setMainImage] = useState('')
   const [loading, setLoading] = useState(false)
   const [aiMode, setAiMode] = useState(false)
+  const [aiLimitDialog, setAiLimitDialog] = useState(null)
   const [deleteMode, setDeleteMode] = useState(false)
   const [downloadMode, setDownloadMode] = useState(false)
   const [reorderMode, setReorderMode] = useState(false)
@@ -224,6 +232,7 @@ export default function CharacterPage() {
     setDownloadMode(false)
     setReorderMode(false)
     setSelectedUrls([])
+    setAiLimitDialog(null)
     reorderSessionBaselineRef.current = null
   }, [])
 
@@ -591,14 +600,31 @@ export default function CharacterPage() {
   const generateAiCommand = () => {
     const urls = selectedUrls.length ? selectedUrls : customs
     const charName = editMode ? editName : char.name
-    const cmd = `$ai ${charName} ${urls.map((u) => '$' + u).join(' ')}`
-    navigator.clipboard
-      .writeText(cmd)
-      .then(() => {
-        addToast('Command copied to clipboard', 'success')
-        resetModes()
-      })
-      .catch(() => addToast('Failed to copy', 'error'))
+    const cmd = buildAiCommand(charName, urls)
+    if (cmd.length < DISCORD_LIMIT_REGULAR) {
+      navigator.clipboard
+        .writeText(cmd)
+        .then(() => {
+          addToast('Command copied to clipboard', 'success')
+          resetModes()
+        })
+        .catch(() => addToast('Failed to copy', 'error'))
+      return
+    }
+    const nonNitroParts = splitAiCommandForLimit(charName, urls, DISCORD_LIMIT_REGULAR)
+    const nitroParts =
+      cmd.length <= DISCORD_LIMIT_NITRO
+        ? [cmd]
+        : splitAiCommandForLimit(charName, urls, DISCORD_LIMIT_NITRO)
+    setAiLimitDialog({
+      charCount: cmd.length,
+      nonNitroParts,
+      nitroParts,
+    })
+  }
+
+  const closeAiLimitDialog = () => {
+    resetModes()
   }
 
   const onDragStart = (e, index) => {
@@ -958,6 +984,14 @@ export default function CharacterPage() {
           title="Upload issue"
           body={uploadErrorDialog}
           onClose={() => setUploadErrorDialog(null)}
+        />
+      )}
+      {aiLimitDialog && (
+        <AiCommandLimitDialog
+          charCount={aiLimitDialog.charCount}
+          nonNitroParts={aiLimitDialog.nonNitroParts}
+          nitroParts={aiLimitDialog.nitroParts}
+          onClose={closeAiLimitDialog}
         />
       )}
     </div>

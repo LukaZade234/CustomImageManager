@@ -17,11 +17,21 @@ if sys.platform.startswith('win'):
 from flask import Flask, request, jsonify, send_from_directory, abort, Response
 from flask_compress import Compress
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
 
 # Import utility functions
 from imgchest_utils import upload_to_imgchest, ImgChestError
 from image_utils import convert_to_png, validate_image_file
 import db
+
+
+def _safe_stored_filename(original_filename: str) -> str:
+    """Basename for temp files on disk — strips path segments and unsafe chars."""
+    base = secure_filename(original_filename or '') or ''
+    if not base:
+        base = f'upload_{uuid.uuid4().hex[:12]}'
+    return base
+
 
 # Max file size (30MB) - reject larger files to avoid memory issues
 MAX_FILE_SIZE = 30 * 1024 * 1024
@@ -344,6 +354,12 @@ def _handle_database_configuration_error(exc):
     return jsonify({'error': str(exc)}), 503
 
 
+@app.route('/api/health', methods=['GET'])
+def health():
+    """Lightweight liveness for load balancers and probes (no heavy work)."""
+    return jsonify({'status': 'ok', 'service': 'imgmanager'})
+
+
 @app.route('/api/last-updated', methods=['GET'])
 def get_last_updated():
     try:
@@ -462,8 +478,9 @@ def upload():
 
     print(f"[UPLOAD] Starting single-file upload: {fn}", flush=True)
 
-    # Save temporarily
-    temp_path = os.path.join('.', 'temp_upload_' + fn)
+    # Save temporarily (sanitized basename — no path traversal)
+    safe_fn = _safe_stored_filename(fn)
+    temp_path = os.path.join('.', 'temp_upload_' + safe_fn)
     file.save(temp_path)
     file_size = os.path.getsize(temp_path)
     file_size_mb = file_size / (1024 * 1024)
@@ -566,7 +583,8 @@ def add_character():
         file = request.files['image']
         fn = file.filename
         if fn:
-            temp_path = os.path.join('.', 'temp_add_' + fn)
+            safe_fn = _safe_stored_filename(fn)
+            temp_path = os.path.join('.', 'temp_add_' + safe_fn)
             file.save(temp_path)
             try:
                 result = upload_to_imgchest(temp_path)
@@ -640,8 +658,9 @@ def add_custom_image():
             processed += 1
             print(f"[UPLOAD] Processing file {processed}/{file_count}: {fn}", flush=True)
 
-            # Save temporarily
-            temp_path = os.path.join('.', 'temp_custom_' + fn)
+            # Save temporarily (sanitized basename)
+            safe_fn = _safe_stored_filename(fn)
+            temp_path = os.path.join('.', 'temp_custom_' + safe_fn)
             file.save(temp_path)
 
             direct_link, one_err = _run_single_custom_upload_from_temp(temp_path, fn)
@@ -899,7 +918,8 @@ def set_main_image():
     if not fn:
         return jsonify({'error': 'No file selected'}), 400
 
-    temp_path = os.path.join('.', 'temp_main_' + fn)
+    safe_fn = _safe_stored_filename(fn)
+    temp_path = os.path.join('.', 'temp_main_' + safe_fn)
     file.save(temp_path)
 
     main_size = os.path.getsize(temp_path)
