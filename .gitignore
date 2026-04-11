@@ -27,3 +27,9 @@ frontend/dist
 # User-specific data (not project code)
 add_to_csv.txt
 pending_characters.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
