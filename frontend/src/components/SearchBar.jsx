@@ -64,27 +64,40 @@ export default function SearchBar() {
           </span>
         </div>
       </div>
-      <div className={`custom-dropdown ${dropdownOpen ? 'active' : ''}`} ref={dropdownRef}>
+      <div
+        className={`custom-dropdown navbar-sort-dropdown ${dropdownOpen ? 'active' : ''}`}
+        ref={dropdownRef}
+      >
         <div
           className="dropdown-selected"
           onClick={() => setDropdownOpen(!dropdownOpen)}
           role="button"
           tabIndex={0}
+          aria-label={`Sort by: ${sortLabel}`}
+          aria-expanded={dropdownOpen}
+          aria-haspopup="listbox"
+          title={`Sort: ${sortLabel}`}
           onKeyDown={(e) => e.key === 'Enter' && setDropdownOpen(!dropdownOpen)}
         >
           <span className="selected-text">{sortLabel}</span>
-          <svg className="dropdown-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="dropdown-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </div>
-        <div className={`dropdown-options ${dropdownOpen ? 'show' : ''}`} style={{ display: dropdownOpen ? 'block' : 'none' }}>
+        <div
+          className={`dropdown-options ${dropdownOpen ? 'show' : ''}`}
+          style={{ display: dropdownOpen ? 'block' : 'none' }}
+          role="listbox"
+          aria-label="Sort options"
+        >
           {SORT_OPTIONS.map((o) => (
             <div
               key={o.value}
               className={`dropdown-option ${sort === o.value ? 'selected' : ''}`}
               onClick={() => handleSortSelect(o.value)}
-              role="button"
+              role="option"
               tabIndex={0}
+              aria-selected={sort === o.value}
               onKeyDown={(e) => e.key === 'Enter' && handleSortSelect(o.value)}
             >
               {o.label}
