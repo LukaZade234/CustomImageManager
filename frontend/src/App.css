@@ -2249,23 +2249,6 @@ body.dark-mode .upload-error-dialog__body {
     flex-direction: column;
     gap: 0.65rem;
 }
-.ai-command-limit-dialog__part-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-}
-.ai-command-limit-dialog__preview {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 0.72rem;
-    line-height: 1.4;
-    color: #495057;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding: 0.35rem 0.45rem;
-    border-radius: 4px;
-    background: #f1f3f5;
-}
 .ai-command-limit-dialog__copy-btn {
     width: 100%;
     justify-content: center;
@@ -2317,10 +2300,6 @@ body.dark-mode .ai-command-limit-dialog__column-meta {
 body.dark-mode .ai-command-limit-dialog__column-scroll {
     background: #1e1e1e;
     border-color: #444;
-}
-body.dark-mode .ai-command-limit-dialog__preview {
-    background: #252525;
-    color: #ced4da;
 }
 body.dark-mode .ai-command-limit-dialog__footer {
     border-top-color: #444;

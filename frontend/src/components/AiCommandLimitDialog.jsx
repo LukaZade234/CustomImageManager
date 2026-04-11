@@ -7,11 +7,6 @@ function copyButtonLabel(partIndex, totalParts) {
   return `Copy command ${partIndex + 1}/${totalParts}`
 }
 
-function truncatePreview(s, max = 80) {
-  if (!s || s.length <= max) return s
-  return `${s.slice(0, max - 1)}…`
-}
-
 /** @returns {Promise<boolean>} */
 async function copyWithFallback(text, addToast) {
   if (!text) {
@@ -139,10 +134,7 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
               <div className="ai-command-limit-dialog__column-scroll">
                 <ul className="ai-command-limit-dialog__part-list">
                   {nonNitroParts.map((text, idx) => (
-                    <li key={`n-${idx}`} className="ai-command-limit-dialog__part-row">
-                      <div className="ai-command-limit-dialog__preview" title={text}>
-                        {truncatePreview(text)}
-                      </div>
+                    <li key={`n-${idx}`}>
                       <button
                         type="button"
                         className={`action-btn ai-command-limit-dialog__copy-btn ${idx === 0 ? 'primary' : 'secondary'}`}
@@ -168,10 +160,7 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
               <div className="ai-command-limit-dialog__column-scroll">
                 <ul className="ai-command-limit-dialog__part-list">
                   {nitroParts.map((text, idx) => (
-                    <li key={`t-${idx}`} className="ai-command-limit-dialog__part-row">
-                      <div className="ai-command-limit-dialog__preview" title={text}>
-                        {truncatePreview(text)}
-                      </div>
+                    <li key={`t-${idx}`}>
                       <button
                         type="button"
                         className={`action-btn ai-command-limit-dialog__copy-btn ${idx === 0 ? 'primary' : 'secondary'}`}
