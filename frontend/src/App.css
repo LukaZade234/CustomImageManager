@@ -2255,6 +2255,26 @@ body.dark-mode .upload-error-dialog__body {
     text-align: center;
     flex-wrap: wrap;
 }
+.ai-command-limit-dialog__copy-btn--copied.action-btn.secondary {
+    background-color: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+.ai-command-limit-dialog__copy-btn--copied.action-btn.secondary:hover {
+    background-color: #c3e6cb;
+    border-color: #218838;
+    color: #155724;
+}
+body.dark-mode .ai-command-limit-dialog__copy-btn--copied.action-btn.secondary {
+    background-color: #1e4620;
+    border-color: #2d8f47;
+    color: #c3e6cb;
+}
+body.dark-mode .ai-command-limit-dialog__copy-btn--copied.action-btn.secondary:hover {
+    background-color: #255a28;
+    border-color: #34a853;
+    color: #e8f5e9;
+}
 .ai-command-limit-dialog__footer {
     flex-shrink: 0;
     margin-top: 0;

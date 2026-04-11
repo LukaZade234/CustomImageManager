@@ -51,11 +51,13 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
   const announceTimerRef = useRef(null)
   const addToast = useStore((s) => s.addToast)
   const [announce, setAnnounce] = useState('')
+  const [copiedKeys, setCopiedKeys] = useState(() => new Set())
 
   const copyPart = useCallback(
-    async (text, screenReaderLabel) => {
+    async (partKey, text, screenReaderLabel) => {
       const ok = await copyWithFallback(text, addToast)
       if (ok) {
+        setCopiedKeys((prev) => new Set([...prev, partKey]))
         if (announceTimerRef.current) clearTimeout(announceTimerRef.current)
         setAnnounce(`${screenReaderLabel} copied to clipboard`)
         announceTimerRef.current = setTimeout(() => {
@@ -133,19 +135,23 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
               </p>
               <div className="ai-command-limit-dialog__column-scroll">
                 <ul className="ai-command-limit-dialog__part-list">
-                  {nonNitroParts.map((text, idx) => (
-                    <li key={`n-${idx}`}>
-                      <button
-                        type="button"
-                        className={`action-btn ai-command-limit-dialog__copy-btn ${idx === 0 ? 'primary' : 'secondary'}`}
-                        onClick={() =>
-                          copyPart(text, copyButtonLabel(idx, nonNitroParts.length))
-                        }
-                      >
-                        {copyButtonLabel(idx, nonNitroParts.length)}
-                      </button>
-                    </li>
-                  ))}
+                  {nonNitroParts.map((text, idx) => {
+                    const label = copyButtonLabel(idx, nonNitroParts.length)
+                    const partKey = `regular-${idx}`
+                    const wasCopied = copiedKeys.has(partKey)
+                    return (
+                      <li key={`n-${idx}`}>
+                        <button
+                          type="button"
+                          className={`action-btn secondary ai-command-limit-dialog__copy-btn${wasCopied ? ' ai-command-limit-dialog__copy-btn--copied' : ''}`}
+                          aria-label={wasCopied ? `${label} — copied` : label}
+                          onClick={() => copyPart(partKey, text, label)}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             </section>
@@ -159,17 +165,23 @@ export default function AiCommandLimitDialog({ charCount, nonNitroParts, nitroPa
               </p>
               <div className="ai-command-limit-dialog__column-scroll">
                 <ul className="ai-command-limit-dialog__part-list">
-                  {nitroParts.map((text, idx) => (
-                    <li key={`t-${idx}`}>
-                      <button
-                        type="button"
-                        className={`action-btn ai-command-limit-dialog__copy-btn ${idx === 0 ? 'primary' : 'secondary'}`}
-                        onClick={() => copyPart(text, copyButtonLabel(idx, nitroParts.length))}
-                      >
-                        {copyButtonLabel(idx, nitroParts.length)}
-                      </button>
-                    </li>
-                  ))}
+                  {nitroParts.map((text, idx) => {
+                    const label = copyButtonLabel(idx, nitroParts.length)
+                    const partKey = `nitro-${idx}`
+                    const wasCopied = copiedKeys.has(partKey)
+                    return (
+                      <li key={`t-${idx}`}>
+                        <button
+                          type="button"
+                          className={`action-btn secondary ai-command-limit-dialog__copy-btn${wasCopied ? ' ai-command-limit-dialog__copy-btn--copied' : ''}`}
+                          aria-label={wasCopied ? `${label} — copied` : label}
+                          onClick={() => copyPart(partKey, text, label)}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             </section>
