@@ -15,7 +15,7 @@ export default function Navbar() {
         </svg>
         <span>ImgManager</span>
       </Link>
-      <div className="navbar-center search-container" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <div className="navbar-center search-container">
         <SearchBar />
       </div>
       <div className="navbar-right">

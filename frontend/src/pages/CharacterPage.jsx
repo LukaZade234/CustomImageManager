@@ -11,12 +11,15 @@ import {
   DISCORD_LIMIT_REGULAR,
   DISCORD_LIMIT_NITRO,
 } from '../utils/aiCommandDiscord'
-import { useMediaQuery } from '../hooks/useMediaQuery'
 import { writeCustomImagesToDirectory, downloadCustomImagesViaBrowser } from '../utils/downloadCustomImages'
 import { extractImageUrlsFromDataTransfer, dataTransferHasWebImageDrag, dedupeImageUrls } from '../utils/dragImageUrls'
 
 /** Must match server MAX_FILE_SIZE in upload_imgchest.py (30 MiB) */
 const MAX_CUSTOM_IMAGE_BYTES = 30 * 1024 * 1024
+
+/** Mobile reorder: HTML5 DnD does not work with touch — long-press then drag */
+const REORDER_LONG_PRESS_MS = 450
+const REORDER_TOUCH_SLOP_PX = 14
 
 const IMAGE_EXT_RE = /\.(jpe?g|png|gif|webp|bmp|svg|avif|heic|heif|ico)$/i
 
@@ -149,16 +152,14 @@ export default function CharacterPage() {
   const [reorderDragIndices, setReorderDragIndices] = useState(null)
   /** Last pointer Y during reorder drag — drives continuous edge auto-scroll */
   const reorderEdgePointerYRef = useRef(null)
-
-  const narrowToolbar = useMediaQuery('(max-width: 768px)')
-  const [charToolbarOpen, setCharToolbarOpen] = useState(false)
-  useEffect(() => {
-    if (!narrowToolbar) setCharToolbarOpen(false)
-  }, [narrowToolbar])
-
-  useEffect(() => {
-    setCharToolbarOpen(false)
-  }, [aiMode, deleteMode, downloadMode, reorderMode])
+  /** Touch long-press before drag: { timerId, index, startX, startY } */
+  const reorderTouchPendingRef = useRef(null)
+  /** Ignore one synthetic click after a touch-based reorder (avoids toggling selection) */
+  const ignoreNextReorderItemClickRef = useRef(false)
+  /** Stable cleanup for window-level touch listeners */
+  const reorderTouchCleanupRef = useRef(null)
+  /** Cancels in-flight long-press (window listeners + timer) */
+  const reorderTouchCancelPendingRef = useRef(null)
 
   useEffect(() => {
     if (char) {
@@ -175,6 +176,21 @@ export default function CharacterPage() {
 
   useEffect(() => {
     if (!reorderMode) {
+      if (typeof reorderTouchCleanupRef.current === 'function') {
+        reorderTouchCleanupRef.current()
+        reorderTouchCleanupRef.current = null
+      }
+      if (typeof reorderTouchCancelPendingRef.current === 'function') {
+        reorderTouchCancelPendingRef.current()
+        reorderTouchCancelPendingRef.current = null
+      }
+      const pending = reorderTouchPendingRef.current
+      if (pending?.timerId) clearTimeout(pending.timerId)
+      reorderTouchPendingRef.current = null
+      document.body.classList.remove('reorder-touch-dragging')
+      dragItemRef.current = null
+      dragOverRef.current = null
+      dragIndicesRef.current = null
       setReorderDropTargetIndex(null)
       setReorderDragIndices(null)
     }
@@ -216,15 +232,31 @@ export default function CharacterPage() {
     reorderEdgePointerYRef.current = null
     document.addEventListener('dragover', onPointerMove, { passive: true })
     document.addEventListener('drag', onPointerMove, { passive: true })
+    const onTouchMoveEdge = (e) => {
+      const t = e.touches && e.touches[0]
+      if (t) reorderEdgePointerYRef.current = t.clientY
+    }
+    document.addEventListener('touchmove', onTouchMoveEdge, { passive: true })
     rafId = requestAnimationFrame(tick)
 
     return () => {
       cancelAnimationFrame(rafId)
       document.removeEventListener('dragover', onPointerMove)
       document.removeEventListener('drag', onPointerMove)
+      document.removeEventListener('touchmove', onTouchMoveEdge)
       reorderEdgePointerYRef.current = null
     }
   }, [reorderDragIndices])
+
+  useEffect(() => {
+    return () => {
+      if (typeof reorderTouchCleanupRef.current === 'function') reorderTouchCleanupRef.current()
+      if (typeof reorderTouchCancelPendingRef.current === 'function') reorderTouchCancelPendingRef.current()
+      const p = reorderTouchPendingRef.current
+      if (p?.timerId) clearTimeout(p.timerId)
+      reorderTouchPendingRef.current = null
+    }
+  }, [])
 
   const resetModes = useCallback(() => {
     setAiMode(false)
@@ -291,6 +323,16 @@ export default function CharacterPage() {
       return [startIndex]
     },
     [customs, selectedUrls]
+  )
+
+  const beginReorderDrag = useCallback(
+    (index) => {
+      const indices = getIndicesToMove(index)
+      dragIndicesRef.current = indices
+      dragItemRef.current = index
+      setReorderDragIndices(indices)
+    },
+    [getIndicesToMove]
   )
 
   const applyReorder = useCallback(
@@ -629,12 +671,25 @@ export default function CharacterPage() {
 
   const onDragStart = (e, index) => {
     if (!reorderMode) return
-    const indices = getIndicesToMove(index)
-    dragIndicesRef.current = indices
-    dragItemRef.current = index
-    setReorderDragIndices(indices)
+    beginReorderDrag(index)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', String(index))
+  }
+
+  const clearReorderTouchWindowListeners = () => {
+    if (typeof reorderTouchCleanupRef.current === 'function') {
+      reorderTouchCleanupRef.current()
+      reorderTouchCleanupRef.current = null
+    }
+  }
+
+  const resolveReorderSlotIndex = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY)
+    const slot = el && el.closest && el.closest('[data-reorder-slot]')
+    if (!slot) return null
+    const raw = slot.getAttribute('data-reorder-slot')
+    const i = raw != null ? Number.parseInt(raw, 10) : NaN
+    return Number.isFinite(i) ? i : null
   }
 
   const onDragOver = (e, index) => {
@@ -667,6 +722,94 @@ export default function CharacterPage() {
     applyReorder(next)
   }
 
+  /** Long-press on a tile, then drag with finger (touch — native HTML5 DnD does not work). */
+  const onReorderItemTouchStart = (e, index) => {
+    if (!reorderMode || e.touches.length !== 1) return
+    clearReorderTouchWindowListeners()
+    if (typeof reorderTouchCancelPendingRef.current === 'function') {
+      reorderTouchCancelPendingRef.current()
+      reorderTouchCancelPendingRef.current = null
+    }
+    const orphan = reorderTouchPendingRef.current
+    if (orphan?.timerId) clearTimeout(orphan.timerId)
+    reorderTouchPendingRef.current = null
+    const t = e.touches[0]
+    const startX = t.clientX
+    const startY = t.clientY
+
+    const cancelPending = () => {
+      reorderTouchCancelPendingRef.current = null
+      const pend = reorderTouchPendingRef.current
+      if (pend?.timerId) clearTimeout(pend.timerId)
+      reorderTouchPendingRef.current = null
+      window.removeEventListener('touchmove', onMoveBeforeLongPress)
+      window.removeEventListener('touchend', cancelPending)
+      window.removeEventListener('touchcancel', cancelPending)
+    }
+    reorderTouchCancelPendingRef.current = cancelPending
+
+    function onMoveBeforeLongPress(ev) {
+      if (ev.touches.length !== 1) {
+        cancelPending()
+        return
+      }
+      const tt = ev.touches[0]
+      const dx = tt.clientX - startX
+      const dy = tt.clientY - startY
+      if (dx * dx + dy * dy > REORDER_TOUCH_SLOP_PX * REORDER_TOUCH_SLOP_PX) cancelPending()
+    }
+
+    const timerId = setTimeout(() => {
+      reorderTouchCancelPendingRef.current = null
+      reorderTouchPendingRef.current = null
+      window.removeEventListener('touchmove', onMoveBeforeLongPress)
+      window.removeEventListener('touchend', cancelPending)
+      window.removeEventListener('touchcancel', cancelPending)
+      beginReorderDrag(index)
+      ignoreNextReorderItemClickRef.current = true
+      reorderEdgePointerYRef.current = startY
+      dragOverRef.current = index
+      setReorderDropTargetIndex(index)
+
+      const onDragTouchMove = (ev) => {
+        if (ev.touches.length !== 1) return
+        ev.preventDefault()
+        const tt = ev.touches[0]
+        reorderEdgePointerYRef.current = tt.clientY
+        const slotIdx = resolveReorderSlotIndex(tt.clientX, tt.clientY)
+        if (slotIdx != null) {
+          dragOverRef.current = slotIdx
+          setReorderDropTargetIndex(slotIdx)
+        }
+      }
+
+      const onDragTouchEnd = () => {
+        document.body.classList.remove('reorder-touch-dragging')
+        window.removeEventListener('touchmove', onDragTouchMove)
+        window.removeEventListener('touchend', onDragTouchEnd)
+        window.removeEventListener('touchcancel', onDragTouchEnd)
+        reorderTouchCleanupRef.current = null
+        onDragEnd()
+      }
+
+      document.body.classList.add('reorder-touch-dragging')
+      window.addEventListener('touchmove', onDragTouchMove, { passive: false })
+      window.addEventListener('touchend', onDragTouchEnd)
+      window.addEventListener('touchcancel', onDragTouchEnd)
+      reorderTouchCleanupRef.current = () => {
+        document.body.classList.remove('reorder-touch-dragging')
+        window.removeEventListener('touchmove', onDragTouchMove)
+        window.removeEventListener('touchend', onDragTouchEnd)
+        window.removeEventListener('touchcancel', onDragTouchEnd)
+      }
+    }, REORDER_LONG_PRESS_MS)
+
+    reorderTouchPendingRef.current = { timerId, index, startX, startY }
+    window.addEventListener('touchmove', onMoveBeforeLongPress, { passive: true })
+    window.addEventListener('touchend', cancelPending)
+    window.addEventListener('touchcancel', cancelPending)
+  }
+
   const onGalleryDragLeave = (e) => {
     if (!reorderMode || !reorderDragIndices) return
     const next = e.relatedTarget
@@ -689,7 +832,8 @@ export default function CharacterPage() {
     setModalOpen(true)
   }
 
-  const allImages = [mainImage && getImageUrl(mainImage), ...customs.map((u) => getImageUrl(u) || u)].filter(Boolean)
+  /** Modal viewer: custom images only (main portrait is separate above the gallery) */
+  const galleryModalImages = customs.map((u) => getImageUrl(u) || u).filter(Boolean)
 
   return (
     <div id="selectedCharacter" className="character-page">
@@ -700,7 +844,7 @@ export default function CharacterPage() {
             <h3 id="charNameDisplay" className="display-title">{char.name}</h3>
             <p id="charSeriesDisplay" className="text-body">{char.series || '—'}</p>
             <p id="charRankDisplay" className="text-meta">Rank: {char.rank || '—'}</p>
-            <div className="bottom-controls" style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="bottom-controls char-page-actions">
               <button type="button" className="action-btn" onClick={() => setEditMode(true)} title="Edit name, series, rank, and main image">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '5px' }}>
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -755,7 +899,7 @@ export default function CharacterPage() {
           {mainImage ? (
             <img id="charImageDisplay" src={getImageUrl(mainImage)} alt={char.name} className="char-main-image-full" />
           ) : (
-            <div style={{ width: 200, height: 200, background: '#e9ecef', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6c757d' }}>No image</div>
+            <div className="char-main-placeholder">No image</div>
           )}
           {editMode && <div className="image-overlay"><span>Click or Drop to Change</span></div>}
         </div>
@@ -783,21 +927,8 @@ export default function CharacterPage() {
       >
         <div className="custom-images-header-row">
           <h3 className="section-heading custom-images-heading">Custom Images</h3>
-          <div className={`char-custom-toolbar ${narrowToolbar ? 'char-custom-toolbar--narrow' : ''}`}>
-            {narrowToolbar && (
-              <button
-                type="button"
-                className="action-btn char-custom-toolbar-toggle"
-                aria-expanded={charToolbarOpen}
-                onClick={() => setCharToolbarOpen((o) => !o)}
-              >
-                {charToolbarOpen ? 'Close' : 'More'}
-              </button>
-            )}
-            <div
-              className={`char-custom-toolbar-actions ${!narrowToolbar || charToolbarOpen ? 'char-custom-toolbar-actions--visible' : ''}`}
-              id="char-custom-toolbar-actions"
-            >
+          <div className="char-custom-toolbar">
+            <div className="char-custom-toolbar-actions" id="char-custom-toolbar-actions">
               {aiMode && (
                 <>
                   <button type="button" className="action-btn" onClick={generateAiCommand} style={{ padding: '6px 12px', fontSize: '0.9em', backgroundColor: '#28a745', color: 'white', borderColor: '#28a745' }}>
@@ -909,10 +1040,13 @@ export default function CharacterPage() {
             <summary className="reorder-mode-hint-summary">How reorder works</summary>
             <div className="reorder-mode-hint-body">
               <p>
-                <strong>Drag one image</strong> to move it to a new position. The page scrolls automatically when you drag near the top or bottom of the screen.
+                <strong>Desktop:</strong> drag a thumbnail to a new position. The page scrolls when you drag near the top or bottom edge.
               </p>
               <p>
-                <strong>To move several at once:</strong> click images to select them (or use Clear selection), then drag any selected image — the whole group moves together.
+                <strong>Mobile / touch:</strong> <strong>press and hold</strong> a thumbnail until it is picked up, then drag and release where you want it.
+              </p>
+              <p>
+                <strong>Move several at once:</strong> tap images to select them (or Clear selection), then drag any selected image — the whole group moves together.
               </p>
             </div>
           </details>
@@ -943,8 +1077,16 @@ export default function CharacterPage() {
             return (
             <div
               key={url}
+              data-reorder-slot={idx}
               className={`gallery-item-wrapper ${aiMode ? 'ai-mode' : ''} ${deleteMode ? 'delete-mode' : ''} ${downloadMode ? 'download-mode' : ''} ${reorderMode ? 'reorder-mode' : ''} ${selectedUrls.includes(url) ? 'selected' : ''} ${isDropTarget ? 'reorder-drop-target' : ''} ${isDragSource ? 'reorder-drag-source' : ''}`}
-              onClick={() => (aiMode || deleteMode || downloadMode || reorderMode) && toggleSelect(url)}
+              onClick={() => {
+                if (ignoreNextReorderItemClickRef.current) {
+                  ignoreNextReorderItemClickRef.current = false
+                  return
+                }
+                if (aiMode || deleteMode || downloadMode || reorderMode) toggleSelect(url)
+              }}
+              onTouchStart={(e) => reorderMode && onReorderItemTouchStart(e, idx)}
               onDragStart={(e) => onDragStart(e, idx)}
               onDragOver={(e) => onDragOver(e, idx)}
               onDragEnd={onDragEnd}
@@ -957,7 +1099,7 @@ export default function CharacterPage() {
                 alt=""
                 draggable={false}
                 className="custom-image-full"
-                onClick={() => !aiMode && !deleteMode && !downloadMode && !reorderMode && openModal(idx + 1)}
+                onClick={() => !aiMode && !deleteMode && !downloadMode && !reorderMode && openModal(idx)}
               />
               {isDropTarget && (
                 <span className="reorder-drop-label" aria-hidden>
@@ -972,11 +1114,11 @@ export default function CharacterPage() {
 
       {modalOpen && (
         <ImageModal
-          images={allImages}
+          images={galleryModalImages}
           currentIndex={modalIndex}
           onClose={() => setModalOpen(false)}
           onPrev={() => setModalIndex((i) => Math.max(0, i - 1))}
-          onNext={() => setModalIndex((i) => Math.min(allImages.length - 1, i + 1))}
+          onNext={() => setModalIndex((i) => Math.min(galleryModalImages.length - 1, i + 1))}
         />
       )}
       {uploadErrorDialog && (

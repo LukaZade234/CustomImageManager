@@ -1,11 +1,14 @@
 import { useEffect, useRef, useCallback } from 'react'
 
+const SWIPE_THRESHOLD_PX = 50
+
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export default function ImageModal({ images, currentIndex, onClose, onPrev, onNext }) {
   const dialogRef = useRef(null)
   const prevActiveRef = useRef(null)
+  const touchStartRef = useRef(null)
 
   const getFocusables = useCallback(() => {
     const root = dialogRef.current
@@ -44,6 +47,29 @@ export default function ImageModal({ images, currentIndex, onClose, onPrev, onNe
     return () => document.removeEventListener('keydown', h)
   }, [onClose, onPrev, onNext])
 
+  const onTouchStart = useCallback((e) => {
+    const t = e.touches[0]
+    if (!t) return
+    touchStartRef.current = { x: t.clientX, y: t.clientY }
+  }, [])
+
+  const onTouchEnd = useCallback(
+    (e) => {
+      const start = touchStartRef.current
+      touchStartRef.current = null
+      if (!start) return
+      const t = e.changedTouches[0]
+      if (!t) return
+      const dx = t.clientX - start.x
+      const dy = t.clientY - start.y
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 45) return
+      if (Math.abs(dx) < SWIPE_THRESHOLD_PX) return
+      if (dx > 0) onPrev()
+      else onNext()
+    },
+    [onPrev, onNext]
+  )
+
   const onKeyDownTrap = useCallback(
     (e) => {
       if (e.key !== 'Tab') return
@@ -80,6 +106,8 @@ export default function ImageModal({ images, currentIndex, onClose, onPrev, onNe
       tabIndex={-1}
       onKeyDown={onKeyDownTrap}
       onClick={(e) => e.target === e.currentTarget && onClose()}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
     >
       <button
         type="button"

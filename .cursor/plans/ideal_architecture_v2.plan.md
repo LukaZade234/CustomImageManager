@@ -864,7 +864,7 @@ Phases 1–4 focused on **security basics, DB-backed API, and React**. This sect
 - **Werkzeug `FileStorage.filename` typing** — narrowed to `str` before path concat (`upload_imgchest.py`).
 - **Frontend UX** — upload lock, retries on transient network errors, merge new URLs after upload; error dialog / toasts (per current `frontend/`).
 - **Temp upload paths** — `_safe_stored_filename()` via `werkzeug.utils.secure_filename` for temp upload/add/custom/main prefixes (`upload_imgchest.py`).
-- **`GET /api/health`** — liveness JSON for probes (`upload_imgchest.py`).
+- `**GET /api/health`** — liveness JSON for probes (`upload_imgchest.py`).
 - **Pillow** — version range pinned in `requirements.txt` (`>=10.0.0,<12`).
 
 #### Not done (recommended order)

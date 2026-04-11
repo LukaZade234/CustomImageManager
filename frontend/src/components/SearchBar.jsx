@@ -33,7 +33,7 @@ export default function SearchBar() {
   }
 
   return (
-    <>
+    <div className="search-bar-cluster">
       <div className="search-input-wrapper">
         <input
           type="text"
@@ -92,6 +92,6 @@ export default function SearchBar() {
           ))}
         </div>
       </div>
-    </>
+    </div>
   )
 }
