@@ -40,6 +40,26 @@ class MudaeCancelled(MudaeError):
     """Raised when a bulk series import is stopped by the user."""
 
 
+class MudaeAmbiguousSeries(MudaeError):
+    """$ima returned multiple series options instead of a character list."""
+
+    def __init__(self, query: str, candidate_matches: list['CandidateMatch']) -> None:
+        self.query = query
+        self.candidate_matches = candidate_matches
+        labels = [m.label for m in candidate_matches[:20]]
+        suffix = f' (+{len(candidate_matches) - 20} more)' if len(candidate_matches) > 20 else ''
+        super().__init__('Ambiguous series name; pick one: ' + ', '.join(labels) + suffix)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            'type': 'candidates',
+            'query': self.query,
+            'error': str(self),
+            'candidate_matches': [m.to_dict() for m in self.candidate_matches],
+            'candidates': [m.name for m in self.candidate_matches],
+        }
+
+
 @dataclass
 class CharacterInfo:
     name: str
@@ -83,6 +103,24 @@ class LookupResult:
             d['candidates'] = [m.name for m in self.candidate_matches]
         elif self.candidates:
             d['candidates'] = self.candidates
+        return d
+
+
+@dataclass
+class SeriesLookupResult:
+    """Result of $ima: a series character list, or ambiguous series names."""
+    type: str  # 'series' | 'candidates'
+    series_label: str = ''
+    query: str = ''
+    candidate_matches: list[CandidateMatch] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {'type': self.type, 'query': self.query}
+        if self.type == 'series':
+            d['series_label'] = self.series_label
+        if self.candidate_matches:
+            d['candidate_matches'] = [m.to_dict() for m in self.candidate_matches]
+            d['candidates'] = [m.name for m in self.candidate_matches]
         return d
 
 
@@ -310,6 +348,18 @@ def _is_im_match_header(line: str) -> bool:
     return bool(re.match(r'^\d+\s+matches?\s*:?\s*$', line.strip(), re.I))
 
 
+def _is_ima_series_count_suffix(text: str) -> bool:
+    """Mudae series disambiguation suffix, e.g. 44 or 804 (bundle)."""
+    return bool(re.match(r'^\d+(?:\s*\(bundle\))?$', (text or '').strip(), re.I))
+
+
+def _line_looks_like_ima_series_option(line: str) -> bool:
+    if ' - ' not in line or _is_im_match_header(line):
+        return False
+    _, _, right = line.partition(' - ')
+    return _is_ima_series_count_suffix(right.strip())
+
+
 def _split_im_candidate_line(line: str) -> tuple[str, str]:
     cleaned = _strip_md(line).strip()
     if ' - ' in cleaned:
@@ -452,8 +502,68 @@ def parse_im_message(msg: discord.Message) -> LookupResult:
         return parse_im_embed(msg.embeds[0])
     text = (msg.content or '').strip()
     if not text:
-        raise MudaeError('Mudae reply had no embed')
+        raise MudaeError('Mudae reply had no content')
     return parse_im_embed(_TextEmbed(text))
+
+
+def _ima_reply_embed(msg: discord.Message, fallback: str):
+    if msg.embeds:
+        return msg.embeds[0]
+    text = (msg.content or '').strip()
+    if not text:
+        raise MudaeError('Mudae $ima reply had no content')
+    return _TextEmbed(text)
+
+
+def _ima_text_ready(text: str) -> bool:
+    text = (text or '').strip()
+    if not text:
+        return False
+    if re.search(r'\d+\s+matches?\b', text, re.I):
+        return True
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return len(lines) >= 2
+
+
+def parse_ima_series_reply(embed, series: str) -> SeriesLookupResult:
+    """Parse $ima embed or plain-text body into series resolution or candidates."""
+    series = (series or '').strip()
+    if _is_ima_ambiguous_series_embed(embed):
+        candidates = _parse_ima_series_candidates(embed)
+        if candidates:
+            return SeriesLookupResult(type='candidates', query=series, candidate_matches=candidates)
+        raise MudaeError('Mudae returned multiple series matches but they could not be parsed')
+
+    series_label = _ima_series_label_from_embed(embed, series)
+    page_info = _footer_page_info(embed)
+    first_page = _is_first_ima_page(page_info)
+    names = parse_ima_names(
+        embed,
+        series_hint=series,
+        series_label=series_label,
+        first_page=first_page,
+    )
+    if names and _looks_like_ima_character_list(embed, names):
+        return SeriesLookupResult(
+            type='series',
+            series_label=clean_series_label(series_label),
+            query=series,
+        )
+    candidates = _parse_ima_series_candidates(embed)
+    if candidates:
+        return SeriesLookupResult(type='candidates', query=series, candidate_matches=candidates)
+    if names:
+        return SeriesLookupResult(
+            type='series',
+            series_label=clean_series_label(series_label),
+            query=series,
+        )
+    raise MudaeError('Could not parse Mudae $ima reply')
+
+
+def parse_ima_message(msg: discord.Message, series: str) -> SeriesLookupResult:
+    embed = _ima_reply_embed(msg, series)
+    return parse_ima_series_reply(embed, series)
 
 
 def _is_blank_ima_line(raw: str) -> bool:
@@ -502,6 +612,8 @@ def _line_is_short_multiword_alias(line: str) -> bool:
 
 def _is_ima_noise_line(line: str, *, series_hint: str = '', series_label: str = '') -> bool:
     if not line:
+        return True
+    if _is_im_match_header(line):
         return True
     if re.search(r'\bpage\s*\d|\bcharacters?\b\s*:?\s*$', line, re.IGNORECASE) and len(line) < 50:
         return True
@@ -644,6 +756,69 @@ def parse_ima_names(
         seen.add(k)
         out.append(n)
     return out
+
+
+def _ima_series_label_from_embed(embed: discord.Embed, fallback: str) -> str:
+    return (
+        _strip_md(embed.author.name if embed.author and embed.author.name else '')
+        or _strip_md(embed.title or '')
+        or fallback
+    )
+
+
+def _parse_ima_series_candidates(embed: discord.Embed) -> list[CandidateMatch]:
+    """Parse ambiguous $ima series list (multiple series names, not characters)."""
+    matches: list[CandidateMatch] = []
+    seen: set[str] = set()
+    for raw in _im_embed_text_lines(embed):
+        line = _strip_md(raw)
+        if not line or _is_im_match_header(line):
+            continue
+        if re.search(r'\bpage\b', line, re.I) and len(line) < 40:
+            continue
+        if re.search(r'\d+\s*/\s*\d+', line):
+            continue
+        line = re.sub(r'^\d+[\).\:\-]\s*', '', line)
+        line = re.sub(r'^[-•*]\s*', '', line).strip()
+        if len(line) < 2 or len(line) > 200:
+            continue
+        if line.lower() in ('n/a', 'none'):
+            continue
+        name, extra = _split_im_candidate_line(line)
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        matches.append(CandidateMatch(name=name, series=extra))
+    return matches
+
+
+def _looks_like_ima_character_list(embed: discord.Embed, names: list[str]) -> bool:
+    if _is_ima_ambiguous_series_embed(embed):
+        return False
+    if _footer_page_info(embed) is not None:
+        return True
+    if _is_character_card(embed):
+        return True
+    return bool(names)
+
+
+def _is_ima_ambiguous_series_embed(embed: discord.Embed) -> bool:
+    if _footer_page_info(embed) is not None:
+        return False
+    if _is_character_card(embed):
+        return False
+    lines = [_strip_md(x) for x in _im_embed_text_lines(embed) if _strip_md(x)]
+    if any(_is_im_match_header(l) for l in lines[:3]):
+        return True
+    series_option_lines = sum(
+        1 for l in lines if _line_looks_like_ima_series_option(l)
+    )
+    if series_option_lines >= 2:
+        return True
+    return len(_parse_ima_series_candidates(embed)) >= 2
 
 
 def _footer_page_info(embed: discord.Embed) -> tuple[int, int] | None:
@@ -1033,7 +1208,7 @@ class _MudaeSession:
             self._reply_not_before = None
 
     async def _ensure_embed_ready(self, msg: discord.Message) -> discord.Message:
-        """Wait briefly for Mudae to finish populating list/card embeds."""
+        """Wait briefly for Mudae to finish populating list/card embeds or plain-text body."""
         deadline = time.monotonic() + 6.0
         last = msg
         while time.monotonic() < deadline:
@@ -1046,7 +1221,13 @@ class _MudaeSession:
                         return msg
                 elif _is_character_card(embed):
                     return msg
-            elif self._mudae_message_ready(msg):
+                elif _is_ima_ambiguous_series_embed(embed):
+                    if _parse_ima_series_candidates(embed):
+                        return msg
+                elif parse_ima_names(embed, series_hint='', series_label='', first_page=True):
+                    return msg
+            content = (msg.content or '').strip()
+            if content and (self._mudae_message_ready(msg) or _ima_text_ready(content)):
                 return msg
             await asyncio.sleep(0.35)
         return last
@@ -1075,21 +1256,33 @@ class _MudaeSession:
             return result.character
         raise MudaeError('Ambiguous or missing $im card')
 
+    async def lookup_series(self, series: str) -> SeriesLookupResult:
+        """$ima once — resolve an exact series or return ambiguous series options."""
+        series = (series or '').strip()
+        if not series:
+            raise MudaeError('Series name is required')
+        msg = await self.send_and_wait(f'$ima {series}')
+        msg = await self._ensure_embed_ready(msg)
+        return parse_ima_message(msg, series)
+
     async def list_series_characters(self, series: str) -> tuple[str, list[str]]:
         series = (series or '').strip()
         if not series:
             raise MudaeError('Series name is required')
         msg = await self.send_and_wait(f'$ima {series}')
-        if not msg.embeds:
-            raise MudaeError('Mudae $ima reply had no embed')
+        msg = await self._ensure_embed_ready(msg)
+        has_component_embed = bool(msg.embeds)
+        embed = _ima_reply_embed(msg, series)
 
-        msg = await self._wait_for_nav_controls(msg)
-        embed = msg.embeds[0]
-        series_label = (
-            _strip_md(embed.author.name if embed.author and embed.author.name else '')
-            or _strip_md(embed.title or '')
-            or series
-        )
+        resolved = parse_ima_series_reply(embed, series)
+        if resolved.type == 'candidates':
+            raise MudaeAmbiguousSeries(series, resolved.candidate_matches)
+
+        if has_component_embed:
+            msg = await self._wait_for_nav_controls(msg)
+            embed = msg.embeds[0]
+
+        series_label = _ima_series_label_from_embed(embed, series)
         page_info = _footer_page_info(embed)
         first_page = _is_first_ima_page(page_info)
         names = parse_ima_names(
@@ -1100,16 +1293,6 @@ class _MudaeSession:
         )
 
         if not names and not _is_character_card(embed):
-            cands = []
-            for raw in (embed.description or '').splitlines():
-                line = _strip_md(raw)
-                if line:
-                    cands.append(line)
-            if cands:
-                raise MudaeError(
-                    'Ambiguous series name. Try a more exact name. Candidates: '
-                    + ', '.join(cands[:15])
-                )
             raise MudaeError('Could not parse characters from $ima reply')
 
         all_names = list(names)
@@ -1167,6 +1350,17 @@ def lookup_character(name: str) -> LookupResult:
         async def _inner():
             async with _MudaeSession() as session:
                 return await session.lookup_im(name)
+
+        return _run_async(_inner())
+
+    return with_discord_lock(_do)
+
+
+def lookup_series(series: str) -> SeriesLookupResult:
+    def _do():
+        async def _inner():
+            async with _MudaeSession() as session:
+                return await session.lookup_series(series)
 
         return _run_async(_inner())
 

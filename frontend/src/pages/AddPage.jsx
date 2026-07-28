@@ -38,6 +38,8 @@ export default function AddPage() {
   const [mudaePreview, setMudaePreview] = useState(null)
   const [mudaeCandidates, setMudaeCandidates] = useState([])
   const [seriesBulkName, setSeriesBulkName] = useState('')
+  const [seriesCandidates, setSeriesCandidates] = useState([])
+  const [seriesResolving, setSeriesResolving] = useState(false)
   const [seriesBusy, setSeriesBusy] = useState(false)
   const [seriesCancelling, setSeriesCancelling] = useState(false)
   const [seriesResult, setSeriesResult] = useState(null)
@@ -173,9 +175,42 @@ export default function AddPage() {
     e.preventDefault()
     const s = seriesBulkName.trim()
     if (!s) return
+    setSeriesCandidates([])
+    setSeriesResolving(true)
+    setSeriesResult(null)
+    let importName = null
+    try {
+      const resolved = await apiClient.mudaeLookupSeries(s)
+      if (resolved.type === 'candidates') {
+        const matches = mudaeCandidatesFromResponse(resolved)
+        if (!matches.length) {
+          addToast('Mudae returned matches but none could be parsed', 'error')
+          return
+        }
+        setSeriesCandidates(matches)
+        addToast(`Multiple series matches — pick one (${matches.length})`, 'info')
+        return
+      }
+      importName = resolved.series_label || s
+      setSeriesBulkName(importName)
+    } catch (err) {
+      addToast(err.message, 'error')
+      setSeriesResult({ error: err.message })
+    } finally {
+      setSeriesResolving(false)
+    }
+    if (importName) {
+      await runSeriesImport(importName)
+    }
+  }
+
+  const runSeriesImport = async (seriesName) => {
+    const s = (seriesName || seriesBulkName).trim()
+    if (!s) return
     setSeriesBusy(true)
     setSeriesCancelling(false)
     setSeriesResult(null)
+    setSeriesCandidates([])
     setSeriesProgress({
       phase: 'starting',
       series: s,
@@ -242,8 +277,15 @@ export default function AddPage() {
         addToast(res?.message || 'Series import finished', 'success')
       }
     } catch (err) {
-      addToast(err.message, 'error')
-      setSeriesResult({ error: err.message })
+      if (err.candidateMatches?.length) {
+        const matches = mudaeCandidatesFromResponse({ candidate_matches: err.candidateMatches })
+        setSeriesCandidates(matches)
+        addToast(`Multiple series matches — pick one (${matches.length})`, 'info')
+        setSeriesResult(null)
+      } else {
+        addToast(err.message, 'error')
+        setSeriesResult({ error: err.message })
+      }
       setSeriesProgress((p) => (p ? { ...p, phase: 'error' } : p))
     } finally {
       setSeriesBusy(false)
@@ -254,6 +296,12 @@ export default function AddPage() {
         /* keep prior list if refresh fails */
       }
     }
+  }
+
+  const handlePickSeriesCandidate = (name) => {
+    setSeriesBulkName(name)
+    setSeriesCandidates([])
+    runSeriesImport(name)
   }
 
   const handleCancelSeries = async () => {
@@ -371,10 +419,10 @@ export default function AddPage() {
                   value={seriesBulkName}
                   onChange={(e) => setSeriesBulkName(e.target.value)}
                   suggestions={seriesSuggestions}
-                  disabled={seriesBusy}
+                  disabled={seriesBusy || seriesResolving}
                 />
-                <button type="submit" className="action-btn primary" disabled={seriesBusy || !seriesBulkName.trim()}>
-                  {seriesBusy ? 'Importing…' : 'Add entire series'}
+                <button type="submit" className="action-btn primary" disabled={seriesBusy || seriesResolving || !seriesBulkName.trim()}>
+                  {seriesResolving ? 'Checking…' : seriesBusy ? 'Importing…' : 'Add entire series'}
                 </button>
                 {seriesBusy && (
                   <button
@@ -390,6 +438,24 @@ export default function AddPage() {
               <p style={{ fontSize: '0.85em', opacity: 0.75, marginTop: '0.4rem' }}>
                 Runs <code>$ima</code> then <code>$im</code> per character. Large series can take several minutes; existing names are skipped.
               </p>
+              {seriesCandidates.length > 0 && (
+                <div className="mudae-candidates" style={{ marginTop: '0.75rem' }}>
+                  <div style={{ marginBottom: '0.35rem', fontWeight: 600 }}>Pick a series:</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                    {seriesCandidates.map((c) => (
+                      <button
+                        key={`${c.name}-${c.label}`}
+                        type="button"
+                        className="action-btn secondary"
+                        disabled={seriesBusy || seriesResolving}
+                        onClick={() => handlePickSeriesCandidate(c.name)}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </form>
 

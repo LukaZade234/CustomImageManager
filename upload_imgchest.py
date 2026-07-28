@@ -32,7 +32,7 @@ from imgchest_utils import upload_to_imgchest, ImgChestError
 from image_utils import convert_to_png, validate_image_file
 import db
 import mudae_discord
-from mudae_discord import MudaeError, MudaeCancelled
+from mudae_discord import MudaeError, MudaeCancelled, MudaeAmbiguousSeries
 
 
 def _safe_stored_filename(original_filename: str) -> str:
@@ -1114,6 +1114,30 @@ def mudae_lookup_character():
         return jsonify({'error': 'Something went wrong during Mudae lookup. Try again in a moment.'}), 500
 
 
+@app.route('/api/mudae/lookup-series', methods=['POST'])
+def mudae_lookup_series():
+    """
+    Resolve a series name via Mudae $ima.
+    Body: { series }
+    Returns { type: 'series', series_label } or { type: 'candidates', candidate_matches }.
+    """
+    data = request.get_json(silent=True) or {}
+    series = str(data.get('series') or '').strip()
+    if not series:
+        return jsonify({'error': 'Series is required'}), 400
+    if len(series) > MAX_SERIES_LENGTH:
+        return jsonify({'error': f'Series too long (max {MAX_SERIES_LENGTH} characters)'}), 400
+
+    try:
+        result = mudae_discord.lookup_series(series)
+        return jsonify(result.to_dict())
+    except MudaeError as e:
+        return jsonify({'error': str(e)}), 503
+    except Exception as e:
+        print(f'[MUDAE] lookup-series error: {type(e).__name__}: {e}', flush=True)
+        return jsonify({'error': 'Something went wrong during Mudae series lookup. Try again in a moment.'}), 500
+
+
 @app.route('/api/mudae/add-series', methods=['POST'])
 def mudae_add_series():
     """
@@ -1143,6 +1167,8 @@ def mudae_add_series():
                 try:
                     payload = _run_mudae_add_series(series, existing, progress_q.put)
                     progress_q.put(('done', payload))
+                except MudaeAmbiguousSeries as e:
+                    progress_q.put(('error', e.to_dict()))
                 except Exception as e:
                     progress_q.put(('error', {'error': str(e)}))
 
@@ -1173,6 +1199,8 @@ def mudae_add_series():
             )
 
         return jsonify(_run_mudae_add_series(series, existing))
+    except MudaeAmbiguousSeries as e:
+        return jsonify(e.to_dict()), 409
     except MudaeCancelled as e:
         return jsonify({'error': str(e), 'cancelled': True}), 499
     except MudaeError as e:

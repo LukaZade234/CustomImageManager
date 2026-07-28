@@ -137,6 +137,12 @@ export const apiClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, add }),
     }),
+  mudaeLookupSeries: (series) =>
+    api('/api/mudae/lookup-series', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ series }),
+    }),
   mudaeAddSeries: (series) =>
     fetch(`${API_BASE}/api/mudae/add-series`, {
       method: 'POST',
@@ -200,7 +206,12 @@ export const apiClient = {
         return
       }
       if (event === 'error') {
-        throw new Error(parsed.error || 'Series import failed')
+        const err = new Error(parsed.error || 'Series import failed')
+        if (parsed.type === 'candidates' && Array.isArray(parsed.candidate_matches)) {
+          err.ambiguousSeries = true
+          err.candidateMatches = parsed.candidate_matches
+        }
+        throw err
       }
       const fn = handlers[event]
       if (typeof fn === 'function') fn(parsed)
