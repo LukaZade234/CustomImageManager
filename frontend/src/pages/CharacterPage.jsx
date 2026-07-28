@@ -126,6 +126,8 @@ export default function CharacterPage() {
   const [editRank, setEditRank] = useState('')
   const [mainImage, setMainImage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mudaeMainBusy, setMudaeMainBusy] = useState(false)
+  const [mudaeConfigured, setMudaeConfigured] = useState(false)
   const [aiMode, setAiMode] = useState(false)
   const [aiLimitDialog, setAiLimitDialog] = useState(null)
   const [deleteMode, setDeleteMode] = useState(false)
@@ -169,6 +171,12 @@ export default function CharacterPage() {
       setMainImage(char.image || '')
     }
   }, [char])
+
+  useEffect(() => {
+    apiClient.mudaeStatus()
+      .then((r) => setMudaeConfigured(!!r.configured))
+      .catch(() => setMudaeConfigured(false))
+  }, [])
 
   useEffect(() => {
     loadCustomImagesForCharacter(name)
@@ -410,6 +418,22 @@ export default function CharacterPage() {
       setMainImage(res.image_url)
       addToast('Main image updated', 'success')
     }).catch((err) => addToast(err.message, 'error'))
+  }
+
+  const handleMudaeRefreshMain = async () => {
+    if (!name || mudaeMainBusy) return
+    setMudaeMainBusy(true)
+    addToast('Fetching main image from Mudae…', 'info')
+    try {
+      const res = await apiClient.mudaeRefreshMainImage(name)
+      setMainImage(res.image_url)
+      await loadCharacters()
+      addToast(res.message || 'Main image updated from Mudae', 'success')
+    } catch (err) {
+      addToast(err.message, 'error')
+    } finally {
+      setMudaeMainBusy(false)
+    }
   }
 
   const runCustomUpload = async (fileList) => {
@@ -903,6 +927,19 @@ export default function CharacterPage() {
           )}
           {editMode && <div className="image-overlay"><span>Click or Drop to Change</span></div>}
         </div>
+        {mudaeConfigured && (
+          <div className="mudae-main-actions" style={{ marginTop: '0.65rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="action-btn secondary"
+              disabled={mudaeMainBusy || loading}
+              onClick={handleMudaeRefreshMain}
+              title="Run $im via Mudae and set the card image as main"
+            >
+              {mudaeMainBusy ? 'Updating from Mudae…' : 'Update main from Mudae'}
+            </button>
+          </div>
+        )}
         <button
           type="button"
           className={`save-button ${isSaved ? 'saved' : ''}`}

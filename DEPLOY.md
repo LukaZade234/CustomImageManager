@@ -28,6 +28,27 @@ In the app’s **Settings** → **App-Level Environment Variables**, add:
 | **DATABASE_URL** | Secret | For persistence | Neon PostgreSQL connection string |
 | **SECRET_KEY** | Secret | No | For future auth; optional |
 | **CORS_ORIGINS** | Plain | No | Comma-separated origins; default allows all |
+| **DISCORD_USER_TOKEN** | Secret | For Mudae import | Discord account token for the Mudae channel (see setup below). Keep secret. |
+| **DISCORD_CHANNEL_ID** | Plain | For Mudae import | Channel where Mudae commands are sent |
+| **MUDAE_BOT_USER_ID** | Plain | No | Usually leave unset (defaults to official Mudae) |
+
+### Mudae import (optional)
+
+Enables **Add Character** lookup, bulk series import, and **Update main from Mudae** on character pages. The app runs `$im` / `$ima` in your configured Discord channel.
+
+1. Pick a Discord server where Mudae is installed and you can run commands. Use a dedicated channel (e.g. `#mudae-imports`).
+2. Confirm Mudae works there — type `$im Rem` and verify you get a character card.
+3. Enable **Developer Mode** in Discord (Settings → Advanced), right‑click the channel → **Copy Channel ID** → set `DISCORD_CHANNEL_ID`.
+4. In your browser while logged into Discord, open DevTools → **Network**, reload Discord, pick any `discord.com/api` request, and copy the **Authorization** header value into `DISCORD_USER_TOKEN` (value only — do not add `Bearer`).
+5. Keep that value secret; never commit it to git.
+
+For local development, add the same variables to a `.env` file in the project root, then run:
+
+```bash
+python upload_imgchest.py --web
+```
+
+**Note:** Automating a Discord user account may violate Discord’s Terms of Service. Use at your own risk.
 
 ## Step 4: Frontend
 

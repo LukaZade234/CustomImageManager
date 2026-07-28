@@ -130,6 +130,104 @@ export const apiClient = {
   setMainImage: (formData) => fetch(`${API_BASE}/api/set-main-image`, { method: 'POST', body: formData, credentials: 'same-origin' }).then(r => r.ok ? r.json() : r.json().then(j => { throw new Error(j.error || 'Upload failed') })),
   editCharacter: (data) => api('/api/edit-character', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }),
   addCharacter: (formData) => fetch(`${API_BASE}/api/add-character`, { method: 'POST', body: formData, credentials: 'same-origin' }).then(r => r.ok ? r.json() : r.json().then(j => { throw new Error(j.error || 'Failed') })),
+  mudaeStatus: () => api('/api/mudae/status'),
+  mudaeLookupCharacter: (name, add = false) =>
+    api('/api/mudae/lookup-character', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, add }),
+    }),
+  mudaeAddSeries: (series) =>
+    fetch(`${API_BASE}/api/mudae/add-series`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ series }),
+    })
+      .catch((e) => {
+        throw toNetworkError(e)
+      })
+      .then(async (r) => {
+        const text = await r.text()
+        let j = {}
+        try {
+          j = text ? JSON.parse(text) : {}
+        } catch {
+          j = {}
+        }
+        if (!r.ok) {
+          throw new Error(messageFromFailedResponse(r, text, j))
+        }
+        return j
+      }),
+  mudaeAddSeriesStream: async (series, handlers = {}) => {
+    const res = await fetch(`${API_BASE}/api/mudae/add-series?stream=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ series }),
+    }).catch((e) => {
+      throw toNetworkError(e)
+    })
+
+    if (!res.ok) {
+      const text = await res.text()
+      let j = {}
+      try {
+        j = text ? JSON.parse(text) : {}
+      } catch {
+        j = {}
+      }
+      throw new Error(messageFromFailedResponse(res, text, j))
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let finalResult = null
+
+    const dispatchBlock = (block) => {
+      let event = 'message'
+      let data = ''
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) event = line.slice(6).trim()
+        else if (line.startsWith('data:')) data = line.slice(5).trim()
+      }
+      if (!data) return
+      const parsed = JSON.parse(data)
+      if (event === 'done') {
+        finalResult = parsed
+        return
+      }
+      if (event === 'error') {
+        throw new Error(parsed.error || 'Series import failed')
+      }
+      const fn = handlers[event]
+      if (typeof fn === 'function') fn(parsed)
+      else if (typeof handlers.onEvent === 'function') handlers.onEvent(event, parsed)
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split('\n\n')
+      buffer = parts.pop() || ''
+      for (const block of parts) {
+        if (block.trim()) dispatchBlock(block)
+      }
+    }
+    if (buffer.trim()) dispatchBlock(buffer)
+    return finalResult
+  },
+  mudaeCancelSeries: () =>
+    api('/api/mudae/cancel-series', { method: 'POST' }),
+  mudaeRefreshMainImage: (characterName) =>
+    api('/api/mudae/refresh-main-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ character_name: characterName }),
+    }),
 }
 
 export { getImageUrl }

@@ -27,3 +27,4 @@ frontend/dist
 # User-specific data (not project code)
 add_to_csv.txt
 pending_characters.json
+.cursor/plans/project_graveyard_tracker.plan.md

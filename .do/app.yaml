@@ -16,3 +16,5 @@ services:
         scope: RUN_TIME
         type: SECRET
       # Add DATABASE_URL here if using PostgreSQL (type: SECRET)
+      # Optional Mudae macros: DISCORD_USER_TOKEN (SECRET), DISCORD_CHANNEL_ID, MUDAE_BOT_USER_ID
+

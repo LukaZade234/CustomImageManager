@@ -1834,6 +1834,18 @@ body.reorder-touch-dragging {
     flex: 1;
     position: relative;
 }
+.series-suggest-wrap {
+    position: relative;
+    width: 100%;
+}
+.series-suggest-wrap .modern-input {
+    width: 100%;
+    box-sizing: border-box;
+}
+.mudae-row .series-suggest-wrap {
+    flex: 1 1 200px;
+    min-width: 0;
+}
 .autocomplete-items {
     position: absolute;
     border: 1px solid #dee2e6;
